@@ -3,9 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:shelf/shelf.dart' show Request, Response;
+
 import '../shared/uuid.dart';
 import '../shared/transport.dart';
 import '../types.dart';
+import 'http_adapter.dart';
+import 'shelf_http_adapter.dart';
+import 'dartio_http_adapter.dart';
 
 /// ID for SSE streams
 typedef StreamId = String;
@@ -118,6 +123,7 @@ class StreamableHTTPServerTransport implements Transport {
   final String? Function()? _sessionIdGenerator;
   bool _started = false;
   final Map<String, HttpResponse> _streamMapping = {};
+  final Map<String, HttpResponseAdapter> _adapterStreamMapping = {}; // For shelf adapters
   final Map<dynamic, String> _requestToStreamMapping = {};
   final Map<dynamic, JsonRpcMessage> _requestResponseMap = {};
   bool _initialized = false;
@@ -160,6 +166,8 @@ class StreamableHTTPServerTransport implements Transport {
   }
 
   /// Handles an incoming HTTP request, whether GET or POST
+  /// 
+  /// This method is for dart:io HttpRequest. For shelf Request, use handleShelfRequest().
   Future<void> handleRequest(HttpRequest req, [dynamic parsedBody]) async {
     req.response.bufferOutput = false;
     if (req.method == "POST") {
@@ -171,6 +179,29 @@ class StreamableHTTPServerTransport implements Transport {
     } else {
       await _handleUnsupportedRequest(req.response);
     }
+  }
+
+  /// Handles an incoming shelf Request
+  /// 
+  /// This method supports shelf-based HTTP servers. It returns a Future<Response>
+  /// that completes when the response is ready to be sent.
+  /// 
+  /// For dart:io HttpRequest, use handleRequest() instead.
+  Future<Response> handleShelfRequest(Request req, [dynamic parsedBody]) async {
+    final responseCompleter = Completer<Response>();
+    final adapter = ShelfHttpAdapter(req, responseCompleter);
+    
+    if (adapter.method == "POST") {
+      await _handlePostRequestAdapter(adapter, parsedBody);
+    } else if (adapter.method == "GET") {
+      await _handleGetRequestAdapter(adapter);
+    } else if (adapter.method == "DELETE") {
+      await _handleDeleteRequestAdapter(adapter);
+    } else {
+      await _handleUnsupportedRequestAdapter(adapter.response);
+    }
+    
+    return adapter.shelfResponse;
   }
 
   /// Handles GET requests for SSE stream
@@ -327,8 +358,41 @@ class StreamableHTTPServerTransport implements Transport {
     }
   }
 
+  /// Writes an event to an adapter response (shelf)
+  bool _writeSSEEventAdapter(HttpResponseAdapter res, JsonRpcMessage message,
+      [String? eventId]) {
+    var eventData = "event: message\n";
+    // Include event ID if provided - this is important for resumability
+    if (eventId != null) {
+      eventData += "id: $eventId\n";
+    }
+    eventData += "data: ${jsonEncode(message.toJson())}\n\n";
+
+    try {
+      res.write(eventData);
+      res.flush();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// Writes a keep-alive comment to the SSE stream
   bool _writeKeepAlive(HttpResponse res) {
+    try {
+      // SSE comment format - lines starting with ':' are ignored by clients
+      final timestamp = DateTime.now().toUtc().toIso8601String();
+      res.write(': keep-alive $timestamp\n\n');
+      res.flush();
+      return true;
+    } catch (e) {
+      // Connection closed, timer will be cleaned up
+      return false;
+    }
+  }
+
+  /// Writes a keep-alive comment to an adapter SSE stream
+  bool _writeKeepAliveAdapter(HttpResponseAdapter res) {
     try {
       // SSE comment format - lines starting with ':' are ignored by clients
       final timestamp = DateTime.now().toUtc().toIso8601String();
@@ -365,6 +429,30 @@ class StreamableHTTPServerTransport implements Transport {
     );
   }
 
+  /// Starts a keep-alive timer for an adapter stream
+  void _startKeepAliveTimerAdapter(String streamId, HttpResponseAdapter response) {
+    // Only start timer if keep-alive is enabled
+    final keepAliveInterval = _keepAliveInterval;
+    if (keepAliveInterval == null || keepAliveInterval <= 0) {
+      return;
+    }
+
+    // Cancel any existing timer for this stream
+    _keepAliveTimers[streamId]?.cancel();
+
+    // Create new timer
+    _keepAliveTimers[streamId] = Timer.periodic(
+      Duration(seconds: keepAliveInterval),
+      (timer) {
+        if (!_writeKeepAliveAdapter(response)) {
+          // Connection closed, cancel timer
+          timer.cancel();
+          _keepAliveTimers.remove(streamId);
+        }
+      },
+    );
+  }
+
   /// Stops the keep-alive timer for the given stream
   void _stopKeepAliveTimer(String streamId) {
     _keepAliveTimers[streamId]?.cancel();
@@ -381,6 +469,351 @@ class StreamableHTTPServerTransport implements Transport {
       "id": null
     }));
     await res.close();
+  }
+
+  // ============================================================================
+  // Adapter-based methods for shelf support
+  // ============================================================================
+  
+  /// NOTE: These methods are simplified implementations for the initial shelf support.
+  /// They handle the core MCP protocol but may not support all advanced features
+  /// (like event store resumability) that the dart:io implementation supports.
+  /// Full feature parity will be added in future iterations.
+
+  /// Handles unsupported requests via adapter
+  Future<void> _handleUnsupportedRequestAdapter(HttpResponseAdapter res) async {
+    res.statusCode = HttpStatus.methodNotAllowed;
+    res.setHeader(HttpHeaders.allowHeader, "GET, POST, DELETE");
+    res.write(jsonEncode({
+      "jsonrpc": "2.0",
+      "error": {"code": -32000, "message": "Method not allowed."},
+      "id": null
+    }));
+    await res.close();
+  }
+
+  /// Handles GET requests via adapter
+  Future<void> _handleGetRequestAdapter(HttpAdapter adapter) async {
+    final res = adapter.response;
+    
+    // Check Accept header
+    final acceptHeader = adapter.getHeader(HttpHeaders.acceptHeader);
+    if (acceptHeader == null || !acceptHeader.contains("text/event-stream")) {
+      res.statusCode = HttpStatus.notAcceptable;
+      res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+      res.write(jsonEncode({
+        "jsonrpc": "2.0",
+        "error": {
+          "code": -32000,
+          "message": "Not Acceptable: Client must accept text/event-stream"
+        },
+        "id": null
+      }));
+      await res.close();
+      return;
+    }
+
+    // Validate session
+    if (!_validateSessionAdapter(adapter)) {
+      return;
+    }
+
+    // Set SSE headers
+    res.statusCode = HttpStatus.ok;
+    res.setHeader(HttpHeaders.contentTypeHeader, "text/event-stream");
+    res.setHeader(HttpHeaders.cacheControlHeader, "no-cache, no-transform");
+    res.setHeader(HttpHeaders.connectionHeader, "keep-alive");
+    
+    if (sessionId != null) {
+      res.setHeader("mcp-session-id", sessionId!);
+    }
+
+    await res.flush();
+    
+    // Store this GET stream for future server-initiated messages
+    _adapterStreamMapping[_standaloneSseStreamId] = res;
+    
+    // Start keep-alive timer for this SSE connection
+    _startKeepAliveTimerAdapter(_standaloneSseStreamId, res);
+  }
+
+  /// Handles POST requests via adapter
+  Future<void> _handlePostRequestAdapter(HttpAdapter adapter, [dynamic parsedBody]) async {
+    final res = adapter.response;
+    
+    try {
+      // Validate Accept header
+      final acceptHeader = adapter.getHeader(HttpHeaders.acceptHeader);
+      if (acceptHeader == null ||
+          !acceptHeader.contains("application/json") ||
+          !acceptHeader.contains("text/event-stream")) {
+        res.statusCode = HttpStatus.notAcceptable;
+        res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+        res.write(jsonEncode({
+          "jsonrpc": "2.0",
+          "error": {
+            "code": -32000,
+            "message":
+                "Not Acceptable: Client must accept both application/json and text/event-stream"
+          },
+          "id": null
+        }));
+        await res.close();
+        return;
+      }
+
+      // Validate Content-Type
+      final contentType = adapter.contentType;
+      if (contentType == null || !contentType.mimeType.contains("application/json")) {
+        res.statusCode = HttpStatus.unsupportedMediaType;
+        res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+        res.write(jsonEncode({
+          "jsonrpc": "2.0",
+          "error": {
+            "code": -32000,
+            "message":
+                "Unsupported Media Type: Content-Type must be application/json"
+          },
+          "id": null
+        }));
+        await res.close();
+        return;
+      }
+
+      // Parse body
+      dynamic rawMessage;
+      if (parsedBody != null) {
+        rawMessage = parsedBody;
+      } else {
+        final bodyBytes = await _collectBytesFromStream(adapter.bodyStream);
+        final bodyString = utf8.decode(bodyBytes);
+        rawMessage = jsonDecode(bodyString);
+      }
+
+      List<JsonRpcMessage> messages = [];
+      
+      // Handle batch and single messages
+      if (rawMessage is List) {
+        for (final msg in rawMessage) {
+          try {
+            messages.add(JsonRpcMessage.fromJson(msg));
+          } catch (e) {
+            res.statusCode = HttpStatus.badRequest;
+            res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+            res.write(jsonEncode({
+              "jsonrpc": "2.0",
+              "error": {
+                "code": -32700,
+                "message": "Parse error",
+                "data": e.toString()
+              },
+              "id": null
+            }));
+            await res.close();
+            return;
+          }
+        }
+      } else {
+        try {
+          messages = [JsonRpcMessage.fromJson(rawMessage)];
+        } catch (e) {
+          res.statusCode = HttpStatus.badRequest;
+          res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+          res.write(jsonEncode({
+            "jsonrpc": "2.0",
+            "error": {
+              "code": -32700,
+              "message": "Parse error",
+              "data": e.toString()
+            },
+            "id": null
+          }));
+          await res.close();
+          return;
+        }
+      }
+
+      // Check for initialization
+      final isInitializationRequest = messages.any(_isInitializeRequest);
+      if (isInitializationRequest) {
+        if (_initialized && sessionId != null) {
+          res.statusCode = HttpStatus.badRequest;
+          res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+          res.write(jsonEncode({
+            "jsonrpc": "2.0",
+            "error": {
+              "code": -32600,
+              "message": "Invalid Request: Server already initialized"
+            },
+            "id": null
+          }));
+          await res.close();
+          return;
+        }
+        
+        sessionId = _sessionIdGenerator?.call();
+        _initialized = true;
+
+        if (sessionId != null && _onsessioninitialized != null) {
+          _onsessioninitialized!(sessionId!);
+        }
+      }
+
+      // Validate session for non-init requests
+      if (!isInitializationRequest && !_validateSessionAdapter(adapter)) {
+        return;
+      }
+
+      // Check if contains requests
+      final hasRequests = messages.any(_isJsonRpcRequest);
+
+      if (!hasRequests) {
+        // Only notifications or responses
+        res.statusCode = HttpStatus.accepted;
+        await res.close();
+
+        for (final message in messages) {
+          onmessage?.call(message);
+        }
+      } else {
+        // Has requests - set up response (SSE or JSON based on enableJsonResponse)
+        final streamId = generateUUID();
+        
+        res.statusCode = HttpStatus.ok;
+        
+        if (sessionId != null) {
+          res.setHeader("mcp-session-id", sessionId!);
+        }
+        
+        if (_enableJsonResponse) {
+          // JSON response mode - set headers but DON'T flush yet
+          // We need to wait for the server to send the response via send()
+          res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+        } else {
+          // SSE streaming mode - flush immediately to start streaming
+          res.setHeader(HttpHeaders.contentTypeHeader, "text/event-stream");
+          res.setHeader(HttpHeaders.cacheControlHeader, "no-cache");
+          res.setHeader(HttpHeaders.connectionHeader, "keep-alive");
+          
+          // Flush for SSE to start the stream
+          await res.flush();
+        }
+
+        // Track the response adapter for send() to use
+        for (final message in messages) {
+          if (_isJsonRpcRequest(message)) {
+            _adapterStreamMapping[streamId] = res;
+            _requestToStreamMapping[(message as JsonRpcRequest).id] = streamId;
+          }
+        }
+
+        // Handle messages - this will trigger server to call send()
+        for (final message in messages) {
+          onmessage?.call(message);
+        }
+        
+        // For JSON responses, the response will be completed by send()
+        // For SSE responses, the stream stays open
+      }
+    } catch (error) {
+      res.statusCode = HttpStatus.badRequest;
+      res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+      res.write(jsonEncode({
+        "jsonrpc": "2.0",
+        "error": {
+          "code": -32700,
+          "message": "Parse error",
+          "data": error.toString()
+        },
+        "id": null
+      }));
+      await res.close();
+
+      if (error is Error) {
+        onerror?.call(error);
+      } else {
+        onerror?.call(StateError(error.toString()));
+      }
+    }
+  }
+
+  /// Handles DELETE requests via adapter
+  Future<void> _handleDeleteRequestAdapter(HttpAdapter adapter) async {
+    if (!_validateSessionAdapter(adapter)) {
+      return;
+    }
+    
+    await close();
+    adapter.response.statusCode = HttpStatus.ok;
+    await adapter.response.close();
+  }
+
+  /// Validates session for adapter-based requests
+  bool _validateSessionAdapter(HttpAdapter adapter) {
+    final res = adapter.response;
+    
+    if (!_initialized) {
+      res.statusCode = HttpStatus.badRequest;
+      res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+      res.write(jsonEncode({
+        "jsonrpc": "2.0",
+        "error": {
+          "code": -32000,
+          "message": "Bad Request: Server not initialized"
+        },
+        "id": null
+      }));
+      res.close();
+      return false;
+    }
+
+    if (sessionId == null) {
+      return true;
+    }
+
+    final requestSessionId = adapter.getHeader("mcp-session-id");
+
+    if (requestSessionId == null) {
+      res.statusCode = HttpStatus.badRequest;
+      res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+      res.write(jsonEncode({
+        "jsonrpc": "2.0",
+        "error": {
+          "code": -32000,
+          "message": "Bad Request: Mcp-Session-Id header is required"
+        },
+        "id": null
+      }));
+      res.close();
+      return false;
+    } else if (requestSessionId != sessionId) {
+      res.statusCode = HttpStatus.notFound;
+      res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+      res.write(jsonEncode({
+        "jsonrpc": "2.0",
+        "error": {"code": -32001, "message": "Session not found"},
+        "id": null
+      }));
+      res.close();
+      return false;
+    }
+
+    return true;
+  }
+
+  /// Collects all bytes from a stream
+  Future<Uint8List> _collectBytesFromStream(Stream<List<int>> stream) async {
+    final completer = Completer<Uint8List>();
+    final sink = BytesBuilder();
+
+    stream.listen(
+      sink.add,
+      onDone: () => completer.complete(sink.takeBytes()),
+      onError: completer.completeError,
+      cancelOnError: true,
+    );
+
+    return completer.future;
   }
 
   /// Handles POST requests containing JSON-RPC messages
@@ -753,6 +1186,7 @@ class StreamableHTTPServerTransport implements Transport {
     }
 
     final response = _streamMapping[streamId];
+    final adapterResponse = _adapterStreamMapping[streamId];
 
     if (!_enableJsonResponse) {
       // For SSE responses, generate event ID if event store is provided
@@ -763,15 +1197,20 @@ class StreamableHTTPServerTransport implements Transport {
       }
 
       if (response != null) {
-        // Write the event to the response stream
+        // Write the event to the response stream (dart:io)
         _writeSSEEvent(response, message, eventId);
+      } else if (adapterResponse != null) {
+        // Write to adapter response (shelf)
+        _writeSSEEventAdapter(adapterResponse, message, eventId);
       }
     }
 
     if (_isJsonRpcResponse(message)) {
       _requestResponseMap[requestId] = message;
+      
+      // Find all related IDs for this stream (works for both dart:io and adapter)
       final relatedIds = _requestToStreamMapping.entries
-          .where((entry) => _streamMapping[entry.value] == response)
+          .where((entry) => entry.value == streamId)
           .map((entry) => entry.key)
           .toList();
 
@@ -780,38 +1219,44 @@ class StreamableHTTPServerTransport implements Transport {
           relatedIds.every((id) => _requestResponseMap.containsKey(id));
 
       if (allResponsesReady) {
-        if (response == null) {
+        if (response == null && adapterResponse == null) {
           throw StateError(
               "No connection established for request ID: $requestId");
         }
 
         if (_enableJsonResponse) {
           // All responses ready, send as JSON
-          final headers = {
-            HttpHeaders.contentTypeHeader: 'application/json',
-          };
-
-          if (sessionId != null) {
-            headers['mcp-session-id'] = sessionId!;
-          }
-
           final responses =
               relatedIds.map((id) => _requestResponseMap[id]!).toList();
 
-          headers.forEach((key, value) {
-            response.headers.set(key, value);
-          });
+          final jsonBody = responses.length == 1 
+              ? jsonEncode(responses[0].toJson())
+              : jsonEncode(responses.map((r) => r.toJson()).toList());
 
-          if (responses.length == 1) {
-            response.write(jsonEncode(responses[0].toJson()));
-          } else {
-            response
-                .write(jsonEncode(responses.map((r) => r.toJson()).toList()));
+          if (response != null) {
+            // dart:io response
+            response.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+            if (sessionId != null) {
+              response.headers.set('mcp-session-id', sessionId!);
+            }
+            response.write(jsonBody);
+            await response.close();
+          } else if (adapterResponse != null) {
+            // Adapter response (shelf)
+            adapterResponse.setHeader(HttpHeaders.contentTypeHeader, 'application/json');
+            if (sessionId != null) {
+              adapterResponse.setHeader('mcp-session-id', sessionId!);
+            }
+            adapterResponse.write(jsonBody);
+            await adapterResponse.close();
           }
-          await response.close();
         } else {
           // End the SSE stream
-          await response.close();
+          if (response != null) {
+            await response.close();
+          } else if (adapterResponse != null) {
+            await adapterResponse.close();
+          }
         }
 
         // Clean up
@@ -819,6 +1264,7 @@ class StreamableHTTPServerTransport implements Transport {
           _requestResponseMap.remove(id);
           _requestToStreamMapping.remove(id);
         }
+        _adapterStreamMapping.remove(streamId);
       }
     }
   }
