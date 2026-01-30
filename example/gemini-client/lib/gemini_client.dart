@@ -48,7 +48,7 @@ extension SchemaExtension on Schema {
 /// A client for interacting with an MCP server and Google's Generative AI API.
 class GoogleMcpClient {
   /// The MCP client instance.
-  final mcp_dart.Client mcp;
+  final mcp_dart.McpClient mcp;
 
   /// The Generative AI model instance.
   final GenerativeModel model;
@@ -122,7 +122,7 @@ class GoogleMcpClient {
         finalText.add(part.text);
       } else if (part is FunctionCall) {
         final result = await mcp.callTool(
-          mcp_dart.CallToolRequestParams(name: part.name, arguments: part.args),
+          mcp_dart.CallToolRequest(name: part.name, arguments: part.args),
         );
         finalText.add(
           "[Calling tool ${part.name} with args ${jsonEncode(part.args)}]",

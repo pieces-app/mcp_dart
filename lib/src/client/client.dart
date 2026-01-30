@@ -1,35 +1,176 @@
 import 'dart:async';
+import 'package:mcp_dart/src/shared/json_schema/json_schema_validator.dart';
+import 'package:mcp_dart/src/shared/logging.dart';
 import 'package:mcp_dart/src/shared/protocol.dart';
 import 'package:mcp_dart/src/shared/transport.dart';
 import 'package:mcp_dart/src/types.dart';
 
-/// Options for configuring the MCP [Client].
-class ClientOptions extends ProtocolOptions {
+final _logger = Logger("mcp_dart.client");
+
+/// Options for configuring the MCP [McpClient].
+class McpClientOptions extends ProtocolOptions {
   /// Capabilities to advertise as being supported by this client.
   final ClientCapabilities? capabilities;
 
-  /// Creates client options.
-  const ClientOptions({super.enforceStrictCapabilities, this.capabilities});
+  const McpClientOptions({
+    super.enforceStrictCapabilities,
+    this.capabilities,
+  });
 }
+
+/// Deprecated alias for [McpClientOptions].
+@Deprecated('Use McpClientOptions instead')
+typedef ClientOptions = McpClientOptions;
+
+/// Recursively applies default values from a JSON Schema to a data object.
+/// Recursively applies default values from a JSON Schema to a data object.
+// Recursively applies default values from a JSON Schema to a data object.
+void _applyElicitationDefaults(JsonSchema schema, Map<String, dynamic> data) {
+  if (schema is! JsonObject) return;
+
+  final properties = schema.properties;
+  if (properties != null) {
+    for (final entry in properties.entries) {
+      final key = entry.key;
+      final propSchema = entry.value;
+
+      // Apply default if data doesn't have the key and schema has a default
+      if (!data.containsKey(key) && propSchema.defaultValue != null) {
+        data[key] = _deepCopy(propSchema.defaultValue);
+      }
+
+      // Recurse into existing nested objects (but not arrays)
+      if (data[key] is Map) {
+        _applyElicitationDefaults(
+          propSchema,
+          data[key] as Map<String, dynamic>,
+        );
+      }
+    }
+  }
+}
+
+dynamic _deepCopy(dynamic value) {
+  if (value is Map) {
+    return value.map<String, dynamic>(
+      (key, val) => MapEntry(key.toString(), _deepCopy(val)),
+    );
+  } else if (value is List) {
+    return value.map((val) => _deepCopy(val)).toList();
+  } else {
+    return value;
+  }
+}
+
+// Unused _applyDefaultsFromMap removed
 
 /// An MCP client implementation built on top of a pluggable [Transport].
 ///
 /// Handles the initialization handshake with the server upon connection
 /// and provides methods for making standard MCP requests.
-class Client extends Protocol {
+class McpClient extends Protocol {
   ServerCapabilities? _serverCapabilities;
   Implementation? _serverVersion;
   ClientCapabilities _capabilities;
   final Implementation _clientInfo;
   String? _instructions;
 
+  final Map<String, JsonSchema> _cachedToolOutputSchemas = {};
+  final Set<String> _cachedRequiredTaskTools = {};
+
+  /// Callback for handling elicitation requests from the server.
+  ///
+  /// This will be called when the server sends an `elicitation/create` request
+  /// to collect structured user input. The client should prompt the user
+  /// and return an [ElicitResult] with the action taken and content provided.
+  Future<ElicitResult> Function(ElicitRequest)? onElicitRequest;
+
+  /// Callback for handling task status notifications from the server.
+  FutureOr<void> Function(TaskStatusNotification params)? onTaskStatus;
+
+  /// Callback for handling sampling requests from the server.
+  ///
+  /// This will be called when the server sends a `sampling/createMessage` request
+  /// to request an LLM completion from the client.
+  Future<CreateMessageResult> Function(CreateMessageRequest params)?
+      onSamplingRequest;
+
   /// Initializes this client with its implementation details and options.
   ///
-  /// - [clientInfo]: Information about this client's name and version.
+  /// - [_clientInfo]: Information about this client's name and version.
   /// - [options]: Optional configuration settings including client capabilities.
-  Client(this._clientInfo, {ClientOptions? options})
+  McpClient(this._clientInfo, {McpClientOptions? options})
       : _capabilities = options?.capabilities ?? const ClientCapabilities(),
-        super(options);
+        super(options) {
+    // Register elicit handler if capability is present
+    if (_capabilities.elicitation?.form != null) {
+      setRequestHandler<JsonRpcElicitRequest>(
+        Method.elicitationCreate,
+        (request, extra) async {
+          if (onElicitRequest == null) {
+            throw McpError(
+              ErrorCode.methodNotFound.value,
+              "No elicit handler registered",
+            );
+          }
+          final result = await onElicitRequest!(request.elicitParams);
+
+          // Apply defaults if client supports it and it's a form elicitation
+          if (request.elicitParams.mode == ElicitationMode.form &&
+              result.action == 'accept' &&
+              result.content is Map &&
+              request.elicitParams.requestedSchema != null &&
+              _capabilities.elicitation?.form?.applyDefaults == true) {
+            _applyElicitationDefaults(
+              request.elicitParams.requestedSchema!,
+              result.content!,
+            );
+          }
+          return result;
+        },
+        (id, params, meta) => JsonRpcElicitRequest(
+          id: id,
+          elicitParams: ElicitRequest.fromJson(params ?? {}),
+          meta: meta,
+        ),
+      );
+    }
+
+    // Register task status notification handler
+    if (_capabilities.tasks != null) {
+      setNotificationHandler<JsonRpcTaskStatusNotification>(
+        Method.notificationsTasksStatus,
+        (notification) async {
+          await onTaskStatus?.call(notification.statusParams);
+        },
+        (params, meta) => JsonRpcTaskStatusNotification(
+          statusParams: TaskStatusNotification.fromJson(params ?? {}),
+          meta: meta,
+        ),
+      );
+    }
+
+    // Register sampling request handler if capability is present
+    if (_capabilities.sampling != null) {
+      setRequestHandler<JsonRpcCreateMessageRequest>(
+        Method.samplingCreateMessage,
+        (request, extra) async {
+          if (onSamplingRequest == null) {
+            throw McpError(
+              ErrorCode.methodNotFound.value,
+              "No sampling handler registered",
+            );
+          }
+          return await onSamplingRequest!(request.createParams);
+        },
+        (id, params, meta) => JsonRpcCreateMessageRequest(
+          id: id,
+          createParams: CreateMessageRequest.fromJson(params ?? {}),
+          meta: meta,
+        ),
+      );
+    }
+  }
 
   /// Registers new capabilities for this client.
   ///
@@ -58,7 +199,7 @@ class Client extends Protocol {
     }
 
     try {
-      final initParams = InitializeRequestParams(
+      final initParams = InitializeRequest(
         protocolVersion: latestProtocolVersion,
         capabilities: _capabilities,
         clientInfo: _clientInfo,
@@ -88,11 +229,11 @@ class Client extends Protocol {
       const initializedNotification = JsonRpcInitializedNotification();
       await notification(initializedNotification);
 
-      print(
+      _logger.debug(
         "MCP Client Initialized. Server: ${result.serverInfo.name} ${result.serverInfo.version}, Protocol: ${result.protocolVersion}",
       );
     } catch (error) {
-      print("MCP Client Initialization Failed: $error");
+      _logger.error("MCP Client Initialization Failed: $error");
       await close();
       rethrow;
     }
@@ -120,38 +261,38 @@ class Client extends Protocol {
     String? requiredCapability;
 
     switch (method) {
-      case "logging/setLevel":
+      case Method.loggingSetLevel:
         supported = serverCaps.logging != null;
         requiredCapability = 'logging';
         break;
-      case "prompts/get":
-      case "prompts/list":
+      case Method.promptsGet:
+      case Method.promptsList:
         supported = serverCaps.prompts != null;
         requiredCapability = 'prompts';
         break;
-      case "resources/list":
-      case "resources/templates/list":
-      case "resources/read":
+      case Method.resourcesList:
+      case Method.resourcesTemplatesList:
+      case Method.resourcesRead:
         supported = serverCaps.resources != null;
         requiredCapability = 'resources';
         break;
-      case "resources/subscribe":
-      case "resources/unsubscribe":
+      case Method.resourcesSubscribe:
+      case Method.resourcesUnsubscribe:
         supported = serverCaps.resources?.subscribe ?? false;
         requiredCapability = 'resources.subscribe';
         break;
-      case "tools/call":
-      case "tools/list":
+      case Method.toolsCall:
+      case Method.toolsList:
         supported = serverCaps.tools != null;
         requiredCapability = 'tools';
         break;
-      case "completion/complete":
-        supported = serverCaps.prompts != null || serverCaps.resources != null;
-        requiredCapability = 'prompts or resources';
+      case Method.completionComplete:
+        supported = serverCaps.completions != null;
+        requiredCapability = 'completions';
         break;
       default:
-        print(
-          "Warning: assertCapabilityForMethod called for potentially custom client request: $method",
+        _logger.warn(
+          "assertCapabilityForMethod called for potentially custom client request: $method",
         );
         supported = true;
     }
@@ -167,7 +308,7 @@ class Client extends Protocol {
   @override
   void assertNotificationCapability(String method) {
     switch (method) {
-      case "notifications/roots/list_changed":
+      case Method.notificationsRootsListChanged:
         if (!(_capabilities.roots?.listChanged ?? false)) {
           throw StateError(
             "Client does not support 'roots.listChanged' capability (required for sending $method)",
@@ -175,8 +316,8 @@ class Client extends Protocol {
         }
         break;
       default:
-        print(
-          "Warning: assertNotificationCapability called for potentially custom client notification: $method",
+        _logger.warn(
+          "assertNotificationCapability called for potentially custom client notification: $method",
         );
     }
   }
@@ -184,24 +325,50 @@ class Client extends Protocol {
   @override
   void assertRequestHandlerCapability(String method) {
     switch (method) {
-      case "sampling/createMessage":
+      case Method.samplingCreateMessage:
         if (!(_capabilities.sampling != null)) {
           throw StateError(
             "Client setup error: Cannot handle '$method' without 'sampling' capability registered.",
           );
         }
         break;
-      case "roots/list":
+      case Method.rootsList:
         if (!(_capabilities.roots != null)) {
           throw StateError(
             "Client setup error: Cannot handle '$method' without 'roots' capability registered.",
           );
         }
         break;
+      case Method.elicitationCreate:
+        if (!(_capabilities.elicitation != null)) {
+          throw StateError(
+            "Client setup error: Cannot handle '$method' without 'elicitation' capability registered.",
+          );
+        }
+        break;
       default:
-        print(
-          "Info: Setting request handler for potentially custom method '$method'. Ensure client capabilities match.",
+        _logger.info(
+          "Setting request handler for potentially custom method '$method'. Ensure client capabilities match.",
         );
+    }
+  }
+
+  @override
+  void assertTaskCapability(String method) {
+    if (_serverCapabilities?.tasks == null) {
+      throw McpError(
+        ErrorCode.invalidRequest.value,
+        "Server does not support tasks capability (required for task-based '$method')",
+      );
+    }
+  }
+
+  @override
+  void assertTaskHandlerCapability(String method) {
+    if (_capabilities.tasks == null) {
+      throw StateError(
+        "Client setup error: Cannot handle task-based '$method' without 'tasks' capability registered.",
+      );
     }
   }
 
@@ -216,7 +383,7 @@ class Client extends Protocol {
 
   /// Sends a `completion/complete` request to the server for argument completion.
   Future<CompleteResult> complete(
-    CompleteRequestParams params, [
+    CompleteRequest params, [
     RequestOptions? options,
   ]) {
     final req = JsonRpcCompleteRequest(id: -1, completeParams: params);
@@ -232,14 +399,14 @@ class Client extends Protocol {
     LoggingLevel level, [
     RequestOptions? options,
   ]) {
-    final params = SetLevelRequestParams(level: level);
+    final params = SetLevelRequest(level: level);
     final req = JsonRpcSetLevelRequest(id: -1, setParams: params);
     return request<EmptyResult>(req, (json) => const EmptyResult(), options);
   }
 
   /// Sends a `prompts/get` request to retrieve a specific prompt/template.
   Future<GetPromptResult> getPrompt(
-    GetPromptRequestParams params, [
+    GetPromptRequest params, [
     RequestOptions? options,
   ]) {
     final req = JsonRpcGetPromptRequest(id: -1, getParams: params);
@@ -252,7 +419,7 @@ class Client extends Protocol {
 
   /// Sends a `prompts/list` request to list available prompts/templates.
   Future<ListPromptsResult> listPrompts({
-    ListPromptsRequestParams? params,
+    ListPromptsRequest? params,
     RequestOptions? options,
   }) {
     final req = JsonRpcListPromptsRequest(id: -1, params: params);
@@ -265,7 +432,7 @@ class Client extends Protocol {
 
   /// Sends a `resources/list` request to list available resources.
   Future<ListResourcesResult> listResources({
-    ListResourcesRequestParams? params,
+    ListResourcesRequest? params,
     RequestOptions? options,
   }) {
     final req = JsonRpcListResourcesRequest(id: -1, params: params);
@@ -278,7 +445,7 @@ class Client extends Protocol {
 
   /// Sends a `resources/templates/list` request to list available resource templates.
   Future<ListResourceTemplatesResult> listResourceTemplates({
-    ListResourceTemplatesRequestParams? params,
+    ListResourceTemplatesRequest? params,
     RequestOptions? options,
   }) {
     final req = JsonRpcListResourceTemplatesRequest(id: -1, params: params);
@@ -291,7 +458,7 @@ class Client extends Protocol {
 
   /// Sends a `resources/read` request to read the content of a resource.
   Future<ReadResourceResult> readResource(
-    ReadResourceRequestParams params, [
+    ReadResourceRequest params, [
     RequestOptions? options,
   ]) {
     final req = JsonRpcReadResourceRequest(id: -1, readParams: params);
@@ -304,7 +471,7 @@ class Client extends Protocol {
 
   /// Sends a `resources/subscribe` request to subscribe to updates for a resource.
   Future<EmptyResult> subscribeResource(
-    SubscribeRequestParams params, [
+    SubscribeRequest params, [
     RequestOptions? options,
   ]) {
     final req = JsonRpcSubscribeRequest(id: -1, subParams: params);
@@ -313,7 +480,7 @@ class Client extends Protocol {
 
   /// Sends a `resources/unsubscribe` request to cancel a resource subscription.
   Future<EmptyResult> unsubscribeResource(
-    UnsubscribeRequestParams params, [
+    UnsubscribeRequest params, [
     RequestOptions? options,
   ]) {
     final req = JsonRpcUnsubscribeRequest(id: -1, unsubParams: params);
@@ -322,28 +489,68 @@ class Client extends Protocol {
 
   /// Sends a `tools/call` request to invoke a tool on the server.
   Future<CallToolResult> callTool(
-    CallToolRequestParams params, {
+    CallToolRequest params, {
     RequestOptions? options,
-  }) {
-    final req = JsonRpcCallToolRequest(id: -1, callParams: params);
-    return request<CallToolResult>(
+  }) async {
+    if (_cachedRequiredTaskTools.contains(params.name)) {
+      throw McpError(
+        ErrorCode.invalidRequest.value,
+        'Tool "${params.name}" requires task-based execution.',
+      );
+    }
+
+    final req = JsonRpcCallToolRequest(id: -1, params: params.toJson());
+    final result = await request<CallToolResult>(
       req,
       (json) => CallToolResult.fromJson(json),
       options,
     );
+
+    final outputSchema = _cachedToolOutputSchemas[params.name];
+    if (outputSchema != null && !result.isError) {
+      try {
+        outputSchema.validate(result.structuredContent);
+      } catch (e) {
+        throw McpError(
+          ErrorCode.invalidParams.value,
+          "Structured content does not match the tool's output schema: $e",
+        );
+      }
+    }
+
+    return result;
   }
 
   /// Sends a `tools/list` request to list available tools on the server.
   Future<ListToolsResult> listTools({
-    ListToolsRequestParams? params,
+    ListToolsRequest? params,
     RequestOptions? options,
-  }) {
-    final req = JsonRpcListToolsRequest(id: -1, params: params);
-    return request<ListToolsResult>(
+  }) async {
+    final req = JsonRpcListToolsRequest(id: -1, params: params?.toJson());
+    final result = await request<ListToolsResult>(
       req,
       (json) => ListToolsResult.fromJson(json),
       options,
     );
+
+    _cacheToolMetadata(result.tools);
+
+    return result;
+  }
+
+  void _cacheToolMetadata(List<Tool> tools) {
+    _cachedToolOutputSchemas.clear();
+    _cachedRequiredTaskTools.clear();
+
+    for (final tool in tools) {
+      if (tool.outputSchema != null) {
+        _cachedToolOutputSchemas[tool.name] = tool.outputSchema!;
+      }
+
+      if (tool.execution?.taskSupport == 'required') {
+        _cachedRequiredTaskTools.add(tool.name);
+      }
+    }
   }
 
   /// Sends a `notifications/roots/list_changed` notification to the server.
@@ -352,3 +559,7 @@ class Client extends Protocol {
     return notification(notif);
   }
 }
+
+/// Deprecated alias for [McpClient].
+@Deprecated('Use McpClient instead')
+typedef Client = McpClient;

@@ -3,9 +3,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:mcp_dart/src/shared/logging.dart';
 import 'package:mcp_dart/src/shared/transport.dart';
 import 'package:mcp_dart/src/shared/uuid.dart';
 import 'package:mcp_dart/src/types.dart';
+
+final _logger = Logger("mcp_dart.server.sse");
 
 /// Maximum size for incoming POST message bodies.
 const int _maximumMessageSize = 4 * 1024 * 1024; // 4MB in bytes
@@ -77,15 +80,14 @@ class SseServerTransport implements Transport {
     }
 
     try {
-      final socket = await _sseResponse.detachSocket(writeHeaders: false);
+      _sseResponse.headers.chunkedTransferEncoding = false;
+      _sseResponse.headers.contentType =
+          ContentType('text', 'event-stream', charset: 'utf-8');
+      _sseResponse.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
+      _sseResponse.headers.set(HttpHeaders.connectionHeader, 'keep-alive');
+
+      final socket = await _sseResponse.detachSocket(writeHeaders: true);
       _sink = utf8.encoder.startChunkedConversion(socket);
-      _sink!.add(
-        'HTTP/1.1 200 OK\r\n'
-        'Content-Type: text/event-stream\r\n'
-        'Cache-Control: no-cache\r\n'
-        'Connection: keep-alive\r\n'
-        '\r\n\r\n',
-      );
       final endpointUrl =
           '$_messageEndpointPath?sessionId=${Uri.encodeComponent(sessionId)}';
       await _sendSseEvent(name: 'endpoint', data: endpointUrl);
@@ -93,18 +95,22 @@ class SseServerTransport implements Transport {
       socket.listen(
         (_) {},
         onDone: () {
-          print('Client disconnected');
+          _logger.debug('Client disconnected');
           close();
         },
         onError: (error) {
-          print('Socket error: $error');
+          _logger.warn('Socket error: $error');
           onerror?.call(
             error is Error ? error : StateError("Socket error: $error"),
           );
         },
       );
+    } on UnimplementedError catch (e) {
+      _logger.error('UnimplementedError during SSE transport setup: $e');
+      onerror?.call(e);
+      rethrow;
     } catch (error) {
-      print('Error starting SSE transport: $error');
+      _logger.error('Error starting SSE transport: $error');
     }
   }
 
@@ -172,7 +178,7 @@ class SseServerTransport implements Transport {
             await request.fold<BytesBuilder>(BytesBuilder(), (builder, chunk) {
           builder.add(chunk);
           if (builder.length > _maximumMessageSize) {
-            throw HttpException(
+            throw const HttpException(
               "Message size exceeds limit of $_maximumMessageSize bytes.",
             );
           }
@@ -186,7 +192,7 @@ class SseServerTransport implements Transport {
       }
 
       if (messageJson is! Map<String, dynamic>) {
-        throw FormatException(
+        throw const FormatException(
           "Invalid JSON message format: Expected a JSON object.",
         );
       }
@@ -215,14 +221,14 @@ class SseServerTransport implements Transport {
     try {
       parsedMessage = JsonRpcMessage.fromJson(messageJson);
     } catch (error) {
-      print("Failed to parse JsonRpcMessage from JSON: $messageJson");
+      _logger.warn("Failed to parse JsonRpcMessage from JSON: $messageJson");
       rethrow;
     }
 
     try {
       onmessage?.call(parsedMessage);
     } catch (e) {
-      print("Error within onmessage handler: $e");
+      _logger.warn("Error within onmessage handler: $e");
       onerror?.call(StateError("Error in onmessage handler: $e"));
     }
   }
@@ -231,7 +237,7 @@ class SseServerTransport implements Transport {
   ///
   /// Serializes the message to JSON and formats it as an SSE 'message' event.
   @override
-  Future<void> send(JsonRpcMessage message) async {
+  Future<void> send(JsonRpcMessage message, {int? relatedRequestId}) async {
     if (_closeController.isClosed) {
       throw StateError("Cannot send message: SSE connection is not active.");
     }
@@ -273,7 +279,7 @@ class SseServerTransport implements Transport {
     try {
       _sink?.close();
     } catch (e) {
-      print("Error closing SSE response: $e");
+      _logger.warn("Error closing SSE response: $e");
     }
     _sink = null;
 
@@ -281,7 +287,7 @@ class SseServerTransport implements Transport {
       try {
         onclose?.call();
       } catch (e) {
-        print("Error within onclose handler: $e");
+        _logger.warn("Error within onclose handler: $e");
         onerror?.call(StateError("Error in onclose handler: $e"));
       }
     }

@@ -6,9 +6,12 @@ import 'server_iostream.dart';
 /// Creates and returns a client with custom stream transport connected to a server.
 Future<void> main() async {
   // Create a client
-  final client = Client(
-    Implementation(name: "example-dart-iostream-client", version: "1.0.0"),
-    options: ClientOptions(capabilities: ClientCapabilities()),
+  final client = McpClient(
+    const Implementation(
+      name: "example-dart-iostream-client",
+      version: "1.0.0",
+    ),
+    options: const McpClientOptions(capabilities: ClientCapabilities()),
   );
 
   final server = await getServer();

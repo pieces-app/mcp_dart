@@ -1,11 +1,32 @@
 # MCP(Model Context Protocol) for Dart
 
+[![Coverage](https://img.shields.io/codecov/c/github/leehack/mcp_dart)](https://app.codecov.io/gh/leehack/mcp_dart)
 [![Pub Version](https://img.shields.io/pub/v/mcp_dart?color=blueviolet)](https://pub.dev/packages/mcp_dart)
 [![likes](https://img.shields.io/pub/likes/mcp_dart?logo=dart)](https://pub.dev/packages/mcp_dart/score)
 
-[Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is an open protocol designed to enable seamless integration between LLM applications and external data sources and tools.
+The Model Context Protocol (MCP) is a standardized protocol for communication between AI applications and external services. It enables:
 
-This library aims to provide a simple and intuitive way to implement MCP servers and clients in Dart, while adhering to the [MCP protocol spec](https://spec.modelcontextprotocol.io/). The goal is to make this SDK as similar as possible to the official SDKs available in other languages, ensuring a consistent developer experience across platforms.
+- **Tools**: Allow AI to execute actions (API calls, computations, etc.)
+- **Resources**: Provide context and data to AI (files, databases, APIs)
+- **Prompts**: Pre-built prompt templates with arguments
+
+## Understanding MCP: Client, Server, and Host
+
+MCP follows a **client-server architecture** with three key components:
+
+- **MCP Host**: The AI application that provides the user interface and manages connections to multiple MCP servers.
+  - Example: Claude Desktop, IDEs like VS Code, custom AI applications
+  - Manages server lifecycle, discovers capabilities, and orchestrates interactions
+
+- **MCP Client**: The protocol implementation within the host that communicates with servers.
+  - Handles protocol negotiation, capability discovery, and request/response flow
+  - Typically built into or used by the MCP host
+
+- **MCP Server**: Provides capabilities (tools, resources, prompts) that AI can use through the host.
+  - Example: Servers for file system access, database queries, or API integrations
+  - Runs as a separate process and communicates via standardized transports (stdio, StreamableHTTP)
+
+**Typical Flow**: User ↔ MCP Host (with Client) ↔ MCP Protocol ↔ Your Server ↔ External Services/Data
 
 ## Requirements
 
@@ -13,112 +34,126 @@ This library aims to provide a simple and intuitive way to implement MCP servers
 
 Ensure you have the correct Dart SDK version installed. See <https://dart.dev/get-dart> for installation instructions.
 
-## Features
+## What This SDK Provides
 
-- Stdio support (Server and Client)
-- StreamableHTTP support (Server and Client)
-- SSE support (Server only) - Deprecated
-- Stream Transport using dart streams (Server and Client in shared process)
-- Tools
-- Resources
-- Prompts
-- Sampling
-- Roots
+**This SDK lets you build both MCP servers and clients in Dart/Flutter.**
+
+- ✅ **Build MCP Servers** - Create servers that expose tools, resources, and prompts to AI hosts
+- ✅ **Build MCP Clients** - Create AI applications that can connect to and use MCP servers
+- ✅ **Full MCP Protocol Support** - Complete [MCP specification 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25) implementation
+- ✅ **Multiple Transport Options** - Stdio, StreamableHTTP, Stream, or custom transports
+- ✅ **All Capabilities** - Tools, Resources, Prompts, Sampling, Roots, Completions, Elicitation, Tasks
+- ✅ **OAuth2 Support** - Complete authentication with PKCE
+- ✅ **Type-Safe** - Comprehensive type definitions with null safety
+- ✅ **Cross-Platform** - Works on Linux, Windows, macOS, Web, and Flutter
+
+The goal is to make this SDK as similar as possible to the official SDKs available in other languages, ensuring a consistent developer experience across platforms.
 
 ## Model Context Protocol Version
 
-The current version of the protocol is `2025-03-26`. This library is designed to be compatible with this version, and any future updates will be made to ensure continued compatibility.
+The current version of the protocol is `2025-11-25`. This library is designed to be compatible with this version, and any future updates will be made to ensure continued compatibility.
 
-It's also backward compatible with the previous version `2024-11-05` and `2024-10-07`.
+It's also backward compatible with previous versions including `2025-06-18`, `2025-03-26`, `2024-11-05`, and `2024-10-07`.
 
-## Getting started
+## Documentation
 
-Below code is the simplest way to start the MCP server.
+### Getting Started
 
-```dart
-import 'package:mcp_dart/mcp_dart.dart';
+- 📖 **[Quick Start Guide](https://github.com/leehack/mcp_dart/blob/main/doc/getting-started.md)** - Get up and running in 5 minutes
+- 🔧 **[Server Guide](https://github.com/leehack/mcp_dart/blob/main/doc/server-guide.md)** - Complete guide to building MCP servers
+- 💻 **[Client Guide](https://github.com/leehack/mcp_dart/blob/main/doc/client-guide.md)** - Complete guide to building MCP clients
 
-void main() async {
-  McpServer server = McpServer(
-    Implementation(name: "mcp-example-server", version: "1.0.0"),
-    options: ServerOptions(
-      capabilities: ServerCapabilities(
-        resources: ServerCapabilitiesResources(),
-        tools: ServerCapabilitiesTools(),
-      ),
-    ),
-  );
+### Core Concepts
 
-  server.tool(
-    "calculate",
-    description: 'Perform basic arithmetic operations',
-    inputSchemaProperties: {
-      'operation': {
-        'type': 'string',
-        'enum': ['add', 'subtract', 'multiply', 'divide'],
-      },
-      'a': {'type': 'number'},
-      'b': {'type': 'number'},
-    },
-    callback: ({args, extra}) async {
-      final operation = args!['operation'];
-      final a = args['a'];
-      final b = args['b'];
-      return CallToolResult(
-        content: [
-          TextContent(
-            text: switch (operation) {
-              'add' => 'Result: ${a + b}',
-              'subtract' => 'Result: ${a - b}',
-              'multiply' => 'Result: ${a * b}',
-              'divide' => 'Result: ${a / b}',
-              _ => throw Exception('Invalid operation'),
-            },
-          ),
-        ],
-      );
-    },
-  );
+- 🛠️ **[Tools Documentation](https://github.com/leehack/mcp_dart/blob/main/doc/tools.md)** - Implementing executable tools
+- 🔌 **[Transport Options](https://github.com/leehack/mcp_dart/blob/main/doc/transports.md)** - Built-in and custom transport implementations
+- 📚 **[Examples](https://github.com/leehack/mcp_dart/blob/main/doc/examples.md)** - Real-world usage examples
+- ⚡ **[Quick Reference](https://github.com/leehack/mcp_dart/blob/main/doc/quick-reference.md)** - Fast lookup guide
 
-  server.connect(StdioServerTransport());
-}
-```
+### Advanced Features
 
-## Usage
+- 🔐 **[OAuth Authentication](https://github.com/leehack/mcp_dart/blob/main/example/authentication/)** - OAuth2 guides and examples
+- 📝 For resources, prompts, and other features, see the Server and Client guides
 
-Once you compile your MCP server, you can compile the client using the below code.
+## Quick Start with CLI
+
+The fastest way to create an MCP server is using the `mcp_dart_cli`:
 
 ```bash
-dart compile exe example/server_stdio.dart -o ./server_stdio
+# Install the CLI
+dart pub global activate mcp_dart_cli
+
+# Create a new project
+mcp_dart create my_server
+
+# Navigate and run
+cd my_server
+mcp_dart serve
 ```
 
-Or just run it with JIT.
+Your server is now running! Use `mcp_dart inspect` to test it:
 
 ```bash
-dart run example/server_stdio.dart
+mcp_dart inspect              # List all capabilities
+mcp_dart inspect --tool add --json-args '{"a": 1, "b": 2}'   # Call a tool
 ```
 
-To configure it with the client (ex, Claude Desktop), you can use the below code.
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `create` | Scaffold a new MCP server project |
+| `serve` | Run your server (stdio or HTTP) |
+| `doctor` | Check project health and connectivity |
+| `inspect` | Test and debug server capabilities |
+
+📖 **[Full CLI Documentation](https://github.com/leehack/mcp_dart/tree/main/packages/mcp_dart_cli)**
+
+### Connecting to AI Hosts
+
+Configure your server with AI hosts like Claude Desktop:
 
 ```json
 {
   "mcpServers": {
-    "calculator_jit": {
-      "command": "path/to/dart",
-      "args": [
-        "/path/to/server_stdio.dart"
-      ]
-    },
-    "calculator_aot": {
-      "command": "path/to/compiled/server_stdio",
-    },
+    "my_server": {
+      "command": "mcp_dart",
+      "args": ["serve"],
+      "cwd": "/path/to/my_server"
+    }
   }
 }
 ```
 
-## More examples
+> [!TIP]
+> For manual server implementation or advanced use cases, see the [Server Guide](https://github.com/leehack/mcp_dart/blob/main/doc/server-guide.md).
 
-<https://github.com/leehack/mcp_dart/tree/main/example>
+## Authentication
+
+This library supports OAuth2 authentication with PKCE for both clients and servers. For complete authentication guides and examples, see the [OAuth Authentication documentation](https://github.com/leehack/mcp_dart/blob/main/example/authentication/).
+
+## Platform Support
+
+| Platform | Stdio | StreamableHTTP | Stream | Custom |
+|----------|-------|----------------|--------|--------|
+| **Desktop** (CLI/Server) | ✅ | ✅ | ✅ | ✅ |
+| **Web** (Browser) | ❌ | ✅ | ✅ | ✅ |
+| **Flutter** (Mobile/Desktop) | ✅ | ✅ | ✅ | ✅ |
+
+**Custom Transports**: You can implement your own transport layer by extending the transport interfaces if you need specific communication patterns not covered by the built-in options.
+
+## More Examples
+
+For additional examples including authentication, HTTP clients, and advanced features:
+
+- [All Examples](https://github.com/leehack/mcp_dart/tree/main/example)
+- [Authentication Examples](https://github.com/leehack/mcp_dart/tree/main/example/authentication)
+
+## Community & Support
+
+- **Issues & Bug Reports**: [GitHub Issues](https://github.com/leehack/mcp_dart/issues)
+- **Package**: [pub.dev/packages/mcp_dart](https://pub.dev/packages/mcp_dart)
+- **Protocol Spec**: [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25)
 
 ## Credits
 
