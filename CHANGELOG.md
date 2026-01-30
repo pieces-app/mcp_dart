@@ -1,3 +1,160 @@
+## 1.2.2
+
+- Fix pana analysis issues
+
+## 1.2.1
+
+- **Features**:
+  - **Progress Notifications**: Implemented full support for progress tracking.
+    - Added `RequestHandlerExtra.sendProgress()` helper for servers to report progress.
+    - Added `RequestOptions.onprogress` callback for clients to receive progress updates.
+    - Updated `Progress` and `ProgressNotification` types to include optional `message` field (compliant with 2025-11-25 spec).
+  - **Protocol Improvements**:
+    - `JsonRpcMessage.fromJson` now supports custom/unknown methods instead of throwing.
+    - Fixed `JsonRpcRequest` metadata extraction to correctly handle nested `_meta` in `params`.
+    - Updated `ToolAnnotations` to make `title` optional, preventing deserialization errors when the field is missing.
+
+- **Fixes**:
+  - **StreamableHTTP**: Prevented the client from attempting to "reconnect" to short-lived POST response streams (used for tool calls). This fixes an issue where multiple tool calls could exhaust the browser's connection limit by spawning zombie reconnection attempts.
+
+- **Examples**:
+  - **New Jaspr Client**: Added a comprehensive web client example (`example/jaspr-client`) built with Jaspr, featuring:
+    - Interactive UI for Tools, Resources, Prompts, and Tasks.
+    - Real-time connection management.
+    - Visual task progression and sampling dialogs.
+  - **Anthropic Client**: Fixed issues in the Anthropic client example.
+  - **Task Server**: Added CORS headers and logging to `simple_task_interactive_server.dart`.
+  - Updated examples to remove deprecated API usage.
+
+- **Documentation**:
+  - Overhauled documentation (`doc/`) to match current API (v1.1.2+).
+  - Added `AGENTS.md` with comprehensive developer guidelines.
+
+- **Testing**:
+  - Updated `test/types_test.dart` and `test/types_edge_cases_test.dart` to correct expectations for unknown methods. `JsonRpcMessage.fromJson` returns a generic `JsonRpcRequest` (or `JsonRpcNotification`) for unknown methods instead of throwing, aligning tests with existing library behavior.
+
+## 1.2.0
+
+### Breaking Changes
+
+> [!TIP]
+> All breaking changes below are auto-fixable. Run `dart fix --apply` to automatically update your code.
+
+- **Renamed Core Classes**:
+  - `Client` is now `McpClient` to avoid conflicts with other libraries (like `http`).
+  - `ClientOptions` is now `McpClientOptions`.
+  - `ServerOptions` is now `McpServerOptions`.
+- **Renamed Request/Notification Parameters**:
+  - `ReadResourceRequestParams` -> `ReadResourceRequest`
+  - `GetPromptRequestParams` -> `GetPromptRequest`
+  - `ElicitRequestParams` -> `ElicitRequest`
+  - `CreateMessageRequestParams` -> `CreateMessageRequest`
+  - `LoggingMessageNotificationParams` -> `LoggingMessageNotification`
+  - `CancelledNotificationParams` -> `CancelledNotification`
+  - `ProgressNotificationParams` -> `ProgressNotification`
+  - `TaskCreationParams` -> `TaskCreation`
+
+## 1.1.2
+
+- **Fixed StdioClientTransport stderr handling**: Corrected process mode to always use `ProcessStartMode.normal` to ensure stdin/stdout piping works correctly. Fixed inverted stderr mode logic where `stderrMode: normal` now properly exposes stderr via getter (without internal listening), and `stderrMode: inheritStdio` now manually pipes stderr to parent process.
+
+## 1.1.1
+
+- **Structured Content Support**: Added explicit `structuredContent` field to `CallToolResult` with automatic backward compatibility support.
+  - `CallToolResult.fromStructuredContent` now automatically populates both `structuredContent` (for modern clients) and `content` (as JSON string for legacy clients).
+  - Updated validation logic to correctly validate `structuredContent` payload against tool schema.
+
+## 1.1.0
+
+### Breaking Changes
+
+- **Protocol Version Update**: Updated default protocol version to `2025-11-25`.
+- **Strict Capabilities Typing**: `ServerCapabilities` and `ClientCapabilities` fields (tasks, sampling, elicitation, etc.) are now strictly typed objects instead of `Map<String, dynamic>` or `bool`.
+  - Updated `ServerCapabilities` to use `ServerCapabilitiesTasks`, `ServerCapabilitiesTools`, etc.
+  - Updated `ClientCapabilities` to use `ClientCapabilitiesTasks`, `ClientCapabilitiesElicitation`, `ClientCapabilitiesSampling`, etc.
+  - **Migration**: Update capability declarations to use the new typed classes (e.g., `ServerCapabilities(tasks: ServerCapabilitiesTasks(listChanged: true))`).
+- **File Removal**: `lib/src/server/mcp.dart` has been removed. Use `lib/src/server/mcp_server.dart` (exported via `lib/src/server/module.dart`) instead.
+- **Transport Interface Change**: `Transport.send` now accepts an optional named parameter `relatedRequestId`. Custom transports must update their method signature.
+- **Client Validation**: `Client.callTool` now strictly validates tool outputs against their defined JSON schema (if present). Mismatches will throw an `McpError(ErrorCode.invalidParams)`.
+- **API Refactoring**:
+  - `McpServer.tool`, `resource`, and `prompt` are **deprecated**. Use `registerTool`, `registerResource`, and `registerPrompt` instead.
+  - `McpServer.registerTool` uses a new callback signature: `FutureOr<CallToolResult> Function(Map<String, dynamic> args, RequestHandlerExtra extra)`.
+  - The deprecated `McpServer.tool` retains the old named-parameter signature for backward compatibility.
+- **Tool Schema Definitions**: `ToolInputSchema` (aka `JsonObject`) now requires properties to be defined using `JsonSchema` objects (e.g., `JsonSchema.string()`) instead of raw Maps.
+- **Tool Listing Types**: `ListToolsRequestParams` has been replaced by `ListToolsRequest` (update any code passing `params:` to `Client.listTools` or constructing `JsonRpcListToolsRequest`).
+- **Tool Result Structured Content**: `CallToolResult` no longer uses a dedicated `structuredContent` field in its API; structured results are represented as additional top-level fields (`CallToolResult.extra`). `CallToolResult.fromStructuredContent` now takes a single `Map<String, dynamic>` argument.
+- **RequestHandlerExtra Signature Changes**: `RequestHandlerExtra.sendNotification` and `RequestHandlerExtra.sendRequest` have updated signatures (added task-related metadata/options). Update any server callbacks that call these helpers directly.
+
+### Features
+
+- **Task Management System**:
+  - Implemented comprehensive Task support in `lib/src/server/tasks/`.
+  - Introduced `TaskStore` abstract interface with `InMemoryTaskStore` as the default implementation.
+  - Added strictly typed `TaskResultHandler` and `TaskSession`.
+  - Introduced `TaskMessageQueue` for handling task messages.
+- **McpServer Enhancements**:
+  - Added `McpServer` high-level support for tasks via `tasks(...)` method.
+  - Integrated `notifyTaskStatus` into `McpServer`.
+  - Added `McpServer` support for `sampling/createMessage`.
+  - Exposed `onError` handler setter/getter on `McpServer`.
+- **StreamableMcpServer**:
+  - Added `StreamableMcpServer` class for simplified Streamable HTTP server creation (handles `serverFactory`, event store, and connection management).
+- **Client Enhancements**:
+  - Added `onTaskStatus` callback to `Client`.
+  - Simplified client request handlers for sampling and elicitation.
+
+### Fixes
+
+- Fixed `Task` serialization.
+- Fixed capabilities recognition in `McpServer`.
+- Added comprehensive tests for StreamableMcpServer and Task features.
+
+## 1.0.2
+
+- Fix pana analysis issues
+- Fix Web support for StreamableHTTP client
+
+## 1.0.1
+
+- Fix Documentation links in README.md
+
+## 1.0.0
+
+- Update protocol version to 2025-06-18
+- Add Elicitation support (server-initiated input collection)
+  - API: `McpServer.elicitUserInput()` (server) | `Client.onElicitRequest` (client handler)
+  - Types: ElicitRequestParams (`message`, `requestedSchema`), ElicitResult (`action`, `content`), ClientCapabilitiesElicitation
+  - Uses `elicitation/create` method (Inspector-compatible)
+  - Accepts JSON Schema Maps for flexible schema definition
+  - Helpers: `.accepted`, `.declined`, `.cancelled` getters on ElicitResult
+  - Example: elicitation_http_server.dart
+  - Tests: elicitation_test.dart
+- **CRITICAL FIX**: Logger → stderr (prevents JSON-RPC corruption in stdio)
+- **Comprehensive Test Coverage**: Added 203 new tests across 4 phases (+13.1% overall coverage: 56.9% → 70.0%)
+  - Phase 1: External API coverage (Server MCP, URI templates, Client/Server capabilities) - 108 tests
+  - Phase 2: Transport coverage (Stdio, SSE, HTTPS) - 38 tests
+  - Phase 3: Types & edge cases (Protocol lifecycle, error handling) - 45 tests
+  - Phase 4: Advanced scenarios (Protocol timeouts/aborts, Streamable HTTPS integration) - 12 tests
+  - Fixed critical URI template variable duplication bug
+  - Fixed McpError code preservation in request handlers
+  - All 351 tests passing ✅
+
+## 0.7.0
+
+- Add support for Completions capability per MCP 2025-06-18 spec
+- Add ServerCapabilitiesCompletions class for explicit completions capability declaration
+- Update ServerCapabilities to include completions field
+- Update client capability check to use explicit completions capability instead of inferring from prompts/resources
+- Add integration tests and example for completions capability usage
+
+## 0.6.4
+
+- Fix issue with StreamableHTTP server not setting correct content-type for SSE
+
+## 0.6.3
+
+- Replace print statements with lightweight logging implementation
+
 ## 0.6.2
 
 - Remove trailing CR before processing the lines

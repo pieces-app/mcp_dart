@@ -17,7 +17,7 @@ Future<void> main() async {
   const serverArgs = <String>['run', 'example/server_stdio.dart'];
 
   // Create StdioServerParameters
-  final serverParams = StdioServerParameters(
+  final serverParams = const StdioServerParameters(
     command: serverCommand,
     args: serverArgs,
     stderrMode: ProcessStartMode.normal,
@@ -27,10 +27,11 @@ Future<void> main() async {
   final transport = StdioClientTransport(serverParams);
 
   // Define client information
-  final clientInfo = Implementation(name: 'ExampleClient', version: '1.0.0');
+  final clientInfo =
+      const Implementation(name: 'ExampleClient', version: '1.0.0');
 
   // Create the MCP client
-  final client = Client(clientInfo);
+  final client = McpClient(clientInfo);
 
   // Set up error and close handlers
   transport.onerror = (error) {
@@ -66,7 +67,7 @@ Future<void> main() async {
 
     print('Calling a tool...');
     final toolResult = await client.callTool(
-      CallToolRequestParams(
+      const CallToolRequest(
         name: 'calculate',
         arguments: {'operation': 'add', 'a': 5, 'b': 10},
       ),
@@ -75,13 +76,13 @@ Future<void> main() async {
 
     print('Calling a tool...');
     final resourceResult = await client.readResource(
-      ReadResourceRequestParams(uri: 'file:///logs'),
+      const ReadResourceRequest(uri: 'file:///logs'),
     );
     print('Tool result: ${resourceResult.toJson()}');
 
     print('Calling a prompt...');
     final promptResult = await client.getPrompt(
-      GetPromptRequestParams(
+      const GetPromptRequest(
         name: 'analyze-code',
         arguments: {'language': "python"},
       ),
