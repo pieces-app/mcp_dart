@@ -1,0 +1,17 @@
+name: streamable_https
+description: Streamable HTTP/S transport examples for MCP.
+version: 1.0.0
+publish_to: "none"
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+resolution: workspace
+
+dependencies:
+  mcp_dart:
+    path: ../../
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.15
