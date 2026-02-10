@@ -6,6 +6,8 @@ version: 1.0.0
 environment:
   sdk: ^3.0.0
 
+resolution: workspace
+
 dependencies:
   args: ^2.6.0
   logging: ^1.3.0
