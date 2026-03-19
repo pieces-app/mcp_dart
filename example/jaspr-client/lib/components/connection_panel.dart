@@ -59,18 +59,12 @@ class _ConnectionPanelState extends State<ConnectionPanel> {
     return section(classes: 'panel connection-panel', [
       h2([Component.text('Connection')]),
       div(classes: 'form-group', [
-        label(
-          attributes: {'for': 'server-url'},
-          [Component.text('Server URL')],
-        ),
+        label(attributes: {'for': 'server-url'}, [Component.text('Server URL')]),
         input(
           id: 'server-url',
           type: InputType.text,
           value: _serverUrl,
-          attributes: {
-            'placeholder': 'http://localhost:8000/mcp',
-            if (isConnected || isConnecting) 'disabled': 'true',
-          },
+          attributes: {'placeholder': 'http://localhost:8000/mcp', if (isConnected || isConnecting) 'disabled': 'true'},
           events: {
             'input': (event) {
               _serverUrl = (event.target as dynamic).value as String;

@@ -33,11 +33,9 @@ class GitHubOAuthConfig {
     this.callbackPort = 8090,
   });
 
-  Uri get authorizationEndpoint =>
-      Uri.parse('https://github.com/login/oauth/authorize');
+  Uri get authorizationEndpoint => Uri.parse('https://github.com/login/oauth/authorize');
 
-  Uri get tokenEndpoint =>
-      Uri.parse('https://github.com/login/oauth/access_token');
+  Uri get tokenEndpoint => Uri.parse('https://github.com/login/oauth/access_token');
 
   Uri get callbackUri => Uri.parse('http://localhost:$callbackPort/callback');
 
@@ -55,20 +53,16 @@ class GitHubOAuthTokens extends OAuthTokens {
   final String tokenType;
   final List<String> scope;
 
-  GitHubOAuthTokens({
-    required super.accessToken,
-    super.refreshToken,
-    required this.tokenType,
-    required this.scope,
-  }) : issuedAt = DateTime.now();
+  GitHubOAuthTokens({required super.accessToken, super.refreshToken, required this.tokenType, required this.scope})
+    : issuedAt = DateTime.now();
 
   Map<String, dynamic> toJson() => {
-        'access_token': accessToken,
-        'refresh_token': refreshToken,
-        'token_type': tokenType,
-        'scope': scope.join(' '),
-        'issued_at': issuedAt.toIso8601String(),
-      };
+    'access_token': accessToken,
+    'refresh_token': refreshToken,
+    'token_type': tokenType,
+    'scope': scope.join(' '),
+    'issued_at': issuedAt.toIso8601String(),
+  };
 
   factory GitHubOAuthTokens.fromJson(Map<String, dynamic> json) {
     return GitHubOAuthTokens(
@@ -87,10 +81,7 @@ class GitHubOAuthProvider implements OAuthClientProvider {
   HttpServer? _callbackServer;
   Completer<String>? _authorizationCodeCompleter;
 
-  GitHubOAuthProvider({
-    required this.config,
-    required this.storage,
-  });
+  GitHubOAuthProvider({required this.config, required this.storage});
 
   @override
   Future<OAuthTokens?> tokens() async {
@@ -184,9 +175,7 @@ class GitHubOAuthProvider implements OAuthClientProvider {
         </html>
       ''');
       await request.response.close();
-      _authorizationCodeCompleter?.completeError(
-        Exception('Authorization failed: $error'),
-      );
+      _authorizationCodeCompleter?.completeError(Exception('Authorization failed: $error'));
       await _callbackServer?.close();
       return;
     }
@@ -206,9 +195,7 @@ class GitHubOAuthProvider implements OAuthClientProvider {
         </html>
       ''');
       await request.response.close();
-      _authorizationCodeCompleter?.completeError(
-        Exception('Invalid state parameter'),
-      );
+      _authorizationCodeCompleter?.completeError(Exception('Invalid state parameter'));
       await _callbackServer?.close();
       return;
     }
@@ -239,10 +226,7 @@ class GitHubOAuthProvider implements OAuthClientProvider {
     try {
       final response = await http.post(
         config.tokenEndpoint,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'},
         body: {
           'client_id': config.clientId,
           'client_secret': config.clientSecret,
@@ -387,15 +371,10 @@ Future<void> main(List<String> args) async {
   );
 
   final storage = GitHubTokenStorage('.github_oauth_tokens.json');
-  final authProvider = GitHubOAuthProvider(
-    config: config,
-    storage: storage,
-  );
+  final authProvider = GitHubOAuthProvider(config: config, storage: storage);
 
   // Create MCP client
-  final client = McpClient(
-    const Implementation(name: 'github-mcp-dart-client', version: '1.0.0'),
-  );
+  final client = McpClient(const Implementation(name: 'github-mcp-dart-client', version: '1.0.0'));
 
   try {
     print('Connecting to GitHub MCP server...\n');
@@ -403,9 +382,7 @@ Future<void> main(List<String> args) async {
     // Create transport with OAuth authentication
     final transport = StreamableHttpClientTransport(
       Uri.parse('https://api.githubcopilot.com/mcp/'),
-      opts: StreamableHttpClientTransportOptions(
-        authProvider: authProvider,
-      ),
+      opts: StreamableHttpClientTransportOptions(authProvider: authProvider),
     );
 
     // Check if we have existing tokens

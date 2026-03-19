@@ -145,9 +145,7 @@ void main() {
     test('RequestOptions with abort signal', () {
       final controller = BasicAbortController();
 
-      final options = RequestOptions(
-        signal: controller.signal,
-      );
+      final options = RequestOptions(signal: controller.signal);
 
       expect(options.signal, isNotNull);
       expect(options.signal!.aborted, isFalse);
@@ -159,9 +157,7 @@ void main() {
     test('RequestOptions with progress callback', () {
       final progressUpdates = <Progress>[];
 
-      final options = RequestOptions(
-        onprogress: (progress) => progressUpdates.add(progress),
-      );
+      final options = RequestOptions(onprogress: (progress) => progressUpdates.add(progress));
 
       options.onprogress!(const Progress(progress: 50, total: 100));
       expect(progressUpdates.length, equals(1));
@@ -173,10 +169,7 @@ void main() {
     test('RequestHandlerExtra with all fields', () async {
       final controller = BasicAbortController();
 
-      Future<void> sendNotification(
-        JsonRpcNotification notification, {
-        RelatedTaskMetadata? relatedTask,
-      }) async {}
+      Future<void> sendNotification(JsonRpcNotification notification, {RelatedTaskMetadata? relatedTask}) async {}
 
       Future<T> sendRequest<T extends BaseResultData>(
         JsonRpcRequest request,
@@ -220,13 +213,14 @@ void main() {
         signal: controller.signal,
         requestId: 1,
         sendNotification: (notification, {relatedTask}) async {},
-        sendRequest: <T extends BaseResultData>(
-          JsonRpcRequest request,
-          T Function(Map<String, dynamic>) resultFactory,
-          RequestOptions options,
-        ) async {
-          return resultFactory({});
-        },
+        sendRequest:
+            <T extends BaseResultData>(
+              JsonRpcRequest request,
+              T Function(Map<String, dynamic>) resultFactory,
+              RequestOptions options,
+            ) async {
+              return resultFactory({});
+            },
       );
 
       expect(extra.sessionId, isNull);
@@ -263,13 +257,9 @@ void main() {
       await protocol.connect(transport);
 
       // Register a custom handler for a known request type
-      protocol.setRequestHandler<JsonRpcPingRequest>(
-        'ping',
-        (request, extra) async {
-          return const EmptyResult();
-        },
-        (id, params, meta) => JsonRpcPingRequest(id: id),
-      );
+      protocol.setRequestHandler<JsonRpcPingRequest>('ping', (request, extra) async {
+        return const EmptyResult();
+      }, (id, params, meta) => JsonRpcPingRequest(id: id));
 
       // Simulate receiving a ping request
       transport.receiveMessage(const JsonRpcPingRequest(id: 1));
@@ -286,17 +276,9 @@ void main() {
       await protocol.connect(transport);
 
       // Register a handler that throws McpError
-      protocol.setRequestHandler<JsonRpcPingRequest>(
-        'ping',
-        (request, extra) async {
-          throw McpError(
-            ErrorCode.internalError.value,
-            'Test error message',
-            {'detail': 'extra data'},
-          );
-        },
-        (id, params, meta) => JsonRpcPingRequest(id: id),
-      );
+      protocol.setRequestHandler<JsonRpcPingRequest>('ping', (request, extra) async {
+        throw McpError(ErrorCode.internalError.value, 'Test error message', {'detail': 'extra data'});
+      }, (id, params, meta) => JsonRpcPingRequest(id: id));
 
       transport.receiveMessage(const JsonRpcPingRequest(id: 2));
 
@@ -356,9 +338,8 @@ void main() {
         (notification) async {
           handlerCalled = true;
         },
-        (params, meta) => JsonRpcProgressNotification(
-          progressParams: ProgressNotificationParams.fromJson(params ?? {}),
-        ),
+        (params, meta) =>
+            JsonRpcProgressNotification(progressParams: ProgressNotificationParams.fromJson(params ?? {})),
       );
 
       // Remove the handler
@@ -391,11 +372,7 @@ void main() {
     test('sends notification successfully', () async {
       await protocol.notification(
         JsonRpcProgressNotification(
-          progressParams: const ProgressNotificationParams(
-            progressToken: 1,
-            progress: 50,
-            total: 100,
-          ),
+          progressParams: const ProgressNotificationParams(progressToken: 1, progress: 50, total: 100),
         ),
       );
 
@@ -406,10 +383,7 @@ void main() {
 
   group('DefaultRequestTimeout', () {
     test('defaultRequestTimeout is 60 seconds', () {
-      expect(
-        defaultRequestTimeout,
-        equals(const Duration(milliseconds: 60000)),
-      );
+      expect(defaultRequestTimeout, equals(const Duration(milliseconds: 60000)));
     });
   });
 }

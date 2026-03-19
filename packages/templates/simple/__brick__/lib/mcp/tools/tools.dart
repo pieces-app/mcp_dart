@@ -8,6 +8,4 @@ export 'base_tool.dart';
 export 'calculator_tool.dart';
 
 /// Creates all available tools.
-List<BaseTool> createAllTools() => [
-      CalculatorTool(),
-    ];
+List<BaseTool> createAllTools() => [CalculatorTool()];

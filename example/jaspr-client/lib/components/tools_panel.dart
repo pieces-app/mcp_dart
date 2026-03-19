@@ -56,9 +56,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
           p([Component.text('No tools available on this server.')]),
         ])
       else
-        div(classes: 'tools-list', [
-          for (final tool in component.tools) _buildToolCard(tool),
-        ]),
+        div(classes: 'tools-list', [for (final tool in component.tools) _buildToolCard(tool)]),
     ]);
   }
 
@@ -79,11 +77,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
       if (tool.description != null) p(classes: 'tool-description', [Component.text(tool.description!)]),
       if (progress != null)
         div(classes: 'progress-bar-container', [
-          div(
-            classes: 'progress-bar-fill',
-            attributes: {'style': 'width: ${(progress * 100).clamp(0, 100)}%'},
-            [],
-          ),
+          div(classes: 'progress-bar-fill', attributes: {'style': 'width: ${(progress * 100).clamp(0, 100)}%'}, []),
         ]),
       _buildToolForm(tool),
     ]);
@@ -128,10 +122,7 @@ class _ToolsPanelState extends State<ToolsPanel> {
     }
 
     return div(classes: 'form-group', [
-      label(
-        attributes: {'for': 'tool-$toolName-arg-$argName'},
-        [Component.text(argName)],
-      ),
+      label(attributes: {'for': 'tool-$toolName-arg-$argName'}, [Component.text(argName)]),
       input(
         id: 'tool-$toolName-arg-$argName',
         type: inputType,

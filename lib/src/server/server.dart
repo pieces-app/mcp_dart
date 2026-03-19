@@ -15,11 +15,7 @@ class McpServerOptions extends ProtocolOptions {
   /// Optional instructions describing how to use the server and its features.
   final String? instructions;
 
-  const McpServerOptions({
-    super.enforceStrictCapabilities,
-    this.capabilities,
-    this.instructions,
-  });
+  const McpServerOptions({super.enforceStrictCapabilities, this.capabilities, this.instructions});
 }
 
 /// Deprecated alias for [McpServerOptions].
@@ -31,9 +27,7 @@ typedef ServerOptions = McpServerOptions;
 /// This server automatically handles the initialization flow initiated by the client.
 /// It extends the base [Protocol] class, providing server-specific logic and
 /// capability handling.
-@Deprecated(
-  'Use McpServer instead unless you need to create a custom protocol implementation',
-)
+@Deprecated('Use McpServer instead unless you need to create a custom protocol implementation')
 class Server extends Protocol {
   ClientCapabilities? _clientCapabilities;
   Implementation? _clientVersion;
@@ -62,26 +56,20 @@ class Server extends Protocol {
   /// Initializes this server with its implementation details and options.
   /// - [options]: Optional configuration settings including server capabilities.
   Server(this._serverInfo, {McpServerOptions? options})
-      : _capabilities = options?.capabilities ?? const ServerCapabilities(),
-        _instructions = options?.instructions,
-        super(options) {
+    : _capabilities = options?.capabilities ?? const ServerCapabilities(),
+      _instructions = options?.instructions,
+      super(options) {
     setRequestHandler<JsonRpcInitializeRequest>(
       Method.initialize,
       (request, extra) async => _oninitialize(request.initParams),
-      (id, params, meta) => JsonRpcInitializeRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (id, params, meta) =>
+          JsonRpcInitializeRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
 
     setNotificationHandler<JsonRpcInitializedNotification>(
       Method.notificationsInitialized,
       (notification) async => oninitialized?.call(),
-      (params, meta) => JsonRpcInitializedNotification.fromJson({
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (params, meta) => JsonRpcInitializedNotification.fromJson({'params': params, if (meta != null) '_meta': meta}),
     );
 
     if (_capabilities.logging != null) {
@@ -91,11 +79,8 @@ class Server extends Protocol {
           _loggingLevels[extra.sessionId] = request.setParams.level;
           return const EmptyResult();
         },
-        (id, params, meta) => JsonRpcSetLevelRequest.fromJson({
-          'id': id,
-          'params': params,
-          if (meta != null) '_meta': meta,
-        }),
+        (id, params, meta) =>
+            JsonRpcSetLevelRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
       );
     }
   }
@@ -112,15 +97,10 @@ class Server extends Protocol {
   /// This can only be called *before* connecting to a transport.
   void registerCapabilities(ServerCapabilities capabilities) {
     if (transport != null) {
-      throw StateError(
-        "Cannot register capabilities after connecting to transport",
-      );
+      throw StateError("Cannot register capabilities after connecting to transport");
     }
 
-    final merged = mergeCapabilities<Map<String, dynamic>>(
-      _capabilities.toJson(),
-      capabilities.toJson(),
-    );
+    final merged = mergeCapabilities<Map<String, dynamic>>(_capabilities.toJson(), capabilities.toJson());
 
     _capabilities = ServerCapabilities.fromJson(merged);
   }
@@ -128,36 +108,22 @@ class Server extends Protocol {
   @override
   void setRequestHandler<ReqT extends JsonRpcRequest>(
     String method,
-    Future<BaseResultData> Function(ReqT request, RequestHandlerExtra extra)
-        handler,
-    ReqT Function(
-      RequestId id,
-      Map<String, dynamic>? params,
-      Map<String, dynamic>? meta,
-    ) requestFactory,
+    Future<BaseResultData> Function(ReqT request, RequestHandlerExtra extra) handler,
+    ReqT Function(RequestId id, Map<String, dynamic>? params, Map<String, dynamic>? meta) requestFactory,
   ) {
     if (method == Method.toolsCall) {
-      Future<BaseResultData> wrappedHandler(
-        ReqT request,
-        RequestHandlerExtra extra,
-      ) async {
+      Future<BaseResultData> wrappedHandler(ReqT request, RequestHandlerExtra extra) async {
         // Run the original handler
         final result = await handler(request, extra);
 
         // Validate the result based on whether it's a task-augmented request
         if (request is JsonRpcCallToolRequest && request.isTaskAugmented) {
           if (result is! CreateTaskResult) {
-            throw McpError(
-              ErrorCode.invalidParams.value,
-              "Invalid task creation result: Expected CreateTaskResult",
-            );
+            throw McpError(ErrorCode.invalidParams.value, "Invalid task creation result: Expected CreateTaskResult");
           }
         } else {
           if (result is! CallToolResult) {
-            throw McpError(
-              ErrorCode.invalidParams.value,
-              "Invalid tools/call result: Expected CallToolResult",
-            );
+            throw McpError(ErrorCode.invalidParams.value, "Invalid tools/call result: Expected CallToolResult");
           }
         }
         return result;
@@ -231,9 +197,7 @@ class Server extends Protocol {
         break;
 
       default:
-        _logger.warn(
-          "assertCapabilityForMethod called for unknown server-sent request method: $method",
-        );
+        _logger.warn("assertCapabilityForMethod called for unknown server-sent request method: $method");
     }
   }
 
@@ -242,17 +206,13 @@ class Server extends Protocol {
     switch (method) {
       case Method.notificationsMessage:
         if (!(_capabilities.logging != null)) {
-          throw StateError(
-            "Server does not support logging capability (required for sending $method)",
-          );
+          throw StateError("Server does not support logging capability (required for sending $method)");
         }
         break;
 
       case Method.notificationsResourcesUpdated:
         if (!(_capabilities.resources?.subscribe ?? false)) {
-          throw StateError(
-            "Server does not support resource subscription capability (required for sending $method)",
-          );
+          throw StateError("Server does not support resource subscription capability (required for sending $method)");
         }
         break;
 
@@ -290,17 +250,13 @@ class Server extends Protocol {
 
       case Method.notificationsTasksStatus:
         if (!(_capabilities.tasks != null)) {
-          throw StateError(
-            "Server does not support task capability (required for sending $method)",
-          );
+          throw StateError("Server does not support task capability (required for sending $method)");
         }
         break;
 
       case Method.notificationsElicitationComplete:
         if (!(_clientCapabilities?.elicitation?.url != null)) {
-          throw StateError(
-            "Client does not support URL elicitation (required for sending $method)",
-          );
+          throw StateError("Client does not support URL elicitation (required for sending $method)");
         }
         break;
 
@@ -309,9 +265,7 @@ class Server extends Protocol {
         break;
 
       default:
-        _logger.warn(
-          "assertNotificationCapability called for unknown server-sent notification method: $method",
-        );
+        _logger.warn("assertNotificationCapability called for unknown server-sent notification method: $method");
     }
   }
 
@@ -325,18 +279,14 @@ class Server extends Protocol {
 
       case Method.loggingSetLevel:
         if (!(_capabilities.logging != null)) {
-          throw StateError(
-            "Server setup error: Cannot handle '$method' without 'logging' capability",
-          );
+          throw StateError("Server setup error: Cannot handle '$method' without 'logging' capability");
         }
         break;
 
       case Method.promptsGet:
       case Method.promptsList:
         if (!(_capabilities.prompts != null)) {
-          throw StateError(
-            "Server setup error: Cannot handle '$method' without 'prompts' capability",
-          );
+          throw StateError("Server setup error: Cannot handle '$method' without 'prompts' capability");
         }
         break;
 
@@ -344,27 +294,21 @@ class Server extends Protocol {
       case Method.resourcesTemplatesList:
       case Method.resourcesRead:
         if (!(_capabilities.resources != null)) {
-          throw StateError(
-            "Server setup error: Cannot handle '$method' without 'resources' capability",
-          );
+          throw StateError("Server setup error: Cannot handle '$method' without 'resources' capability");
         }
         break;
 
       case Method.resourcesSubscribe:
       case Method.resourcesUnsubscribe:
         if (!(_capabilities.resources?.subscribe ?? false)) {
-          throw StateError(
-            "Server setup error: Cannot handle '$method' without 'resources.subscribe' capability",
-          );
+          throw StateError("Server setup error: Cannot handle '$method' without 'resources.subscribe' capability");
         }
         break;
 
       case Method.toolsCall:
       case Method.toolsList:
         if (!(_capabilities.tools != null)) {
-          throw StateError(
-            "Server setup error: Cannot handle '$method' without 'tools' capability",
-          );
+          throw StateError("Server setup error: Cannot handle '$method' without 'tools' capability");
         }
         break;
 
@@ -373,9 +317,7 @@ class Server extends Protocol {
       case Method.tasksGet:
       case Method.tasksResult:
         if (!(_capabilities.tasks != null)) {
-          throw StateError(
-            "Server setup error: Cannot handle '$method' without 'tasks' capability",
-          );
+          throw StateError("Server setup error: Cannot handle '$method' without 'tasks' capability");
         }
         break;
 
@@ -399,55 +341,35 @@ class Server extends Protocol {
   @override
   void assertTaskHandlerCapability(String method) {
     if (_capabilities.tasks == null) {
-      throw StateError(
-        "Server setup error: Cannot handle task-based '$method' without 'tasks' capability registered.",
-      );
+      throw StateError("Server setup error: Cannot handle task-based '$method' without 'tasks' capability registered.");
     }
   }
 
   /// Sends a `ping` request to the client and awaits an empty response.
   Future<EmptyResult> ping([RequestOptions? options]) {
-    return request<EmptyResult>(
-      const JsonRpcPingRequest(id: -1),
-      (json) => const EmptyResult(),
-      options,
-    );
+    return request<EmptyResult>(const JsonRpcPingRequest(id: -1), (json) => const EmptyResult(), options);
   }
 
   /// Sends a `sampling/createMessage` request to the client to ask it to sample an LLM.
-  Future<CreateMessageResult> createMessage(
-    CreateMessageRequest params, [
-    RequestOptions? options,
-  ]) {
+  Future<CreateMessageResult> createMessage(CreateMessageRequest params, [RequestOptions? options]) {
     // Capability check - only required when tools/toolChoice are provided
     if (params.tools != null || params.toolChoice != null) {
       if (!(_clientCapabilities?.sampling?.tools ?? false)) {
-        throw McpError(
-          ErrorCode.invalidRequest.value,
-          "Client does not support sampling tools capability.",
-        );
+        throw McpError(ErrorCode.invalidRequest.value, "Client does not support sampling tools capability.");
       }
     }
 
     // Message structure validation - always validate tool_use/tool_result pairs.
     if (params.messages.isNotEmpty) {
       final lastMessage = params.messages.last;
-      final lastContent = lastMessage.content is List
-          ? lastMessage.content as List
-          : [lastMessage.content];
-      final hasToolResults =
-          lastContent.any((c) => c is SamplingToolResultContent);
+      final lastContent = lastMessage.content is List ? lastMessage.content as List : [lastMessage.content];
+      final hasToolResults = lastContent.any((c) => c is SamplingToolResultContent);
 
-      final previousMessage = params.messages.length > 1
-          ? params.messages[params.messages.length - 2]
-          : null;
+      final previousMessage = params.messages.length > 1 ? params.messages[params.messages.length - 2] : null;
       final previousContent = previousMessage != null
-          ? (previousMessage.content is List
-              ? previousMessage.content as List
-              : [previousMessage.content])
+          ? (previousMessage.content is List ? previousMessage.content as List : [previousMessage.content])
           : [];
-      final hasPreviousToolUse =
-          previousContent.any((c) => c is SamplingToolUseContent);
+      final hasPreviousToolUse = previousContent.any((c) => c is SamplingToolUseContent);
 
       if (hasToolResults) {
         if (lastContent.any((c) => c is! SamplingToolResultContent)) {
@@ -465,17 +387,10 @@ class Server extends Protocol {
       }
 
       if (hasPreviousToolUse) {
-        final toolUseIds = previousContent
-            .whereType<SamplingToolUseContent>()
-            .map((c) => c.id)
-            .toSet();
-        final toolResultIds = lastContent
-            .whereType<SamplingToolResultContent>()
-            .map((c) => c.toolUseId)
-            .toSet();
+        final toolUseIds = previousContent.whereType<SamplingToolUseContent>().map((c) => c.id).toSet();
+        final toolResultIds = lastContent.whereType<SamplingToolResultContent>().map((c) => c.toolUseId).toSet();
 
-        if (toolUseIds.length != toolResultIds.length ||
-            !toolUseIds.every((id) => toolResultIds.contains(id))) {
+        if (toolUseIds.length != toolResultIds.length || !toolUseIds.every((id) => toolResultIds.contains(id))) {
           throw McpError(
             ErrorCode.invalidParams.value,
             "ids of tool_result blocks and tool_use blocks from previous message do not match",
@@ -485,36 +400,23 @@ class Server extends Protocol {
     }
 
     final req = JsonRpcCreateMessageRequest(id: -1, createParams: params);
-    return request<CreateMessageResult>(
-      req,
-      (json) => CreateMessageResult.fromJson(json),
-      options,
-    );
+    return request<CreateMessageResult>(req, (json) => CreateMessageResult.fromJson(json), options);
   }
 
   /// Creates an elicitation request for the given parameters.
-  Future<ElicitResult> elicitInput(
-    ElicitRequest params, [
-    RequestOptions? options,
-  ]) async {
+  Future<ElicitResult> elicitInput(ElicitRequest params, [RequestOptions? options]) async {
     // Mode defaults to 'form' if omitted (handled in types, but logic here too)
     final mode = params.mode ?? ElicitationMode.form;
 
     switch (mode) {
       case ElicitationMode.url:
         if (!(_clientCapabilities?.elicitation?.url != null)) {
-          throw McpError(
-            ErrorCode.invalidRequest.value,
-            "Client does not support url elicitation.",
-          );
+          throw McpError(ErrorCode.invalidRequest.value, "Client does not support url elicitation.");
         }
         break;
       case ElicitationMode.form:
         if (!(_clientCapabilities?.elicitation?.form != null)) {
-          throw McpError(
-            ErrorCode.invalidRequest.value,
-            "Client does not support form elicitation.",
-          );
+          throw McpError(ErrorCode.invalidRequest.value, "Client does not support form elicitation.");
         }
         break;
     }
@@ -522,16 +424,9 @@ class Server extends Protocol {
     // Note: Schema validation of the result is omitted as no JSON Schema validator is available.
 
     final req = JsonRpcElicitRequest(id: -1, elicitParams: params);
-    final result = await request<ElicitResult>(
-      req,
-      (json) => ElicitResult.fromJson(json),
-      options,
-    );
+    final result = await request<ElicitResult>(req, (json) => ElicitResult.fromJson(json), options);
 
-    if (params.isFormMode &&
-        result.accepted &&
-        result.content != null &&
-        params.requestedSchema != null) {
+    if (params.isFormMode && result.accepted && result.content != null && params.requestedSchema != null) {
       try {
         params.requestedSchema!.validate(result.content);
       } catch (e) {
@@ -541,10 +436,7 @@ class Server extends Protocol {
             "Elicitation response content does not match requested schema: ${e.message}",
           );
         }
-        throw McpError(
-          ErrorCode.internalError.value,
-          "Error validating elicitation response: $e",
-        );
+        throw McpError(ErrorCode.internalError.value, "Error validating elicitation response: $e");
       }
     }
 
@@ -553,39 +445,26 @@ class Server extends Protocol {
 
   /// Creates a reusable callback that, when invoked, will send a `notifications/elicitation/complete`
   /// notification for the specified elicitation ID.
-  Future<void> Function() createElicitationCompletionNotifier(
-    String elicitationId,
-  ) {
+  Future<void> Function() createElicitationCompletionNotifier(String elicitationId) {
     if (!(_clientCapabilities?.elicitation?.url != null)) {
-      throw StateError(
-        "Client does not support URL elicitation (required for notifications/elicitation/complete)",
-      );
+      throw StateError("Client does not support URL elicitation (required for notifications/elicitation/complete)");
     }
 
     return () => notification(
-          JsonRpcElicitationCompleteNotification(
-            completeParams: ElicitationCompleteNotification(
-              elicitationId: elicitationId,
-            ),
-          ),
-        );
+      JsonRpcElicitationCompleteNotification(
+        completeParams: ElicitationCompleteNotification(elicitationId: elicitationId),
+      ),
+    );
   }
 
   /// Sends a `roots/list` request to the client to ask for its root URIs.
   Future<ListRootsResult> listRoots({RequestOptions? options}) {
     final req = const JsonRpcListRootsRequest(id: -1);
-    return request<ListRootsResult>(
-      req,
-      (json) => ListRootsResult.fromJson(json),
-      options,
-    );
+    return request<ListRootsResult>(req, (json) => ListRootsResult.fromJson(json), options);
   }
 
   /// Sends a `notifications/message` (logging) notification to the client.
-  Future<void> sendLoggingMessage(
-    LoggingMessageNotification params, {
-    String? sessionId,
-  }) async {
+  Future<void> sendLoggingMessage(LoggingMessageNotification params, {String? sessionId}) async {
     if (_capabilities.logging != null) {
       if (!_isMessageIgnored(params.level, sessionId)) {
         final notif = JsonRpcLoggingMessageNotification(logParams: params);

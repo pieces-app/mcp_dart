@@ -167,13 +167,10 @@ class OAuthServerConfig {
       clientId: clientId,
       clientSecret: clientSecret,
       tokenEndpoint: Uri.parse('https://oauth2.googleapis.com/token'),
-      userInfoEndpoint:
-          Uri.parse('https://www.googleapis.com/oauth2/v2/userinfo'),
+      userInfoEndpoint: Uri.parse('https://www.googleapis.com/oauth2/v2/userinfo'),
       requiredScopes: requiredScopes,
       serverUri: serverUri,
-      authServerMetadataEndpoint: Uri.parse(
-        'https://accounts.google.com/.well-known/openid-configuration',
-      ),
+      authServerMetadataEndpoint: Uri.parse('https://accounts.google.com/.well-known/openid-configuration'),
       allowedRedirectUris: allowedRedirectUris,
     );
   }
@@ -197,13 +194,9 @@ class OAuthTokenInfo {
 
   bool get isExpired => DateTime.now().isAfter(expiresAt);
 
-  String get userId =>
-      userInfo['id']?.toString() ?? userInfo['sub']?.toString() ?? 'unknown';
+  String get userId => userInfo['id']?.toString() ?? userInfo['sub']?.toString() ?? 'unknown';
   String get username =>
-      userInfo['login']?.toString() ??
-      userInfo['name']?.toString() ??
-      userInfo['email']?.toString() ??
-      'unknown';
+      userInfo['login']?.toString() ?? userInfo['name']?.toString() ?? userInfo['email']?.toString() ?? 'unknown';
 }
 
 /// OAuth validator for MCP servers
@@ -278,9 +271,7 @@ class OAuthServerValidator {
       // Verify scopes (if available from provider)
       final tokenScopes = await _fetchTokenScopes(token);
       if (config.requiredScopes.isNotEmpty) {
-        final hasRequiredScopes = config.requiredScopes.every(
-          (scope) => tokenScopes.contains(scope),
-        );
+        final hasRequiredScopes = config.requiredScopes.every((scope) => tokenScopes.contains(scope));
         if (!hasRequiredScopes) {
           print('❌ Token missing required scopes: ${config.requiredScopes}');
           return null;
@@ -307,10 +298,7 @@ class OAuthServerValidator {
     try {
       final response = await http.get(
         config.userInfoEndpoint,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
+        headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
       );
 
       if (response.statusCode == 200) {
@@ -349,11 +337,7 @@ class OAuthServerValidator {
   /// - PKCE code_verifier for authorization code protection
   /// - resource parameter for audience validation
   /// - redirect_uri validation
-  Future<OAuthTokenInfo?> exchangeCode(
-    String code,
-    String redirectUri,
-    String codeVerifier,
-  ) async {
+  Future<OAuthTokenInfo?> exchangeCode(String code, String redirectUri, String codeVerifier) async {
     // Validate redirect URI
     if (!_validateRedirectUri(redirectUri)) {
       print('❌ Invalid redirect URI: $redirectUri');
@@ -368,16 +352,12 @@ class OAuthServerValidator {
         'redirect_uri': redirectUri,
         'grant_type': 'authorization_code',
         'code_verifier': codeVerifier, // PKCE requirement
-        'resource':
-            config.serverUri, // MCP spec requirement for audience validation
+        'resource': config.serverUri, // MCP spec requirement for audience validation
       };
 
       final response = await http.post(
         config.tokenEndpoint,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'},
         body: body,
       );
 
@@ -427,10 +407,7 @@ class OAuthServerValidator {
 
       final response = await http.post(
         config.tokenEndpoint,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'},
         body: body,
       );
 
@@ -511,8 +488,8 @@ class OAuthServerTransport implements Transport {
     required StreamableHTTPServerTransport transport,
     required OAuthServerValidator validator,
     this.metadata,
-  })  : _innerTransport = transport,
-        _validator = validator;
+  }) : _innerTransport = transport,
+       _validator = validator;
 
   /// Handle OAuth metadata discovery endpoint
   ///
@@ -584,9 +561,7 @@ class OAuthServerTransport implements Transport {
       _sessionTokens[sessionId] = tokenInfo;
     }
 
-    print(
-      '✓ Authenticated request from ${tokenInfo.username} (${tokenInfo.userId})',
-    );
+    print('✓ Authenticated request from ${tokenInfo.username} (${tokenInfo.userId})');
 
     // Forward to inner transport
     await _innerTransport.handleRequest(req, parsedBody);
@@ -607,16 +582,13 @@ class OAuthServerTransport implements Transport {
   void Function(Error error)? get onerror => _innerTransport.onerror;
 
   @override
-  set onerror(void Function(Error error)? value) =>
-      _innerTransport.onerror = value;
+  set onerror(void Function(Error error)? value) => _innerTransport.onerror = value;
 
   @override
-  void Function(JsonRpcMessage message)? get onmessage =>
-      _innerTransport.onmessage;
+  void Function(JsonRpcMessage message)? get onmessage => _innerTransport.onmessage;
 
   @override
-  set onmessage(void Function(JsonRpcMessage message)? value) =>
-      _innerTransport.onmessage = value;
+  set onmessage(void Function(JsonRpcMessage message)? value) => _innerTransport.onmessage = value;
 
   @override
   String? get sessionId => _innerTransport.sessionId;
@@ -634,27 +606,19 @@ class OAuthServerTransport implements Transport {
 
 /// Create MCP server with OAuth-protected tools
 McpServer createOAuthMcpServer() {
-  final server = McpServer(
-    const Implementation(name: 'oauth-protected-server', version: '1.0.0'),
-  );
+  final server = McpServer(const Implementation(name: 'oauth-protected-server', version: '1.0.0'));
 
   // Public tool (accessible to all authenticated users)
   server.registerTool(
     'greet',
     description: 'A simple greeting tool',
     inputSchema: JsonSchema.object(
-      properties: {
-        'name': JsonSchema.string(
-          description: 'Name to greet',
-        ),
-      },
+      properties: {'name': JsonSchema.string(description: 'Name to greet')},
       required: ['name'],
     ),
     callback: (args, extra) async {
       final name = args['name'] as String? ?? 'user';
-      return CallToolResult.fromContent(
-        [TextContent(text: 'Hello, $name!')],
-      );
+      return CallToolResult.fromContent([TextContent(text: 'Hello, $name!')]);
     },
   );
 
@@ -662,19 +626,13 @@ McpServer createOAuthMcpServer() {
   server.registerTool(
     'user-info',
     description: 'Get authenticated user information',
-    inputSchema: JsonSchema.object(
-      properties: {},
-    ),
+    inputSchema: JsonSchema.object(properties: {}),
     callback: (args, extra) async {
       // In a real implementation, retrieve user info from request context
       // This is a simplified example
-      return CallToolResult.fromContent(
-        [
-          const TextContent(
-            text: 'User info would be retrieved from OAuth token context',
-          ),
-        ],
-      );
+      return CallToolResult.fromContent([
+        const TextContent(text: 'User info would be retrieved from OAuth token context'),
+      ]);
     },
   );
 
@@ -683,19 +641,13 @@ McpServer createOAuthMcpServer() {
     'admin-action',
     description: 'Perform admin action (requires admin scope)',
     inputSchema: JsonSchema.object(
-      properties: {
-        'action': JsonSchema.string(
-          description: 'Admin action to perform',
-        ),
-      },
+      properties: {'action': JsonSchema.string(description: 'Admin action to perform')},
       required: ['action'],
     ),
     callback: (args, extra) async {
       // Verify admin scope in production
       final action = args['action'] as String? ?? 'none';
-      return CallToolResult.fromContent(
-        [TextContent(text: 'Admin action executed: $action')],
-      );
+      return CallToolResult.fromContent([TextContent(text: 'Admin action executed: $action')]);
     },
   );
 
@@ -727,10 +679,7 @@ Future<void> main(List<String> args) async {
 
   // Parse arguments
   final useHttps = args.contains('--https');
-  final provider = args.firstWhere(
-    (arg) => !arg.startsWith('--'),
-    orElse: () => 'github',
-  );
+  final provider = args.firstWhere((arg) => !arg.startsWith('--'), orElse: () => 'github');
 
   // Server configuration
   final host = 'localhost';
@@ -768,10 +717,7 @@ Future<void> main(List<String> args) async {
       clientSecret: clientSecret,
       serverUri: serverUri,
       requiredScopes: ['repo', 'read:user'],
-      allowedRedirectUris: [
-        'http://localhost:3001/callback',
-        'https://localhost:3001/callback',
-      ],
+      allowedRedirectUris: ['http://localhost:3001/callback', 'https://localhost:3001/callback'],
     );
 
     metadata = OAuthMetadata(
@@ -799,10 +745,7 @@ Future<void> main(List<String> args) async {
       clientSecret: clientSecret,
       serverUri: serverUri,
       requiredScopes: ['openid', 'email', 'profile'],
-      allowedRedirectUris: [
-        'http://localhost:3001/callback',
-        'https://localhost:3001/callback',
-      ],
+      allowedRedirectUris: ['http://localhost:3001/callback', 'https://localhost:3001/callback'],
     );
 
     metadata = OAuthMetadata(
@@ -850,9 +793,7 @@ Future<void> main(List<String> args) async {
       print('    -out server_cert.pem -days 365 -nodes \\');
       print('    -subj "/CN=localhost"');
       print('');
-      print(
-        'For production, use a reverse proxy with proper TLS certificates.',
-      );
+      print('For production, use a reverse proxy with proper TLS certificates.');
       print('Falling back to HTTP mode...');
       print('');
       httpServer = await HttpServer.bind(host, port);
@@ -870,16 +811,12 @@ Future<void> main(List<String> args) async {
   print('  ✅ Token audience validation');
   print('  ✅ Redirect URI validation');
   print('  ✅ OAuth metadata discovery');
-  print(
-    '  ${useHttps ? "✅" : "⚠️ "} HTTPS ${useHttps ? "enabled" : "not enabled (use --https)"}',
-  );
+  print('  ${useHttps ? "✅" : "⚠️ "} HTTPS ${useHttps ? "enabled" : "not enabled (use --https)"}');
   print('');
   print('Usage:');
   print('  1. Obtain OAuth access token from provider');
   print('  2. Make requests with: Authorization: Bearer <token>');
-  print(
-    '  3. Access metadata: GET $serverUri/.well-known/oauth-authorization-server',
-  );
+  print('  3. Access metadata: GET $serverUri/.well-known/oauth-authorization-server');
   print('');
   print('Server running. Press Ctrl+C to stop.\n');
 
@@ -943,11 +880,7 @@ Future<void> main(List<String> args) async {
             ),
           );
 
-          transport = OAuthServerTransport(
-            transport: innerTransport,
-            validator: validator,
-            metadata: metadata,
-          );
+          transport = OAuthServerTransport(transport: innerTransport, validator: validator, metadata: metadata);
 
           transport.onclose = () {
             final sid = transport!.sessionId;
@@ -989,9 +922,7 @@ Future<void> main(List<String> args) async {
       }
     } catch (e) {
       print('Error handling request: $e');
-      if (!request.response.headers.contentType
-          .toString()
-          .contains('event-stream')) {
+      if (!request.response.headers.contentType.toString().contains('event-stream')) {
         request.response
           ..statusCode = HttpStatus.internalServerError
           ..write('Internal server error');

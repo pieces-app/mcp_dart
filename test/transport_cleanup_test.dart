@@ -251,9 +251,7 @@ class _CleanupTracker {
         .map((MapEntry<int, String> entry) => entry.key)
         .toList();
 
-    bool allResponsesReady = relatedIds.every(
-      (int id) => _requestResponseMap.containsKey(id),
-    );
+    bool allResponsesReady = relatedIds.every((int id) => _requestResponseMap.containsKey(id));
 
     if (allResponsesReady) {
       for (int id in relatedIds) {
@@ -288,9 +286,7 @@ class _BrokenCleanupTracker {
         .map((MapEntry<int, String> entry) => entry.key)
         .toList();
 
-    bool allResponsesReady = relatedIds.every(
-      (int id) => _requestResponseMap.containsKey(id),
-    );
+    bool allResponsesReady = relatedIds.every((int id) => _requestResponseMap.containsKey(id));
 
     if (allResponsesReady) {
       for (int id in relatedIds) {

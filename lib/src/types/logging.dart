@@ -1,16 +1,7 @@
 import 'json_rpc.dart';
 
 /// Severity levels for log messages (syslog levels).
-enum LoggingLevel {
-  debug,
-  info,
-  notice,
-  warning,
-  error,
-  critical,
-  alert,
-  emergency,
-}
+enum LoggingLevel { debug, info, notice, warning, error, critical, alert, emergency }
 
 /// Parameters for the `logging/setLevel` request.
 class SetLevelRequest {
@@ -20,9 +11,7 @@ class SetLevelRequest {
   const SetLevelRequest({required this.level});
 
   factory SetLevelRequest.fromJson(Map<String, dynamic> json) =>
-      SetLevelRequest(
-        level: LoggingLevel.values.byName(json['level'] as String),
-      );
+      SetLevelRequest(level: LoggingLevel.values.byName(json['level'] as String));
 
   Map<String, dynamic> toJson() => {'level': level.name};
 }
@@ -32,11 +21,8 @@ class JsonRpcSetLevelRequest extends JsonRpcRequest {
   /// The set level parameters.
   final SetLevelRequest setParams;
 
-  JsonRpcSetLevelRequest({
-    required super.id,
-    required this.setParams,
-    super.meta,
-  }) : super(method: Method.loggingSetLevel, params: setParams.toJson());
+  JsonRpcSetLevelRequest({required super.id, required this.setParams, super.meta})
+    : super(method: Method.loggingSetLevel, params: setParams.toJson());
 
   factory JsonRpcSetLevelRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -44,11 +30,7 @@ class JsonRpcSetLevelRequest extends JsonRpcRequest {
       throw const FormatException("Missing params for set level request");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcSetLevelRequest(
-      id: json['id'],
-      setParams: SetLevelRequest.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcSetLevelRequest(id: json['id'], setParams: SetLevelRequest.fromJson(paramsMap), meta: meta);
   }
 }
 
@@ -63,26 +45,15 @@ class LoggingMessageNotification {
   /// The data to be logged (string, object, etc.).
   final dynamic data;
 
-  const LoggingMessageNotification({
-    required this.level,
-    this.logger,
-    this.data,
-  });
+  const LoggingMessageNotification({required this.level, this.logger, this.data});
 
-  factory LoggingMessageNotification.fromJson(
-    Map<String, dynamic> json,
-  ) =>
-      LoggingMessageNotification(
-        level: LoggingLevel.values.byName(json['level'] as String),
-        logger: json['logger'] as String?,
-        data: json['data'],
-      );
+  factory LoggingMessageNotification.fromJson(Map<String, dynamic> json) => LoggingMessageNotification(
+    level: LoggingLevel.values.byName(json['level'] as String),
+    logger: json['logger'] as String?,
+    data: json['data'],
+  );
 
-  Map<String, dynamic> toJson() => {
-        'level': level.name,
-        if (logger != null) 'logger': logger,
-        'data': data,
-      };
+  Map<String, dynamic> toJson() => {'level': level.name, if (logger != null) 'logger': logger, 'data': data};
 }
 
 /// Notification of a log message passed from server to client.
@@ -91,22 +62,15 @@ class JsonRpcLoggingMessageNotification extends JsonRpcNotification {
   final LoggingMessageNotification logParams;
 
   JsonRpcLoggingMessageNotification({required this.logParams, super.meta})
-      : super(method: Method.notificationsMessage, params: logParams.toJson());
+    : super(method: Method.notificationsMessage, params: logParams.toJson());
 
-  factory JsonRpcLoggingMessageNotification.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory JsonRpcLoggingMessageNotification.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
     if (paramsMap == null) {
-      throw const FormatException(
-        "Missing params for logging message notification",
-      );
+      throw const FormatException("Missing params for logging message notification");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcLoggingMessageNotification(
-      logParams: LoggingMessageNotification.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcLoggingMessageNotification(logParams: LoggingMessageNotification.fromJson(paramsMap), meta: meta);
   }
 }
 

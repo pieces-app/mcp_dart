@@ -128,29 +128,13 @@ sealed class JsonSchema {
   }
 
   /// Creates a boolean schema.
-  static JsonBoolean boolean({
-    String? title,
-    String? description,
-    bool? defaultValue,
-  }) {
-    return JsonBoolean(
-      title: title,
-      description: description,
-      defaultValue: defaultValue,
-    );
+  static JsonBoolean boolean({String? title, String? description, bool? defaultValue}) {
+    return JsonBoolean(title: title, description: description, defaultValue: defaultValue);
   }
 
   /// Creates a null schema.
-  static JsonNull nullValue({
-    String? title,
-    String? description,
-    dynamic defaultValue,
-  }) {
-    return JsonNull(
-      title: title,
-      description: description,
-      defaultValue: defaultValue,
-    );
+  static JsonNull nullValue({String? title, String? description, dynamic defaultValue}) {
+    return JsonNull(title: title, description: description, defaultValue: defaultValue);
   }
 
   /// Creates an array schema.
@@ -196,63 +180,23 @@ sealed class JsonSchema {
   }
 
   /// Creates an allOf schema.
-  static JsonAllOf allOf(
-    List<JsonSchema> schemas, {
-    String? title,
-    String? description,
-    dynamic defaultValue,
-  }) {
-    return JsonAllOf(
-      schemas,
-      title: title,
-      description: description,
-      defaultValue: defaultValue,
-    );
+  static JsonAllOf allOf(List<JsonSchema> schemas, {String? title, String? description, dynamic defaultValue}) {
+    return JsonAllOf(schemas, title: title, description: description, defaultValue: defaultValue);
   }
 
   /// Creates an anyOf schema.
-  static JsonAnyOf anyOf(
-    List<JsonSchema> schemas, {
-    String? title,
-    String? description,
-    dynamic defaultValue,
-  }) {
-    return JsonAnyOf(
-      schemas,
-      title: title,
-      description: description,
-      defaultValue: defaultValue,
-    );
+  static JsonAnyOf anyOf(List<JsonSchema> schemas, {String? title, String? description, dynamic defaultValue}) {
+    return JsonAnyOf(schemas, title: title, description: description, defaultValue: defaultValue);
   }
 
   /// Creates a oneOf schema.
-  static JsonOneOf oneOf(
-    List<JsonSchema> schemas, {
-    String? title,
-    String? description,
-    dynamic defaultValue,
-  }) {
-    return JsonOneOf(
-      schemas,
-      title: title,
-      description: description,
-      defaultValue: defaultValue,
-    );
+  static JsonOneOf oneOf(List<JsonSchema> schemas, {String? title, String? description, dynamic defaultValue}) {
+    return JsonOneOf(schemas, title: title, description: description, defaultValue: defaultValue);
   }
 
   /// Creates a not schema.
-  static JsonNot not(
-    JsonSchema schema, {
-    String? title,
-    String? description,
-    dynamic defaultValue,
-  }) {
-    return JsonNot(
-      schema,
-      title: title,
-      description: description,
-      defaultValue: defaultValue,
-    );
+  static JsonNot not(JsonSchema schema, {String? title, String? description, dynamic defaultValue}) {
+    return JsonNot(schema, title: title, description: description, defaultValue: defaultValue);
   }
 }
 
@@ -289,8 +233,7 @@ class JsonString extends JsonSchema {
       maxLength: json['maxLength'] as int?,
       pattern: json['pattern'] as String?,
       format: json['format'] as String?,
-      enumValues: (json['enum'] as List?)?.cast<String>() ??
-          (json['values'] as List?)?.cast<String>(),
+      enumValues: (json['enum'] as List?)?.cast<String>() ?? (json['values'] as List?)?.cast<String>(),
       enumNames: (json['enumNames'] as List?)?.cast<String>(),
       title: json['title'] as String?,
       description: json['description'] as String?,
@@ -419,11 +362,7 @@ class JsonInteger extends JsonSchema {
 
 /// A schema for boolean values.
 class JsonBoolean extends JsonSchema {
-  const JsonBoolean({
-    this.defaultValue,
-    super.title,
-    super.description,
-  });
+  const JsonBoolean({this.defaultValue, super.title, super.description});
 
   @override
   final bool? defaultValue;
@@ -449,11 +388,7 @@ class JsonBoolean extends JsonSchema {
 
 /// A schema for null values.
 class JsonNull extends JsonSchema {
-  const JsonNull({
-    this.defaultValue,
-    super.title,
-    super.description,
-  });
+  const JsonNull({this.defaultValue, super.title, super.description});
 
   @override
   final dynamic defaultValue;
@@ -499,9 +434,7 @@ class JsonArray extends JsonSchema {
 
   factory JsonArray.fromJson(Map<String, dynamic> json) {
     return JsonArray(
-      items: json['items'] != null
-          ? JsonSchema.fromJson(json['items'] as Map<String, dynamic>)
-          : null,
+      items: json['items'] != null ? JsonSchema.fromJson(json['items'] as Map<String, dynamic>) : null,
       minItems: json['minItems'] as int?,
       maxItems: json['maxItems'] as int?,
       uniqueItems: json['uniqueItems'] as bool?,
@@ -549,19 +482,12 @@ class JsonObject extends JsonSchema {
   factory JsonObject.fromJson(Map<String, dynamic> json) {
     return JsonObject(
       properties: (json['properties'] as Map<String, dynamic>?)?.map(
-        (key, value) => MapEntry(
-          key,
-          JsonSchema.fromJson(value as Map<String, dynamic>),
-        ),
+        (key, value) => MapEntry(key, JsonSchema.fromJson(value as Map<String, dynamic>)),
       ),
       required: (json['required'] as List?)?.cast<String>(),
       additionalProperties: json['additionalProperties'] as bool?,
-      dependentRequired:
-          (json['dependentRequired'] as Map<String, dynamic>?)?.map(
-        (key, value) => MapEntry(
-          key,
-          (value as List).cast<String>(),
-        ),
+      dependentRequired: (json['dependentRequired'] as Map<String, dynamic>?)?.map(
+        (key, value) => MapEntry(key, (value as List).cast<String>()),
       ),
       title: json['title'] as String?,
       description: json['description'] as String?,
@@ -576,11 +502,9 @@ class JsonObject extends JsonSchema {
       if (description != null) 'description': description,
       if (defaultValue != null) 'default': defaultValue,
       'type': 'object',
-      if (properties != null)
-        'properties': properties!.map((k, v) => MapEntry(k, v.toJson())),
+      if (properties != null) 'properties': properties!.map((k, v) => MapEntry(k, v.toJson())),
       if (required != null && required!.isNotEmpty) 'required': required,
-      if (additionalProperties != null)
-        'additionalProperties': additionalProperties,
+      if (additionalProperties != null) 'additionalProperties': additionalProperties,
       if (dependentRequired != null) 'dependentRequired': dependentRequired,
     };
   }
@@ -590,15 +514,8 @@ class JsonObject extends JsonSchema {
 class JsonAny extends JsonSchema {
   final Map<String, dynamic> properties;
 
-  const JsonAny([
-    this.properties = const {},
-    String? title,
-    String? description,
-    this.defaultValue,
-  ]) : super(
-          title: title,
-          description: description,
-        );
+  const JsonAny([this.properties = const {}, String? title, String? description, this.defaultValue])
+    : super(title: title, description: description);
 
   @override
   final dynamic defaultValue;
@@ -622,12 +539,7 @@ class JsonAny extends JsonSchema {
       }
     }
 
-    return JsonAny(
-      Map.unmodifiable(properties),
-      title,
-      description,
-      defaultValue,
-    );
+    return JsonAny(Map.unmodifiable(properties), title, description, defaultValue);
   }
 
   @override
@@ -645,21 +557,14 @@ class JsonAny extends JsonSchema {
 class JsonAllOf extends JsonSchema {
   final List<JsonSchema> schemas;
 
-  const JsonAllOf(
-    this.schemas, {
-    this.defaultValue,
-    super.title,
-    super.description,
-  });
+  const JsonAllOf(this.schemas, {this.defaultValue, super.title, super.description});
 
   @override
   final dynamic defaultValue;
 
   factory JsonAllOf.fromJson(Map<String, dynamic> json) {
     return JsonAllOf(
-      (json['allOf'] as List)
-          .map((e) => JsonSchema.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      (json['allOf'] as List).map((e) => JsonSchema.fromJson(e as Map<String, dynamic>)).toList(),
       title: json['title'] as String?,
       description: json['description'] as String?,
       defaultValue: json['default'],
@@ -681,21 +586,14 @@ class JsonAllOf extends JsonSchema {
 class JsonAnyOf extends JsonSchema {
   final List<JsonSchema> schemas;
 
-  const JsonAnyOf(
-    this.schemas, {
-    this.defaultValue,
-    super.title,
-    super.description,
-  });
+  const JsonAnyOf(this.schemas, {this.defaultValue, super.title, super.description});
 
   @override
   final dynamic defaultValue;
 
   factory JsonAnyOf.fromJson(Map<String, dynamic> json) {
     return JsonAnyOf(
-      (json['anyOf'] as List)
-          .map((e) => JsonSchema.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      (json['anyOf'] as List).map((e) => JsonSchema.fromJson(e as Map<String, dynamic>)).toList(),
       title: json['title'] as String?,
       description: json['description'] as String?,
       defaultValue: json['default'],
@@ -717,21 +615,14 @@ class JsonAnyOf extends JsonSchema {
 class JsonOneOf extends JsonSchema {
   final List<JsonSchema> schemas;
 
-  const JsonOneOf(
-    this.schemas, {
-    this.defaultValue,
-    super.title,
-    super.description,
-  });
+  const JsonOneOf(this.schemas, {this.defaultValue, super.title, super.description});
 
   @override
   final dynamic defaultValue;
 
   factory JsonOneOf.fromJson(Map<String, dynamic> json) {
     return JsonOneOf(
-      (json['oneOf'] as List)
-          .map((e) => JsonSchema.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      (json['oneOf'] as List).map((e) => JsonSchema.fromJson(e as Map<String, dynamic>)).toList(),
       title: json['title'] as String?,
       description: json['description'] as String?,
       defaultValue: json['default'],
@@ -753,12 +644,7 @@ class JsonOneOf extends JsonSchema {
 class JsonNot extends JsonSchema {
   final JsonSchema schema;
 
-  const JsonNot(
-    this.schema, {
-    this.defaultValue,
-    super.title,
-    super.description,
-  });
+  const JsonNot(this.schema, {this.defaultValue, super.title, super.description});
 
   @override
   final dynamic defaultValue;
@@ -787,12 +673,7 @@ class JsonNot extends JsonSchema {
 class JsonEnum extends JsonSchema {
   final List<dynamic> values;
 
-  const JsonEnum(
-    this.values, {
-    this.defaultValue,
-    super.title,
-    super.description,
-  });
+  const JsonEnum(this.values, {this.defaultValue, super.title, super.description});
 
   @override
   final dynamic defaultValue;

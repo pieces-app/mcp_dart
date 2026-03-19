@@ -9,10 +9,7 @@ class ToolNameValidationResult {
   final bool isValid;
   final List<String> warnings;
 
-  const ToolNameValidationResult({
-    required this.isValid,
-    required this.warnings,
-  });
+  const ToolNameValidationResult({required this.isValid, required this.warnings});
 }
 
 /// Validates a tool name according to the SEP specification
@@ -27,18 +24,13 @@ ToolNameValidationResult validateToolName(String name) {
 
   // Check length
   if (name.isEmpty) {
-    return const ToolNameValidationResult(
-      isValid: false,
-      warnings: ['Tool name cannot be empty'],
-    );
+    return const ToolNameValidationResult(isValid: false, warnings: ['Tool name cannot be empty']);
   }
 
   if (name.length > 128) {
     return ToolNameValidationResult(
       isValid: false,
-      warnings: [
-        'Tool name exceeds maximum length of 128 characters (current: ${name.length})',
-      ],
+      warnings: ['Tool name exceeds maximum length of 128 characters (current: ${name.length})'],
     );
   }
 
@@ -53,15 +45,11 @@ ToolNameValidationResult validateToolName(String name) {
 
   // Check for potentially confusing patterns
   if (name.startsWith('-') || name.endsWith('-')) {
-    warnings.add(
-      'Tool name starts or ends with a dash, which may cause parsing issues in some contexts',
-    );
+    warnings.add('Tool name starts or ends with a dash, which may cause parsing issues in some contexts');
   }
 
   if (name.startsWith('.') || name.endsWith('.')) {
-    warnings.add(
-      'Tool name starts or ends with a dot, which may cause parsing issues in some contexts',
-    );
+    warnings.add('Tool name starts or ends with a dot, which may cause parsing issues in some contexts');
   }
 
   // Check for invalid characters
@@ -77,16 +65,10 @@ ToolNameValidationResult validateToolName(String name) {
       'Allowed characters are: A-Z, a-z, 0-9, underscore (_), dash (-), and dot (.)',
     ]);
 
-    return ToolNameValidationResult(
-      isValid: false,
-      warnings: warnings,
-    );
+    return ToolNameValidationResult(isValid: false, warnings: warnings);
   }
 
-  return ToolNameValidationResult(
-    isValid: true,
-    warnings: warnings,
-  );
+  return ToolNameValidationResult(isValid: true, warnings: warnings);
 }
 
 /// Issues warnings for non-conforming tool names
@@ -96,12 +78,8 @@ void issueToolNameWarning(String name, List<String> warnings) {
     for (final warning in warnings) {
       _logger.warn('  - $warning');
     }
-    _logger.warn(
-      'Tool registration will proceed, but this may cause compatibility issues.',
-    );
-    _logger.warn(
-      'Consider updating the tool name to conform to the MCP tool naming standard.',
-    );
+    _logger.warn('Tool registration will proceed, but this may cause compatibility issues.');
+    _logger.warn('Consider updating the tool name to conform to the MCP tool naming standard.');
     _logger.warn(
       'See SEP: Specify Format for Tool Names (https://github.com/modelcontextprotocol/modelcontextprotocol/issues/986) for more details.',
     );

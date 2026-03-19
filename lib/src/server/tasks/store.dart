@@ -63,11 +63,7 @@ class InMemoryTaskStore implements TaskStore {
     if (task == null) return false;
     if (task.status.isTerminal) return false;
 
-    await updateTaskStatus(
-      taskId,
-      TaskStatus.cancelled,
-      "Task cancelled by client",
-    );
+    await updateTaskStatus(taskId, TaskStatus.cancelled, "Task cancelled by client");
     return true;
   }
 
@@ -119,10 +115,7 @@ class InMemoryTaskStore implements TaskStore {
   }
 
   @override
-  Future<BaseResultData> getTaskResult(
-    String taskId, [
-    String? sessionId,
-  ]) async {
+  Future<BaseResultData> getTaskResult(String taskId, [String? sessionId]) async {
     final result = _results[taskId];
     if (result == null) {
       throw McpError(ErrorCode.invalidParams.value, 'Result not available');
@@ -131,12 +124,7 @@ class InMemoryTaskStore implements TaskStore {
   }
 
   @override
-  Future<void> updateTaskStatus(
-    String taskId,
-    TaskStatus status, [
-    String? message,
-    String? sessionId,
-  ]) async {
+  Future<void> updateTaskStatus(String taskId, TaskStatus status, [String? message, String? sessionId]) async {
     final task = _tasks[taskId];
     if (task != null) {
       _tasks[taskId] = Task(
@@ -154,12 +142,7 @@ class InMemoryTaskStore implements TaskStore {
   }
 
   @override
-  Future<void> storeTaskResult(
-    String taskId,
-    TaskStatus status,
-    BaseResultData result, [
-    String? sessionId,
-  ]) async {
+  Future<void> storeTaskResult(String taskId, TaskStatus status, BaseResultData result, [String? sessionId]) async {
     _results[taskId] = result;
     await updateTaskStatus(taskId, status, null, sessionId);
   }

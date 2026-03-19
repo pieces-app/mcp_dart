@@ -7,10 +7,7 @@ import 'server_iostream.dart';
 Future<void> main() async {
   // Create a client
   final client = McpClient(
-    const Implementation(
-      name: "example-dart-iostream-client",
-      version: "1.0.0",
-    ),
+    const Implementation(name: "example-dart-iostream-client", version: "1.0.0"),
     options: const McpClientOptions(capabilities: ClientCapabilities()),
   );
 

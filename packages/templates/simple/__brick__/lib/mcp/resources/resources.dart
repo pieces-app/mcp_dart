@@ -8,6 +8,4 @@ export 'base_resource.dart';
 export 'manifest_resource.dart';
 
 /// Creates all available resources.
-List<BaseResource> createAllResources() => [
-      ManifestResource(),
-    ];
+List<BaseResource> createAllResources() => [ManifestResource()];

@@ -74,8 +74,7 @@ void main() {
       taskClient = TaskClient(mockClient);
     });
 
-    test('callToolStream yields result immediately if no task created',
-        () async {
+    test('callToolStream yields result immediately if no task created', () async {
       mockClient.mockResponse('tools/call', {
         'content': [
           {'type': 'text', 'text': 'Success'},
@@ -88,11 +87,7 @@ void main() {
       expect(events.length, 1);
       expect(events.first, isA<TaskResultMessage>());
       final resultMsg = events.first as TaskResultMessage;
-      expect(
-        ((resultMsg.result as CallToolResult).content.first as TextContent)
-            .text,
-        'Success',
-      );
+      expect(((resultMsg.result as CallToolResult).content.first as TextContent).text, 'Success');
     });
 
     test('callToolStream handles long-running task workflow', () async {
@@ -100,31 +95,15 @@ void main() {
 
       // 1. Initial call returns a task
       mockClient.mockResponse('tools/call', {
-        'task': {
-          'taskId': taskId,
-          'status': 'working',
-          'name': 'Long Task',
-          'total': 100,
-        },
+        'task': {'taskId': taskId, 'status': 'working', 'name': 'Long Task', 'total': 100},
       });
 
       // 2. Poll responses
       mockClient.mockSequentialResponses('tasks/get', [
         // Poll 1: working (was running which is invalid)
-        {
-          'taskId': taskId,
-          'status': 'working',
-          'name': 'Long Task',
-          'progress': 50,
-          'pollInterval': 10,
-        },
+        {'taskId': taskId, 'status': 'working', 'name': 'Long Task', 'progress': 50, 'pollInterval': 10},
         // Poll 2: completed (logic inside TaskClient stops polling when result promise completes)
-        {
-          'taskId': taskId,
-          'status': 'completed',
-          'name': 'Long Task',
-          'progress': 100,
-        }
+        {'taskId': taskId, 'status': 'completed', 'name': 'Long Task', 'progress': 100},
       ]);
 
       // 3. Result promise response
@@ -165,22 +144,12 @@ void main() {
       // Verify final result
       expect(events.last, isA<TaskResultMessage>());
       expect(
-        (((events.last as TaskResultMessage).result as CallToolResult)
-                .content
-                .first as TextContent)
-            .text,
+        (((events.last as TaskResultMessage).result as CallToolResult).content.first as TextContent).text,
         'Task Done',
       );
 
       // Verify requests made
-      expect(
-        mockClient.requests.map((r) => r.method),
-        containsAll([
-          'tools/call',
-          'tasks/result',
-          'tasks/get',
-        ]),
-      );
+      expect(mockClient.requests.map((r) => r.method), containsAll(['tools/call', 'tasks/result', 'tasks/get']));
     });
 
     test('listTasks returns list of tasks', () async {
@@ -204,12 +173,7 @@ void main() {
       await taskClient.cancelTask('task-123');
 
       expect(mockClient.requests.last.method, 'tasks/cancel');
-      expect(
-        (mockClient.requests.last as JsonRpcCancelTaskRequest)
-            .cancelParams
-            .taskId,
-        'task-123',
-      );
+      expect((mockClient.requests.last as JsonRpcCancelTaskRequest).cancelParams.taskId, 'task-123');
     });
 
     test('callToolStream yields error if initial call fails', () async {

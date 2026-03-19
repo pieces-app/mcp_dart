@@ -21,52 +21,28 @@ void main() async {
 // Create an MCP server with implementation details
 McpServer getServer() {
   // Create the McpServer with the implementation details and options
-  final server = McpServer(
-    const Implementation(
-      name: 'simple-streamable-http-server',
-      version: '1.0.0',
-    ),
-  );
+  final server = McpServer(const Implementation(name: 'simple-streamable-http-server', version: '1.0.0'));
 
   // Register a simple tool that returns a greeting
   server.registerTool(
     'greet',
     description: 'A simple greeting tool',
     inputSchema: JsonSchema.object(
-      properties: {
-        'name': JsonSchema.string(
-          description: 'Name to greet',
-        ),
-      },
+      properties: {'name': JsonSchema.string(description: 'Name to greet')},
       required: ['name'],
     ),
     callback: (args, extra) async {
       final name = args['name'] as String? ?? 'world';
-      return CallToolResult.fromContent(
-        [
-          TextContent(text: 'Hello, $name!'),
-        ],
-      );
+      return CallToolResult.fromContent([TextContent(text: 'Hello, $name!')]);
     },
   );
 
   // Register a tool that sends multiple greetings with notifications
   server.registerTool(
     'multi-greet',
-    description:
-        'A tool that sends different greetings with delays between them',
-    inputSchema: JsonSchema.object(
-      properties: {
-        'name': JsonSchema.string(
-          description: 'Name to greet',
-        ),
-      },
-    ),
-    annotations: const ToolAnnotations(
-      title: 'Multiple Greeting Tool',
-      readOnlyHint: true,
-      openWorldHint: false,
-    ),
+    description: 'A tool that sends different greetings with delays between them',
+    inputSchema: JsonSchema.object(properties: {'name': JsonSchema.string(description: 'Name to greet')}),
+    annotations: const ToolAnnotations(title: 'Multiple Greeting Tool', readOnlyHint: true, openWorldHint: false),
     callback: (args, extra) async {
       final name = args['name'] as String? ?? 'world';
 
@@ -76,10 +52,7 @@ McpServer getServer() {
       // Send debug notification
       await extra.sendNotification(
         JsonRpcLoggingMessageNotification(
-          logParams: LoggingMessageNotification(
-            level: LoggingLevel.debug,
-            data: 'Starting multi-greet for $name',
-          ),
+          logParams: LoggingMessageNotification(level: LoggingLevel.debug, data: 'Starting multi-greet for $name'),
         ),
       );
 
@@ -88,10 +61,7 @@ McpServer getServer() {
       // Send first info notification
       await extra.sendNotification(
         JsonRpcLoggingMessageNotification(
-          logParams: LoggingMessageNotification(
-            level: LoggingLevel.info,
-            data: 'Sending first greeting to $name',
-          ),
+          logParams: LoggingMessageNotification(level: LoggingLevel.info, data: 'Sending first greeting to $name'),
         ),
       );
 
@@ -100,18 +70,11 @@ McpServer getServer() {
       // Send second info notification
       await extra.sendNotification(
         JsonRpcLoggingMessageNotification(
-          logParams: LoggingMessageNotification(
-            level: LoggingLevel.info,
-            data: 'Sending second greeting to $name',
-          ),
+          logParams: LoggingMessageNotification(level: LoggingLevel.info, data: 'Sending second greeting to $name'),
         ),
       );
 
-      return CallToolResult.fromContent(
-        [
-          TextContent(text: 'Good morning, $name!'),
-        ],
-      );
+      return CallToolResult.fromContent([TextContent(text: 'Good morning, $name!')]);
     },
   );
 
@@ -119,21 +82,14 @@ McpServer getServer() {
   server.registerPrompt(
     'greeting-template',
     description: 'A simple greeting prompt template',
-    argsSchema: {
-      'name': const PromptArgumentDefinition(
-        description: 'Name to include in greeting',
-        required: true,
-      ),
-    },
+    argsSchema: {'name': const PromptArgumentDefinition(description: 'Name to include in greeting', required: true)},
     callback: (args, extra) async {
       final name = args!['name'] as String;
       return GetPromptResult(
         messages: [
           PromptMessage(
             role: PromptMessageRole.user,
-            content: TextContent(
-              text: 'Please greet $name in a friendly manner.',
-            ),
+            content: TextContent(text: 'Please greet $name in a friendly manner.'),
           ),
         ],
       );
@@ -143,18 +99,11 @@ McpServer getServer() {
   // Register a tool specifically for testing resumability
   server.registerTool(
     'start-notification-stream',
-    description:
-        'Starts sending periodic notifications for testing resumability',
+    description: 'Starts sending periodic notifications for testing resumability',
     inputSchema: JsonSchema.object(
       properties: {
-        'interval': JsonSchema.number(
-          description: 'Interval in milliseconds between notifications',
-          defaultValue: 100,
-        ),
-        'count': JsonSchema.number(
-          description: 'Number of notifications to send (0 for 100)',
-          defaultValue: 50,
-        ),
+        'interval': JsonSchema.number(description: 'Interval in milliseconds between notifications', defaultValue: 100),
+        'count': JsonSchema.number(description: 'Number of notifications to send (0 for 100)', defaultValue: 50),
       },
     ),
     callback: (args, extra) async {
@@ -173,8 +122,7 @@ McpServer getServer() {
             JsonRpcLoggingMessageNotification(
               logParams: LoggingMessageNotification(
                 level: LoggingLevel.info,
-                data:
-                    'Periodic notification #$counter at ${DateTime.now().toIso8601String()}',
+                data: 'Periodic notification #$counter at ${DateTime.now().toIso8601String()}',
               ),
             ),
           );
@@ -186,13 +134,9 @@ McpServer getServer() {
         await sleep(interval.toInt());
       }
 
-      return CallToolResult.fromContent(
-        [
-          TextContent(
-            text: 'Started sending periodic notifications every ${interval}ms',
-          ),
-        ],
-      );
+      return CallToolResult.fromContent([
+        TextContent(text: 'Started sending periodic notifications every ${interval}ms'),
+      ]);
     },
   );
 

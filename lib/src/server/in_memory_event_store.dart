@@ -17,8 +17,7 @@ class InMemoryEventStore implements EventStore {
   @override
   Future<StreamId> replayEventsAfter(
     EventId lastEventId, {
-    required Future<void> Function(EventId eventId, JsonRpcMessage message)
-        send,
+    required Future<void> Function(EventId eventId, JsonRpcMessage message) send,
   }) async {
     // Find the stream containing this event ID
     String? streamId;

@@ -52,15 +52,10 @@ Future<ElicitResult> elicitationCallback(ElicitRequest params) async {
   final confirmed = ['y', 'yes', 'true', '1'].contains(response.toLowerCase());
 
   print('[Elicitation] Responding with: confirm=$confirmed');
-  return ElicitResult(
-    action: 'accept',
-    content: {'confirm': confirmed},
-  );
+  return ElicitResult(action: 'accept', content: {'confirm': confirmed});
 }
 
-Future<CreateMessageResult> samplingCallback(
-  CreateMessageRequest params,
-) async {
+Future<CreateMessageResult> samplingCallback(CreateMessageRequest params) async {
   // Give the polling loop a chance to print the status update
   await Future.delayed(const Duration(milliseconds: 200));
 
@@ -97,22 +92,15 @@ Future<void> run(String url) async {
 
   // Create client with elicitation and sampling capabilities
   final client = McpClient(
-    const Implementation(
-      name: 'simple-task-interactive-client',
-      version: '1.0.0',
-    ),
+    const Implementation(name: 'simple-task-interactive-client', version: '1.0.0'),
     options: const McpClientOptions(
       capabilities: ClientCapabilities(
         elicitation: ClientElicitation.formOnly(),
         sampling: ClientCapabilitiesSampling(),
         tasks: ClientCapabilitiesTasks(
           requests: ClientCapabilitiesTasksRequests(
-            elicitation: ClientCapabilitiesTasksElicitation(
-              create: ClientCapabilitiesTasksElicitationCreate(),
-            ),
-            sampling: ClientCapabilitiesTasksSampling(
-              createMessage: ClientCapabilitiesTasksSamplingCreateMessage(),
-            ),
+            elicitation: ClientCapabilitiesTasksElicitation(create: ClientCapabilitiesTasksElicitationCreate()),
+            sampling: ClientCapabilitiesTasksSampling(createMessage: ClientCapabilitiesTasksSamplingCreateMessage()),
           ),
         ),
       ),
@@ -125,8 +113,10 @@ Future<void> run(String url) async {
   // Set up task status notification handler
   // Set up task status notification handler
   client.onTaskStatus = (params) {
-    print('[Notification] Task ${params.taskId}: ${params.status.name}'
-        '${params.statusMessage != null ? " - ${params.statusMessage}" : ""}');
+    print(
+      '[Notification] Task ${params.taskId}: ${params.status.name}'
+      '${params.statusMessage != null ? " - ${params.statusMessage}" : ""}',
+    );
   };
 
   // Set up sampling request handler

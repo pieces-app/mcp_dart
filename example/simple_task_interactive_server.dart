@@ -18,12 +18,7 @@ class SessionContext {
   final InMemoryTaskMessageQueue queue;
   final TaskResultHandler taskResultHandler;
 
-  SessionContext({
-    required this.server,
-    required this.store,
-    required this.queue,
-    required this.taskResultHandler,
-  });
+  SessionContext({required this.server, required this.store, required this.queue, required this.taskResultHandler});
 
   void dispose() {
     store.dispose();
@@ -58,12 +53,7 @@ class InteractiveServer {
     final queue = InMemoryTaskMessageQueue();
     final handler = TaskResultHandler(store, queue, server);
 
-    final context = SessionContext(
-      server: server,
-      store: store,
-      queue: queue,
-      taskResultHandler: handler,
-    );
+    final context = SessionContext(server: server, store: store, queue: queue, taskResultHandler: handler);
 
     // Register Handlers
     _registerHandlers(context);
@@ -98,45 +88,25 @@ class InteractiveServer {
       print('[Server] tasks/cancel called for task $taskId');
       final cancelled = await store.cancelTask(taskId);
       if (!cancelled) {
-        throw McpError(
-          ErrorCode.invalidParams.value,
-          "Cannot cancel task: not found or already terminal",
-        );
+        throw McpError(ErrorCode.invalidParams.value, "Cannot cancel task: not found or already terminal");
       }
     });
 
     // Register Tools
     server.experimental.registerToolTask(
       'confirm_delete',
-      description:
-          'Asks for confirmation before deleting (demonstrates elicitation)',
-      inputSchema: JsonSchema.object(
-        properties: {
-          'filename': JsonSchema.string(),
-        },
-      ),
+      description: 'Asks for confirmation before deleting (demonstrates elicitation)',
+      inputSchema: JsonSchema.object(properties: {'filename': JsonSchema.string()}),
       execution: const ToolExecution(taskSupport: 'optional'),
-      handler: SimpleToolTaskHandler(
-        context,
-        'confirm_delete',
-        _runConfirmDelete,
-      ),
+      handler: SimpleToolTaskHandler(context, 'confirm_delete', _runConfirmDelete),
     );
 
     server.experimental.registerToolTask(
       'write_haiku',
       description: 'Asks LLM to write a haiku (demonstrates sampling)',
-      inputSchema: JsonSchema.object(
-        properties: {
-          'topic': JsonSchema.string(),
-        },
-      ),
+      inputSchema: JsonSchema.object(properties: {'topic': JsonSchema.string()}),
       execution: const ToolExecution(taskSupport: 'optional'),
-      handler: SimpleToolTaskHandler(
-        context,
-        'write_haiku',
-        _runWriteHaiku,
-      ),
+      handler: SimpleToolTaskHandler(context, 'write_haiku', _runWriteHaiku),
     );
   }
 
@@ -147,12 +117,9 @@ class InteractiveServer {
     await for (final httpRequest in httpServer) {
       // Add CORS headers
       httpRequest.response.headers.add('Access-Control-Allow-Origin', '*');
-      httpRequest.response.headers
-          .add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      httpRequest.response.headers
-          .add('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id');
-      httpRequest.response.headers
-          .add('Access-Control-Expose-Headers', 'mcp-session-id');
+      httpRequest.response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      httpRequest.response.headers.add('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id');
+      httpRequest.response.headers.add('Access-Control-Expose-Headers', 'mcp-session-id');
 
       if (httpRequest.method == 'OPTIONS') {
         httpRequest.response.statusCode = 200;
@@ -162,8 +129,7 @@ class InteractiveServer {
 
       if (httpRequest.method == 'POST' && httpRequest.uri.path == '/mcp') {
         await _handlePost(httpRequest);
-      } else if (httpRequest.method == 'GET' &&
-          httpRequest.uri.path == '/mcp') {
+      } else if (httpRequest.method == 'GET' && httpRequest.uri.path == '/mcp') {
         await _handleGet(httpRequest);
       } else {
         httpRequest.response.statusCode = 404;
@@ -172,23 +138,14 @@ class InteractiveServer {
     }
   }
 
-  Future<void> _runConfirmDelete(
-    SessionContext context,
-    String taskId,
-    Map<String, dynamic> args,
-  ) async {
+  Future<void> _runConfirmDelete(SessionContext context, String taskId, Map<String, dynamic> args) async {
     _runTask(context, taskId, (session) async {
       final filename = args['filename'] ?? 'unknown.txt';
       print('[Server] confirm_delete: asking about $filename');
 
       final result = await session.elicit(
         "Are you sure you want to delete '$filename'?",
-        JsonSchema.object(
-          properties: {
-            'confirm': JsonSchema.boolean(),
-          },
-          required: ['confirm'],
-        ),
+        JsonSchema.object(properties: {'confirm': JsonSchema.boolean()}, required: ['confirm']),
       );
 
       String text;
@@ -207,24 +164,17 @@ class InteractiveServer {
     });
   }
 
-  Future<void> _runWriteHaiku(
-    SessionContext context,
-    String taskId,
-    Map<String, dynamic> args,
-  ) async {
+  Future<void> _runWriteHaiku(SessionContext context, String taskId, Map<String, dynamic> args) async {
     _runTask(context, taskId, (session) async {
       final topic = args['topic'] ?? 'nature';
       print('[Server] write_haiku: topic $topic');
 
-      final result = await session.createMessage(
-        [
-          SamplingMessage(
-            role: SamplingMessageRole.user,
-            content: SamplingTextContent(text: "Write a haiku about $topic"),
-          ),
-        ],
-        50,
-      );
+      final result = await session.createMessage([
+        SamplingMessage(
+          role: SamplingMessageRole.user,
+          content: SamplingTextContent(text: "Write a haiku about $topic"),
+        ),
+      ], 50);
 
       String haiku = "No response";
       if (result.content is SamplingTextContent) {
@@ -234,20 +184,13 @@ class InteractiveServer {
       await context.store.storeTaskResult(
         taskId,
         TaskStatus.completed,
-        CallToolResult.fromContent(
-          [TextContent(text: "Haiku:\n$haiku")],
-        ),
+        CallToolResult.fromContent([TextContent(text: "Haiku:\n$haiku")]),
       );
     });
   }
 
-  Future<void> _runTask(
-    SessionContext context,
-    String taskId,
-    Future<void> Function(TaskSession) action,
-  ) async {
-    final session =
-        TaskSession(context.server, taskId, context.store, context.queue);
+  Future<void> _runTask(SessionContext context, String taskId, Future<void> Function(TaskSession) action) async {
+    final session = TaskSession(context.server, taskId, context.store, context.queue);
 
     try {
       await action(session);
@@ -256,10 +199,7 @@ class InteractiveServer {
       await context.store.storeTaskResult(
         taskId,
         TaskStatus.failed,
-        CallToolResult(
-          content: [TextContent(text: "Error: $e")],
-          isError: true,
-        ),
+        CallToolResult(content: [TextContent(text: "Error: $e")], isError: true),
       );
     }
   }
@@ -337,16 +277,12 @@ class InteractiveServer {
 class SimpleToolTaskHandler implements ToolTaskHandler {
   final SessionContext context;
   final String toolName;
-  final Future<void> Function(SessionContext, String, Map<String, dynamic>)
-      runner;
+  final Future<void> Function(SessionContext, String, Map<String, dynamic>) runner;
 
   SimpleToolTaskHandler(this.context, this.toolName, this.runner);
 
   @override
-  Future<CreateTaskResult> createTask(
-    Map<String, dynamic>? args,
-    RequestHandlerExtra? extra,
-  ) async {
+  Future<CreateTaskResult> createTask(Map<String, dynamic>? args, RequestHandlerExtra? extra) async {
     final task = await context.store.createTask(
       const TaskCreation(), // ttl
       extra?.requestId ?? -1,
@@ -376,10 +312,7 @@ class SimpleToolTaskHandler implements ToolTaskHandler {
   }
 
   @override
-  Future<CallToolResult> getTaskResult(
-    String taskId,
-    RequestHandlerExtra? extra,
-  ) async {
+  Future<CallToolResult> getTaskResult(String taskId, RequestHandlerExtra? extra) async {
     final result = await context.store.getTaskResult(taskId);
     if (result is CallToolResult) {
       return result;

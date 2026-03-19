@@ -1,13 +1,7 @@
 import '../types.dart';
 
 /// The current state of a task execution.
-enum TaskStatus {
-  working,
-  inputRequired,
-  completed,
-  failed,
-  cancelled,
-}
+enum TaskStatus { working, inputRequired, completed, failed, cancelled }
 
 /// A parsed specific task status string.
 typedef TaskStatusString = String;
@@ -46,10 +40,7 @@ extension TaskStatusName on TaskStatus {
   }
 
   /// Returns true if this status represents a terminal state (completed, failed, or cancelled).
-  bool get isTerminal =>
-      this == TaskStatus.completed ||
-      this == TaskStatus.failed ||
-      this == TaskStatus.cancelled;
+  bool get isTerminal => this == TaskStatus.completed || this == TaskStatus.failed || this == TaskStatus.cancelled;
 }
 
 /// Represents a task in the system.
@@ -106,15 +97,15 @@ class Task implements BaseResultData {
 
   @override
   Map<String, dynamic> toJson() => {
-        'taskId': taskId,
-        'status': status.name,
-        if (statusMessage != null) 'statusMessage': statusMessage,
-        'ttl': ttl,
-        'pollInterval': pollInterval,
-        if (createdAt != null) 'createdAt': createdAt,
-        if (lastUpdatedAt != null) 'lastUpdatedAt': lastUpdatedAt,
-        if (meta != null) '_meta': meta,
-      };
+    'taskId': taskId,
+    'status': status.name,
+    if (statusMessage != null) 'statusMessage': statusMessage,
+    'ttl': ttl,
+    'pollInterval': pollInterval,
+    if (createdAt != null) 'createdAt': createdAt,
+    if (lastUpdatedAt != null) 'lastUpdatedAt': lastUpdatedAt,
+    if (meta != null) '_meta': meta,
+  };
 }
 
 /// Parameters for the `tasks/list` request. Includes pagination.
@@ -124,8 +115,7 @@ class ListTasksRequest {
 
   const ListTasksRequest({this.cursor});
 
-  factory ListTasksRequest.fromJson(Map<String, dynamic> json) =>
-      ListTasksRequest(cursor: json['cursor'] as String?);
+  factory ListTasksRequest.fromJson(Map<String, dynamic> json) => ListTasksRequest(cursor: json['cursor'] as String?);
 
   Map<String, dynamic> toJson() => {if (cursor != null) 'cursor': cursor};
 }
@@ -135,12 +125,9 @@ class JsonRpcListTasksRequest extends JsonRpcRequest {
   /// The list parameters (containing cursor).
   final ListTasksRequest listParams;
 
-  JsonRpcListTasksRequest({
-    required super.id,
-    ListTasksRequest? params,
-    super.meta,
-  })  : listParams = params ?? const ListTasksRequest(),
-        super(method: Method.tasksList, params: params?.toJson());
+  JsonRpcListTasksRequest({required super.id, ListTasksRequest? params, super.meta})
+    : listParams = params ?? const ListTasksRequest(),
+      super(method: Method.tasksList, params: params?.toJson());
 
   factory JsonRpcListTasksRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -170,10 +157,7 @@ class ListTasksResult implements BaseResultData {
   factory ListTasksResult.fromJson(Map<String, dynamic> json) {
     final meta = json['_meta'] as Map<String, dynamic>?;
     return ListTasksResult(
-      tasks: (json['tasks'] as List<dynamic>?)
-              ?.map((e) => Task.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      tasks: (json['tasks'] as List<dynamic>?)?.map((e) => Task.fromJson(e as Map<String, dynamic>)).toList() ?? [],
       nextCursor: json['nextCursor'] as String?,
       meta: meta,
     );
@@ -181,9 +165,9 @@ class ListTasksResult implements BaseResultData {
 
   @override
   Map<String, dynamic> toJson() => {
-        'tasks': tasks.map((t) => t.toJson()).toList(),
-        if (nextCursor != null) 'nextCursor': nextCursor,
-      };
+    'tasks': tasks.map((t) => t.toJson()).toList(),
+    if (nextCursor != null) 'nextCursor': nextCursor,
+  };
 }
 
 /// Parameters for the `tasks/cancel` request.
@@ -193,8 +177,7 @@ class CancelTaskRequest {
 
   const CancelTaskRequest({required this.taskId});
 
-  factory CancelTaskRequest.fromJson(Map<String, dynamic> json) =>
-      CancelTaskRequest(taskId: json['taskId'] as String);
+  factory CancelTaskRequest.fromJson(Map<String, dynamic> json) => CancelTaskRequest(taskId: json['taskId'] as String);
 
   Map<String, dynamic> toJson() => {'taskId': taskId};
 }
@@ -204,11 +187,8 @@ class JsonRpcCancelTaskRequest extends JsonRpcRequest {
   /// The cancel parameters.
   final CancelTaskRequest cancelParams;
 
-  JsonRpcCancelTaskRequest({
-    required super.id,
-    required this.cancelParams,
-    super.meta,
-  }) : super(method: Method.tasksCancel, params: cancelParams.toJson());
+  JsonRpcCancelTaskRequest({required super.id, required this.cancelParams, super.meta})
+    : super(method: Method.tasksCancel, params: cancelParams.toJson());
 
   factory JsonRpcCancelTaskRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -216,11 +196,7 @@ class JsonRpcCancelTaskRequest extends JsonRpcRequest {
       throw const FormatException("Missing params for cancel task request");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcCancelTaskRequest(
-      id: json['id'],
-      cancelParams: CancelTaskRequest.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcCancelTaskRequest(id: json['id'], cancelParams: CancelTaskRequest.fromJson(paramsMap), meta: meta);
   }
 }
 
@@ -231,8 +207,7 @@ class GetTaskRequest {
 
   const GetTaskRequest({required this.taskId});
 
-  factory GetTaskRequest.fromJson(Map<String, dynamic> json) =>
-      GetTaskRequest(taskId: json['taskId'] as String);
+  factory GetTaskRequest.fromJson(Map<String, dynamic> json) => GetTaskRequest(taskId: json['taskId'] as String);
 
   Map<String, dynamic> toJson() => {'taskId': taskId};
 }
@@ -242,11 +217,8 @@ class JsonRpcGetTaskRequest extends JsonRpcRequest {
   /// The get task parameters.
   final GetTaskRequest getParams;
 
-  JsonRpcGetTaskRequest({
-    required super.id,
-    required this.getParams,
-    super.meta,
-  }) : super(method: Method.tasksGet, params: getParams.toJson());
+  JsonRpcGetTaskRequest({required super.id, required this.getParams, super.meta})
+    : super(method: Method.tasksGet, params: getParams.toJson());
 
   factory JsonRpcGetTaskRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -254,11 +226,7 @@ class JsonRpcGetTaskRequest extends JsonRpcRequest {
       throw const FormatException("Missing params for get task request");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcGetTaskRequest(
-      id: json['id'],
-      getParams: GetTaskRequest.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcGetTaskRequest(id: json['id'], getParams: GetTaskRequest.fromJson(paramsMap), meta: meta);
   }
 }
 
@@ -269,8 +237,7 @@ class TaskResultRequest {
 
   const TaskResultRequest({required this.taskId});
 
-  factory TaskResultRequest.fromJson(Map<String, dynamic> json) =>
-      TaskResultRequest(taskId: json['taskId'] as String);
+  factory TaskResultRequest.fromJson(Map<String, dynamic> json) => TaskResultRequest(taskId: json['taskId'] as String);
 
   Map<String, dynamic> toJson() => {'taskId': taskId};
 }
@@ -280,11 +247,8 @@ class JsonRpcTaskResultRequest extends JsonRpcRequest {
   /// The task result parameters.
   final TaskResultRequest resultParams;
 
-  JsonRpcTaskResultRequest({
-    required super.id,
-    required this.resultParams,
-    super.meta,
-  }) : super(method: Method.tasksResult, params: resultParams.toJson());
+  JsonRpcTaskResultRequest({required super.id, required this.resultParams, super.meta})
+    : super(method: Method.tasksResult, params: resultParams.toJson());
 
   factory JsonRpcTaskResultRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -292,11 +256,7 @@ class JsonRpcTaskResultRequest extends JsonRpcRequest {
       throw const FormatException("Missing params for task result request");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcTaskResultRequest(
-      id: json['id'],
-      resultParams: TaskResultRequest.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcTaskResultRequest(id: json['id'], resultParams: TaskResultRequest.fromJson(paramsMap), meta: meta);
   }
 }
 
@@ -307,12 +267,9 @@ class TaskCreation {
 
   const TaskCreation({this.ttl});
 
-  factory TaskCreation.fromJson(Map<String, dynamic> json) =>
-      TaskCreation(ttl: json['ttl'] as int?);
+  factory TaskCreation.fromJson(Map<String, dynamic> json) => TaskCreation(ttl: json['ttl'] as int?);
 
-  Map<String, dynamic> toJson() => {
-        if (ttl != null) 'ttl': ttl,
-      };
+  Map<String, dynamic> toJson() => {if (ttl != null) 'ttl': ttl};
 }
 
 /// Result data for a task creation response.
@@ -328,16 +285,11 @@ class CreateTaskResult implements BaseResultData {
 
   factory CreateTaskResult.fromJson(Map<String, dynamic> json) {
     final meta = json['_meta'] as Map<String, dynamic>?;
-    return CreateTaskResult(
-      task: Task.fromJson(json['task'] as Map<String, dynamic>),
-      meta: meta,
-    );
+    return CreateTaskResult(task: Task.fromJson(json['task'] as Map<String, dynamic>), meta: meta);
   }
 
   @override
-  Map<String, dynamic> toJson() => {
-        'task': task.toJson(),
-      };
+  Map<String, dynamic> toJson() => {'task': task.toJson()};
 }
 
 /// Message yielded by the task stream helper.
@@ -412,14 +364,14 @@ class TaskStatusNotification {
   }
 
   Map<String, dynamic> toJson() => {
-        'taskId': taskId,
-        'status': status.name,
-        if (statusMessage != null) 'statusMessage': statusMessage,
-        if (ttl != null) 'ttl': ttl,
-        if (pollInterval != null) 'pollInterval': pollInterval,
-        if (createdAt != null) 'createdAt': createdAt,
-        if (lastUpdatedAt != null) 'lastUpdatedAt': lastUpdatedAt,
-      };
+    'taskId': taskId,
+    'status': status.name,
+    if (statusMessage != null) 'statusMessage': statusMessage,
+    if (ttl != null) 'ttl': ttl,
+    if (pollInterval != null) 'pollInterval': pollInterval,
+    if (createdAt != null) 'createdAt': createdAt,
+    if (lastUpdatedAt != null) 'lastUpdatedAt': lastUpdatedAt,
+  };
 }
 
 /// Notification from receiver indicating a task status has changed.
@@ -428,23 +380,15 @@ class JsonRpcTaskStatusNotification extends JsonRpcNotification {
   final TaskStatusNotification statusParams;
 
   JsonRpcTaskStatusNotification({required this.statusParams, super.meta})
-      : super(
-          method: Method.notificationsTasksStatus,
-          params: statusParams.toJson(),
-        );
+    : super(method: Method.notificationsTasksStatus, params: statusParams.toJson());
 
   factory JsonRpcTaskStatusNotification.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
     if (paramsMap == null) {
-      throw const FormatException(
-        "Missing params for task status notification",
-      );
+      throw const FormatException("Missing params for task status notification");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcTaskStatusNotification(
-      statusParams: TaskStatusNotification.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcTaskStatusNotification(statusParams: TaskStatusNotification.fromJson(paramsMap), meta: meta);
   }
 }
 

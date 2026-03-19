@@ -54,10 +54,7 @@ void main() {
 
   group('Resource', () {
     test('fromJson with required fields only', () {
-      final json = {
-        'uri': 'file:///test.txt',
-        'name': 'Test File',
-      };
+      final json = {'uri': 'file:///test.txt', 'name': 'Test File'};
 
       final resource = Resource.fromJson(json);
       expect(resource.uri, equals('file:///test.txt'));
@@ -74,21 +71,10 @@ void main() {
         'name': 'Test File',
         'description': 'A test file resource',
         'mimeType': 'text/plain',
-        'icon': {
-          'type': 'image',
-          'data': 'base64data',
-          'mimeType': 'image/png',
-        },
-        'annotations': {
-          'title': 'Alt Title',
-          'priority': 0.9,
-        },
+        'icon': {'type': 'image', 'data': 'base64data', 'mimeType': 'image/png'},
+        'annotations': {'title': 'Alt Title', 'priority': 0.9},
         'icons': [
-          {
-            'src': 'https://example.com/icon.png',
-            'mimeType': 'image/png',
-            'theme': 'dark',
-          },
+          {'src': 'https://example.com/icon.png', 'mimeType': 'image/png', 'theme': 'dark'},
         ],
       };
 
@@ -100,10 +86,7 @@ void main() {
       expect(resource.icon, isNotNull);
       expect(resource.icon!.data, equals('base64data'));
       expect(resource.icons, isNotNull);
-      expect(
-        resource.icons!.single.src,
-        equals('https://example.com/icon.png'),
-      );
+      expect(resource.icons!.single.src, equals('https://example.com/icon.png'));
       expect(resource.annotations, isNotNull);
       expect(resource.annotations!.priority, equals(0.9));
     });
@@ -126,10 +109,7 @@ void main() {
     });
 
     test('toJson excludes null optional fields', () {
-      const resource = Resource(
-        uri: 'file:///minimal.txt',
-        name: 'Minimal',
-      );
+      const resource = Resource(uri: 'file:///minimal.txt', name: 'Minimal');
 
       final json = resource.toJson();
       expect(json.containsKey('uri'), isTrue);
@@ -144,10 +124,7 @@ void main() {
 
   group('ResourceTemplate', () {
     test('fromJson with required fields only', () {
-      final json = {
-        'uriTemplate': 'file:///{path}',
-        'name': 'File Template',
-      };
+      final json = {'uriTemplate': 'file:///{path}', 'name': 'File Template'};
 
       final template = ResourceTemplate.fromJson(json);
       expect(template.uriTemplate, equals('file:///{path}'));
@@ -162,11 +139,7 @@ void main() {
         'name': 'User Database',
         'description': 'Access user records',
         'mimeType': 'application/json',
-        'icon': {
-          'type': 'image',
-          'data': 'icondata',
-          'mimeType': 'image/svg+xml',
-        },
+        'icon': {'type': 'image', 'data': 'icondata', 'mimeType': 'image/svg+xml'},
         'annotations': {
           'audience': ['user'],
         },
@@ -205,10 +178,7 @@ void main() {
     });
 
     test('toJson excludes null fields', () {
-      const template = ResourceTemplate(
-        uriTemplate: 'minimal://{x}',
-        name: 'Minimal',
-      );
+      const template = ResourceTemplate(uriTemplate: 'minimal://{x}', name: 'Minimal');
 
       final json = template.toJson();
       expect(json.containsKey('uriTemplate'), isTrue);
@@ -252,10 +222,7 @@ void main() {
     });
 
     test('creates request with params', () {
-      final request = JsonRpcListResourcesRequest(
-        id: 2,
-        params: const ListResourcesRequest(cursor: 'next'),
-      );
+      final request = JsonRpcListResourcesRequest(id: 2, params: const ListResourcesRequest(cursor: 'next'));
       expect(request.listParams.cursor, equals('next'));
       expect(request.params?['cursor'], equals('next'));
     });
@@ -273,10 +240,7 @@ void main() {
     });
 
     test('fromJson without params', () {
-      final json = {
-        'id': 4,
-        'method': 'resources/list',
-      };
+      final json = {'id': 4, 'method': 'resources/list'};
 
       final request = JsonRpcListResourcesRequest.fromJson(json);
       expect(request.id, equals(4));
@@ -321,9 +285,7 @@ void main() {
 
     test('toJson serializes correctly', () {
       const result = ListResourcesResult(
-        resources: [
-          Resource(uri: 'file:///x.txt', name: 'X'),
-        ],
+        resources: [Resource(uri: 'file:///x.txt', name: 'X')],
         nextCursor: 'more',
       );
 
@@ -390,9 +352,7 @@ void main() {
 
     test('toJson serializes correctly', () {
       const result = ListResourceTemplatesResult(
-        resourceTemplates: [
-          ResourceTemplate(uriTemplate: 'db://{id}', name: 'DB'),
-        ],
+        resourceTemplates: [ResourceTemplate(uriTemplate: 'db://{id}', name: 'DB')],
       );
 
       final json = result.toJson();
@@ -438,15 +398,9 @@ void main() {
     });
 
     test('fromJson throws on missing params', () {
-      final json = {
-        'id': 22,
-        'method': 'resources/read',
-      };
+      final json = {'id': 22, 'method': 'resources/read'};
 
-      expect(
-        () => JsonRpcReadResourceRequest.fromJson(json),
-        throwsA(isA<FormatException>()),
-      );
+      expect(() => JsonRpcReadResourceRequest.fromJson(json), throwsA(isA<FormatException>()));
     });
   });
 
@@ -454,10 +408,7 @@ void main() {
     test('fromJson with contents', () {
       final json = {
         'contents': [
-          {
-            'uri': 'file:///content.txt',
-            'text': 'Hello World',
-          },
+          {'uri': 'file:///content.txt', 'text': 'Hello World'},
         ],
       };
 
@@ -474,9 +425,7 @@ void main() {
 
     test('toJson serializes correctly', () {
       final result = const ReadResourceResult(
-        contents: [
-          TextResourceContents(uri: 'file:///out.txt', text: 'Content'),
-        ],
+        contents: [TextResourceContents(uri: 'file:///out.txt', text: 'Content')],
       );
 
       final json = result.toJson();
@@ -487,23 +436,14 @@ void main() {
   group('JsonRpcResourceListChangedNotification', () {
     test('creates notification with correct method', () {
       const notification = JsonRpcResourceListChangedNotification();
-      expect(
-        notification.method,
-        equals('notifications/resources/list_changed'),
-      );
+      expect(notification.method, equals('notifications/resources/list_changed'));
     });
 
     test('fromJson creates notification', () {
-      final json = {
-        'method': 'notifications/resources/list_changed',
-      };
+      final json = {'method': 'notifications/resources/list_changed'};
 
-      final notification =
-          JsonRpcResourceListChangedNotification.fromJson(json);
-      expect(
-        notification.method,
-        equals('notifications/resources/list_changed'),
-      );
+      final notification = JsonRpcResourceListChangedNotification.fromJson(json);
+      expect(notification.method, equals('notifications/resources/list_changed'));
     });
   });
 
@@ -523,10 +463,7 @@ void main() {
 
   group('JsonRpcSubscribeRequest', () {
     test('creates request with correct method', () {
-      final request = JsonRpcSubscribeRequest(
-        id: 30,
-        subParams: const SubscribeRequest(uri: 'file:///sub.txt'),
-      );
+      final request = JsonRpcSubscribeRequest(id: 30, subParams: const SubscribeRequest(uri: 'file:///sub.txt'));
       expect(request.method, equals('resources/subscribe'));
     });
 
@@ -543,15 +480,9 @@ void main() {
     });
 
     test('fromJson throws on missing params', () {
-      final json = {
-        'id': 32,
-        'method': 'resources/subscribe',
-      };
+      final json = {'id': 32, 'method': 'resources/subscribe'};
 
-      expect(
-        () => JsonRpcSubscribeRequest.fromJson(json),
-        throwsA(isA<FormatException>()),
-      );
+      expect(() => JsonRpcSubscribeRequest.fromJson(json), throwsA(isA<FormatException>()));
     });
   });
 
@@ -591,15 +522,9 @@ void main() {
     });
 
     test('fromJson throws on missing params', () {
-      final json = {
-        'id': 42,
-        'method': 'resources/unsubscribe',
-      };
+      final json = {'id': 42, 'method': 'resources/unsubscribe'};
 
-      expect(
-        () => JsonRpcUnsubscribeRequest.fromJson(json),
-        throwsA(isA<FormatException>()),
-      );
+      expect(() => JsonRpcUnsubscribeRequest.fromJson(json), throwsA(isA<FormatException>()));
     });
   });
 
@@ -611,8 +536,7 @@ void main() {
     });
 
     test('toJson serializes correctly', () {
-      const notification =
-          ResourceUpdatedNotification(uri: 'file:///changed.txt');
+      const notification = ResourceUpdatedNotification(uri: 'file:///changed.txt');
       final json = notification.toJson();
       expect(json['uri'], equals('file:///changed.txt'));
     });
@@ -621,13 +545,9 @@ void main() {
   group('JsonRpcResourceUpdatedNotification', () {
     test('creates notification with correct method', () {
       final notification = JsonRpcResourceUpdatedNotification(
-        updatedParams:
-            const ResourceUpdatedNotification(uri: 'file:///notify.txt'),
+        updatedParams: const ResourceUpdatedNotification(uri: 'file:///notify.txt'),
       );
-      expect(
-        notification.method,
-        equals('notifications/resources/updated'),
-      );
+      expect(notification.method, equals('notifications/resources/updated'));
       expect(notification.updatedParams.uri, equals('file:///notify.txt'));
     });
 
@@ -638,21 +558,13 @@ void main() {
       };
 
       final notification = JsonRpcResourceUpdatedNotification.fromJson(json);
-      expect(
-        notification.updatedParams.uri,
-        equals('file:///parsed_notify.txt'),
-      );
+      expect(notification.updatedParams.uri, equals('file:///parsed_notify.txt'));
     });
 
     test('fromJson throws on missing params', () {
-      final json = {
-        'method': 'notifications/resources/updated',
-      };
+      final json = {'method': 'notifications/resources/updated'};
 
-      expect(
-        () => JsonRpcResourceUpdatedNotification.fromJson(json),
-        throwsA(isA<FormatException>()),
-      );
+      expect(() => JsonRpcResourceUpdatedNotification.fromJson(json), throwsA(isA<FormatException>()));
     });
 
     test('fromJson with meta', () {

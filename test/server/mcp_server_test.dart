@@ -50,9 +50,7 @@ void main() {
     late McpServerTestTransport transport;
 
     setUp(() {
-      server = McpServer(
-        const Implementation(name: 'test-server', version: '1.0.0'),
-      );
+      server = McpServer(const Implementation(name: 'test-server', version: '1.0.0'));
       transport = McpServerTestTransport();
     });
 
@@ -71,9 +69,7 @@ void main() {
           'required': ['input'],
         }),
         callback: (args, extra) async {
-          return CallToolResult(
-            content: [TextContent(text: 'Result: ${args['input']}')],
-          );
+          return CallToolResult(content: [TextContent(text: 'Result: ${args['input']}')]);
         },
       );
 
@@ -187,9 +183,7 @@ void main() {
         'arg-test-tool',
         callback: (args, extra) async {
           receivedArgs.complete(args);
-          return const CallToolResult(
-            content: [TextContent(text: 'Done')],
-          );
+          return const CallToolResult(content: [TextContent(text: 'Done')]);
         },
       );
 
@@ -205,9 +199,7 @@ void main() {
       );
       transport.receiveMessage(callRequest);
 
-      final args = await receivedArgs.future.timeout(
-        const Duration(seconds: 1),
-      );
+      final args = await receivedArgs.future.timeout(const Duration(seconds: 1));
       expect(args, isNotNull);
       expect(args!['key'], equals('value'));
     });
@@ -216,10 +208,7 @@ void main() {
       await server.connect(transport);
 
       // Call a non-existent tool
-      final callRequest = const JsonRpcCallToolRequest(
-        id: 1,
-        params: {'name': 'non-existent-tool'},
-      );
+      final callRequest = const JsonRpcCallToolRequest(id: 1, params: {'name': 'non-existent-tool'});
       transport.receiveMessage(callRequest);
 
       await Future.delayed(const Duration(milliseconds: 100));
@@ -234,9 +223,7 @@ void main() {
     late McpServerTestTransport transport;
 
     setUp(() {
-      server = McpServer(
-        const Implementation(name: 'test-server', version: '1.0.0'),
-      );
+      server = McpServer(const Implementation(name: 'test-server', version: '1.0.0'));
       transport = McpServerTestTransport();
     });
 
@@ -245,21 +232,14 @@ void main() {
     });
 
     test('registerResource creates a resource that can be listed', () async {
-      server.registerResource(
-        'Test Resource',
-        'test://resource',
-        (description: 'A test resource', mimeType: null),
-        (uri, extra) async {
-          return ReadResourceResult(
-            contents: [
-              TextResourceContents(
-                uri: uri.toString(),
-                text: 'Resource content',
-              ),
-            ],
-          );
-        },
-      );
+      server.registerResource('Test Resource', 'test://resource', (description: 'A test resource', mimeType: null), (
+        uri,
+        extra,
+      ) async {
+        return ReadResourceResult(
+          contents: [TextResourceContents(uri: uri.toString(), text: 'Resource content')],
+        );
+      });
 
       await server.connect(transport);
 
@@ -277,18 +257,14 @@ void main() {
     });
 
     test('registerResource can be enabled and disabled', () async {
-      final registeredResource = server.registerResource(
-        'Toggleable Resource',
-        'test://toggleable',
-        null,
-        (uri, extra) async {
-          return ReadResourceResult(
-            contents: [
-              TextResourceContents(uri: uri.toString(), text: 'content'),
-            ],
-          );
-        },
-      );
+      final registeredResource = server.registerResource('Toggleable Resource', 'test://toggleable', null, (
+        uri,
+        extra,
+      ) async {
+        return ReadResourceResult(
+          contents: [TextResourceContents(uri: uri.toString(), text: 'content')],
+        );
+      });
 
       await server.connect(transport);
 
@@ -319,21 +295,11 @@ void main() {
     });
 
     test('read resource returns content', () async {
-      server.registerResource(
-        'Readable Resource',
-        'test://readable',
-        null,
-        (uri, extra) async {
-          return ReadResourceResult(
-            contents: [
-              TextResourceContents(
-                uri: uri.toString(),
-                text: 'Hello from resource',
-              ),
-            ],
-          );
-        },
-      );
+      server.registerResource('Readable Resource', 'test://readable', null, (uri, extra) async {
+        return ReadResourceResult(
+          contents: [TextResourceContents(uri: uri.toString(), text: 'Hello from resource')],
+        );
+      });
 
       await server.connect(transport);
 
@@ -357,9 +323,7 @@ void main() {
     late McpServerTestTransport transport;
 
     setUp(() {
-      server = McpServer(
-        const Implementation(name: 'test-server', version: '1.0.0'),
-      );
+      server = McpServer(const Implementation(name: 'test-server', version: '1.0.0'));
       transport = McpServerTestTransport();
     });
 
@@ -455,10 +419,7 @@ void main() {
       // Get the prompt
       final getRequest = JsonRpcGetPromptRequest(
         id: 2,
-        getParams: const GetPromptRequestParams(
-          name: 'callable-prompt',
-          arguments: {'language': 'french'},
-        ),
+        getParams: const GetPromptRequestParams(name: 'callable-prompt', arguments: {'language': 'french'}),
       );
       transport.receiveMessage(getRequest);
 
@@ -475,9 +436,7 @@ void main() {
     late McpServerTestTransport transport;
 
     setUp(() {
-      server = McpServer(
-        const Implementation(name: 'test-server', version: '1.0.0'),
-      );
+      server = McpServer(const Implementation(name: 'test-server', version: '1.0.0'));
       transport = McpServerTestTransport();
     });
 

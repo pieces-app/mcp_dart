@@ -103,10 +103,7 @@ void main() {
             } else if (requestData['id'] != null) {
               // For requests, return a response
               final id = requestData['id'];
-              final response = JsonRpcResponse(
-                id: id,
-                result: {'success': true, 'echo': requestData['params']},
-              );
+              final response = JsonRpcResponse(id: id, result: {'success': true, 'echo': requestData['params']});
 
               request.response.headers.contentType = ContentType.json;
               request.response.statusCode = HttpStatus.ok;
@@ -201,11 +198,7 @@ void main() {
       transport = StreamableHttpClientTransport(serverUrl);
       await transport.start();
 
-      final request = const JsonRpcRequest(
-        id: 123,
-        method: 'test/method',
-        params: {'data': 'test-data'},
-      );
+      final request = const JsonRpcRequest(id: 123, method: 'test/method', params: {'data': 'test-data'});
 
       final completer = Completer<JsonRpcMessage>();
       transport.onmessage = (message) {
@@ -225,8 +218,7 @@ void main() {
       expect(response.result['echo']['data'], equals('test-data'));
     });
 
-    test('send with initialized notification triggers SSE establishment',
-        () async {
+    test('send with initialized notification triggers SSE establishment', () async {
       transport = StreamableHttpClientTransport(serverUrl);
       await transport.start();
 
@@ -258,225 +250,196 @@ void main() {
       );
     });
 
-    test(
-      '_getNextReconnectionDelay implements exponential backoff',
-      () async {
-        // Set up a reconnection simulation flag
+    test('_getNextReconnectionDelay implements exponential backoff', () async {
+      // Set up a reconnection simulation flag
 
-        // Create a new transport with specialized reconnection options
-        transport = StreamableHttpClientTransport(
-          serverUrl,
-          opts: const StreamableHttpClientTransportOptions(
-            reconnectionOptions: StreamableHttpReconnectionOptions(
-              initialReconnectionDelay: 100, // Very short to make test faster
-              reconnectionDelayGrowFactor: 1.1,
-              maxReconnectionDelay: 500,
-              maxRetries: 10, // Plenty of retries
-            ),
+      // Create a new transport with specialized reconnection options
+      transport = StreamableHttpClientTransport(
+        serverUrl,
+        opts: const StreamableHttpClientTransportOptions(
+          reconnectionOptions: StreamableHttpReconnectionOptions(
+            initialReconnectionDelay: 100, // Very short to make test faster
+            reconnectionDelayGrowFactor: 1.1,
+            maxReconnectionDelay: 500,
+            maxRetries: 10, // Plenty of retries
           ),
-        );
+        ),
+      );
 
-        await transport.start();
+      await transport.start();
 
-        // We'll test the algorithm by sending a notification
-        final notification = const JsonRpcInitializedNotification();
-        await transport.send(notification);
+      // We'll test the algorithm by sending a notification
+      final notification = const JsonRpcInitializedNotification();
+      await transport.send(notification);
 
-        // Wait for SSE connection to establish
-        await Future.delayed(const Duration(milliseconds: 500));
+      // Wait for SSE connection to establish
+      await Future.delayed(const Duration(milliseconds: 500));
 
-        // Make sure we have at least one connection before proceeding
-        if (currentSseConnections.isEmpty) {
-          fail('Initial connection was not established');
-        }
+      // Make sure we have at least one connection before proceeding
+      if (currentSseConnections.isEmpty) {
+        fail('Initial connection was not established');
+      }
 
-        // Close all current connections to simulate a disconnect
-        for (var connection in List<HttpResponse>.from(currentSseConnections)) {
-          try {
-            await connection.close();
-          } catch (e) {
-            print('Error closing connection: $e');
-          }
-        }
-        currentSseConnections.clear();
-
-        // Wait for the client to attempt reconnection
-        await Future.delayed(const Duration(seconds: 2));
-
-        // After the delay, manually "accept" a new connection by sending another notification
-        await transport.send(notification);
-
-        // Wait for the new connection to establish
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        // Now we should have a new connection
-        expect(
-          currentSseConnections.isNotEmpty,
-          isTrue,
-          reason: 'New connection should be established after reconnection',
-        );
-      },
-      timeout: const Timeout(Duration(seconds: 15)),
-    );
-
-    test(
-      'receives SSE events',
-      () async {
-        transport = StreamableHttpClientTransport(serverUrl);
-
-        // Set up the message handler first
-        final messageCompleter = Completer<JsonRpcMessage>();
-        transport.onmessage = (message) {
-          print('Transport received message: ${jsonEncode(message.toJson())}');
-          messageCompleter.complete(message);
-        };
-
-        transport.onerror = (error) {
-          print('Transport error: $error');
-        };
-
-        await transport.start();
-
-        // Send initialization notification to establish SSE connection
-        final notification = const JsonRpcInitializedNotification();
-        await transport.send(notification);
-
-        // Wait for SSE connection to be established
-        await Future.delayed(const Duration(milliseconds: 1000));
-
-        if (currentSseConnections.isEmpty) {
-          fail('No SSE connections established');
-        }
-
-        print(
-          'About to send SSE event, active connections: ${currentSseConnections.length}',
-        );
-
-        // Send a valid JSON-RPC notification via SSE using proper SSE format
-        for (final connection
-            in List<HttpResponse>.from(currentSseConnections)) {
-          try {
-            final message = const JsonRpcNotification(
-              method: 'notifications/initialized',
-            );
-
-            final data = jsonEncode(message.toJson());
-            print('Sending SSE event with data: $data');
-
-            // Send data with proper SSE format in a single write operation
-            // This avoids the header already sent error
-            connection.write('data: $data\n\n');
-            await connection.flush();
-            print('Sent SSE event');
-          } catch (e) {
-            print('Error sending SSE event: $e');
-            fail('Failed to send SSE event: $e');
-          }
-        }
-
-        // Wait for the message with a longer timeout
-        final message = await messageCompleter.future.timeout(
-          const Duration(seconds: 5),
-          onTimeout: () {
-            print('*** TIMEOUT: No message received via SSE after 5 seconds');
-            throw TimeoutException('No message received via SSE');
-          },
-        );
-
-        expect(message, isA<JsonRpcNotification>());
-        expect(
-          (message as JsonRpcNotification).method,
-          equals('notifications/initialized'),
-        );
-      },
-      timeout: const Timeout(Duration(seconds: 10)),
-    );
-
-    test(
-      'authentication flow works',
-      () async {
-        // Create a mock auth provider that specifically implements the required behavior
-        final mockAuthProvider = MockOAuthClientProvider(returnTokens: false);
-
-        // Override the standard method to ensure it redirects
-        mockAuthProvider.registerRedirectToAuthorization(() async {
-          mockAuthProvider.didRedirectToAuthorization = true;
-          print('Mock redirected to authorization!');
-        });
-
-        transport = StreamableHttpClientTransport(
-          serverUrl,
-          opts: StreamableHttpClientTransportOptions(
-            authProvider: mockAuthProvider,
-          ),
-        );
-
-        await transport.start();
-
-        final request = const JsonRpcRequest(
-          id: 123,
-          method: 'test/method',
-          params: {'data': 'test-data'},
-        );
-
-        // Set up an error handler to verify errors
-        final errorCompleter = Completer<Error>();
-        transport.onerror = (error) {
-          print('Auth test error: $error');
-          errorCompleter.complete(error);
-        };
-
+      // Close all current connections to simulate a disconnect
+      for (var connection in List<HttpResponse>.from(currentSseConnections)) {
         try {
-          // This should trigger auth flow and eventually throw
-          await transport.send(request);
-
-          // If we get here, we should check the auth provider state
-          if (!mockAuthProvider.didRedirectToAuthorization) {
-            fail('Auth provider did not redirect to authorization');
-          }
+          await connection.close();
         } catch (e) {
-          print('Auth test caught exception: $e');
-          // This is expected since we're using a mock that doesn't return tokens
+          print('Error closing connection: $e');
         }
+      }
+      currentSseConnections.clear();
 
-        // Verify the auth provider was called to redirect
-        expect(
-          mockAuthProvider.didRedirectToAuthorization,
-          isTrue,
-          reason: 'Auth provider should have redirected to authorization',
-        );
+      // Wait for the client to attempt reconnection
+      await Future.delayed(const Duration(seconds: 2));
 
-        // For the second part of the test, use a new transport that succeeds
-        final successAuthProvider = MockOAuthClientProvider(returnTokens: true);
-        transport = StreamableHttpClientTransport(
-          serverUrl,
-          opts: StreamableHttpClientTransportOptions(
-            authProvider: successAuthProvider,
-          ),
-        );
-        await transport.start();
+      // After the delay, manually "accept" a new connection by sending another notification
+      await transport.send(notification);
 
-        // Set up the message handler
-        final completer = Completer<JsonRpcMessage>();
-        transport.onmessage = (message) {
-          completer.complete(message);
-        };
+      // Wait for the new connection to establish
+      await Future.delayed(const Duration(milliseconds: 500));
 
-        // Send the request with the authenticated transport
+      // Now we should have a new connection
+      expect(
+        currentSseConnections.isNotEmpty,
+        isTrue,
+        reason: 'New connection should be established after reconnection',
+      );
+    }, timeout: const Timeout(Duration(seconds: 15)));
+
+    test('receives SSE events', () async {
+      transport = StreamableHttpClientTransport(serverUrl);
+
+      // Set up the message handler first
+      final messageCompleter = Completer<JsonRpcMessage>();
+      transport.onmessage = (message) {
+        print('Transport received message: ${jsonEncode(message.toJson())}');
+        messageCompleter.complete(message);
+      };
+
+      transport.onerror = (error) {
+        print('Transport error: $error');
+      };
+
+      await transport.start();
+
+      // Send initialization notification to establish SSE connection
+      final notification = const JsonRpcInitializedNotification();
+      await transport.send(notification);
+
+      // Wait for SSE connection to be established
+      await Future.delayed(const Duration(milliseconds: 1000));
+
+      if (currentSseConnections.isEmpty) {
+        fail('No SSE connections established');
+      }
+
+      print('About to send SSE event, active connections: ${currentSseConnections.length}');
+
+      // Send a valid JSON-RPC notification via SSE using proper SSE format
+      for (final connection in List<HttpResponse>.from(currentSseConnections)) {
+        try {
+          final message = const JsonRpcNotification(method: 'notifications/initialized');
+
+          final data = jsonEncode(message.toJson());
+          print('Sending SSE event with data: $data');
+
+          // Send data with proper SSE format in a single write operation
+          // This avoids the header already sent error
+          connection.write('data: $data\n\n');
+          await connection.flush();
+          print('Sent SSE event');
+        } catch (e) {
+          print('Error sending SSE event: $e');
+          fail('Failed to send SSE event: $e');
+        }
+      }
+
+      // Wait for the message with a longer timeout
+      final message = await messageCompleter.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          print('*** TIMEOUT: No message received via SSE after 5 seconds');
+          throw TimeoutException('No message received via SSE');
+        },
+      );
+
+      expect(message, isA<JsonRpcNotification>());
+      expect((message as JsonRpcNotification).method, equals('notifications/initialized'));
+    }, timeout: const Timeout(Duration(seconds: 10)));
+
+    test('authentication flow works', () async {
+      // Create a mock auth provider that specifically implements the required behavior
+      final mockAuthProvider = MockOAuthClientProvider(returnTokens: false);
+
+      // Override the standard method to ensure it redirects
+      mockAuthProvider.registerRedirectToAuthorization(() async {
+        mockAuthProvider.didRedirectToAuthorization = true;
+        print('Mock redirected to authorization!');
+      });
+
+      transport = StreamableHttpClientTransport(
+        serverUrl,
+        opts: StreamableHttpClientTransportOptions(authProvider: mockAuthProvider),
+      );
+
+      await transport.start();
+
+      final request = const JsonRpcRequest(id: 123, method: 'test/method', params: {'data': 'test-data'});
+
+      // Set up an error handler to verify errors
+      final errorCompleter = Completer<Error>();
+      transport.onerror = (error) {
+        print('Auth test error: $error');
+        errorCompleter.complete(error);
+      };
+
+      try {
+        // This should trigger auth flow and eventually throw
         await transport.send(request);
 
-        // Verify we get a successful response
-        final response = await completer.future.timeout(
-          const Duration(seconds: 5),
-          onTimeout: () =>
-              throw TimeoutException('No response received after auth'),
-        );
+        // If we get here, we should check the auth provider state
+        if (!mockAuthProvider.didRedirectToAuthorization) {
+          fail('Auth provider did not redirect to authorization');
+        }
+      } catch (e) {
+        print('Auth test caught exception: $e');
+        // This is expected since we're using a mock that doesn't return tokens
+      }
 
-        expect(response, isA<JsonRpcResponse>());
-        expect((response as JsonRpcResponse).id, equals(123));
-      },
-      timeout: const Timeout(Duration(seconds: 10)),
-    );
+      // Verify the auth provider was called to redirect
+      expect(
+        mockAuthProvider.didRedirectToAuthorization,
+        isTrue,
+        reason: 'Auth provider should have redirected to authorization',
+      );
+
+      // For the second part of the test, use a new transport that succeeds
+      final successAuthProvider = MockOAuthClientProvider(returnTokens: true);
+      transport = StreamableHttpClientTransport(
+        serverUrl,
+        opts: StreamableHttpClientTransportOptions(authProvider: successAuthProvider),
+      );
+      await transport.start();
+
+      // Set up the message handler
+      final completer = Completer<JsonRpcMessage>();
+      transport.onmessage = (message) {
+        completer.complete(message);
+      };
+
+      // Send the request with the authenticated transport
+      await transport.send(request);
+
+      // Verify we get a successful response
+      final response = await completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TimeoutException('No response received after auth'),
+      );
+
+      expect(response, isA<JsonRpcResponse>());
+      expect((response as JsonRpcResponse).id, equals(123));
+    }, timeout: const Timeout(Duration(seconds: 10)));
 
     test('terminateSession sends DELETE request', () async {
       transport = StreamableHttpClientTransport(serverUrl);
@@ -497,72 +460,60 @@ void main() {
       expect(true, isTrue);
     });
 
-    test(
-      'handles CRLF line endings in SSE events',
-      () async {
-        transport = StreamableHttpClientTransport(serverUrl);
+    test('handles CRLF line endings in SSE events', () async {
+      transport = StreamableHttpClientTransport(serverUrl);
 
-        final messageCompleter = Completer<JsonRpcMessage>();
-        transport.onmessage = (message) {
-          print('Transport received message: ${jsonEncode(message.toJson())}');
-          messageCompleter.complete(message);
-        };
+      final messageCompleter = Completer<JsonRpcMessage>();
+      transport.onmessage = (message) {
+        print('Transport received message: ${jsonEncode(message.toJson())}');
+        messageCompleter.complete(message);
+      };
 
-        transport.onerror = (error) {
-          print('Transport error: $error');
-        };
+      transport.onerror = (error) {
+        print('Transport error: $error');
+      };
 
-        await transport.start();
+      await transport.start();
 
-        final notification = const JsonRpcInitializedNotification();
-        await transport.send(notification);
+      final notification = const JsonRpcInitializedNotification();
+      await transport.send(notification);
 
-        await Future.delayed(const Duration(milliseconds: 1000));
+      await Future.delayed(const Duration(milliseconds: 1000));
 
-        if (currentSseConnections.isEmpty) {
-          fail('No SSE connections established');
+      if (currentSseConnections.isEmpty) {
+        fail('No SSE connections established');
+      }
+
+      print('About to send SSE event, active connections: ${currentSseConnections.length}');
+
+      for (final connection in List<HttpResponse>.from(currentSseConnections)) {
+        try {
+          final message = const JsonRpcNotification(method: 'notifications/initialized');
+
+          final data = jsonEncode(message.toJson());
+          print('Sending SSE event with data: $data');
+
+          connection.write('event: message\r\n');
+          connection.write('data: $data\r\n\r\n');
+          await connection.flush();
+          print('Sent SSE event');
+        } catch (e) {
+          print('Error sending SSE event: $e');
+          fail('Failed to send SSE event: $e');
         }
+      }
 
-        print(
-          'About to send SSE event, active connections: ${currentSseConnections.length}',
-        );
+      final message = await messageCompleter.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          print('*** TIMEOUT: No message received via SSE after 5 seconds');
+          throw TimeoutException('No message received via SSE');
+        },
+      );
 
-        for (final connection
-            in List<HttpResponse>.from(currentSseConnections)) {
-          try {
-            final message = const JsonRpcNotification(
-              method: 'notifications/initialized',
-            );
-
-            final data = jsonEncode(message.toJson());
-            print('Sending SSE event with data: $data');
-
-            connection.write('event: message\r\n');
-            connection.write('data: $data\r\n\r\n');
-            await connection.flush();
-            print('Sent SSE event');
-          } catch (e) {
-            print('Error sending SSE event: $e');
-            fail('Failed to send SSE event: $e');
-          }
-        }
-
-        final message = await messageCompleter.future.timeout(
-          const Duration(seconds: 5),
-          onTimeout: () {
-            print('*** TIMEOUT: No message received via SSE after 5 seconds');
-            throw TimeoutException('No message received via SSE');
-          },
-        );
-
-        expect(message, isA<JsonRpcNotification>());
-        expect(
-          (message as JsonRpcNotification).method,
-          equals('notifications/initialized'),
-        );
-      },
-      timeout: const Timeout(Duration(seconds: 10)),
-    );
+      expect(message, isA<JsonRpcNotification>());
+      expect((message as JsonRpcNotification).method, equals('notifications/initialized'));
+    }, timeout: const Timeout(Duration(seconds: 10)));
 
     group('Error Handling and Edge Cases', () {
       test('handles finishAuth without auth provider', () async {
@@ -570,10 +521,7 @@ void main() {
         await transport.start();
 
         // Calling finishAuth without authProvider should throw
-        expect(
-          () async => await transport.finishAuth('test-code'),
-          throwsA(isA<UnauthorizedError>()),
-        );
+        expect(() async => await transport.finishAuth('test-code'), throwsA(isA<UnauthorizedError>()));
       });
 
       test('start throws error if already started', () async {
@@ -581,10 +529,7 @@ void main() {
         await transport.start();
 
         // Starting again should throw
-        expect(
-          () async => await transport.start(),
-          throwsA(isA<McpError>()),
-        );
+        expect(() async => await transport.start(), throwsA(isA<McpError>()));
       });
 
       test('sessionId is tracked correctly', () async {

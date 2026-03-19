@@ -13,19 +13,14 @@ void main() {
         ),
         'a': JsonSchema.number(description: 'First number'),
         'b': JsonSchema.number(description: 'Second number'),
-        'precision': JsonSchema.integer(
-          description: 'Number of decimal places (optional)',
-          defaultValue: 2,
-        ),
+        'precision': JsonSchema.integer(description: 'Number of decimal places (optional)', defaultValue: 2),
       },
       required: ['operation', 'a', 'b'],
     ),
     outputSchema: JsonSchema.object(
       properties: {
         'result': JsonSchema.number(description: 'The calculation result'),
-        'equation': JsonSchema.string(
-          description: 'The equation that was calculated',
-        ),
+        'equation': JsonSchema.string(description: 'The equation that was calculated'),
       },
       required: ['result'], // ← Output required fields also preserved!
     ),
@@ -51,12 +46,8 @@ void main() {
   // Deserialize back from JSON (roundtrip test)
   final deserializedTool = Tool.fromJson(toolJson);
   print('\n=== Roundtrip Test ===');
-  print(
-    'Original required: ${(calculatorTool.inputSchema as JsonObject).required}',
-  );
-  print(
-    'Deserialized required: ${(deserializedTool.inputSchema as JsonObject).required}',
-  );
+  print('Original required: ${(calculatorTool.inputSchema as JsonObject).required}');
+  print('Deserialized required: ${(deserializedTool.inputSchema as JsonObject).required}');
   print(
     'Match: ${_listsEqual((calculatorTool.inputSchema as JsonObject).required, (deserializedTool.inputSchema as JsonObject).required)}',
   );

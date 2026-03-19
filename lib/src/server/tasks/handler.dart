@@ -17,10 +17,7 @@ import 'store.dart';
 /// operations and report their status and results asynchronously.
 abstract class ToolTaskHandler {
   /// Creates a new task and returns its initial state.
-  Future<CreateTaskResult> createTask(
-    Map<String, dynamic>? args,
-    RequestHandlerExtra? extra,
-  );
+  Future<CreateTaskResult> createTask(Map<String, dynamic>? args, RequestHandlerExtra? extra);
 
   /// Retrieves the current status of a task.
   Future<Task> getTask(String taskId, RequestHandlerExtra? extra);
@@ -29,10 +26,7 @@ abstract class ToolTaskHandler {
   Future<void> cancelTask(String taskId, RequestHandlerExtra? extra);
 
   /// Retrieves the final result of a completed task.
-  Future<CallToolResult> getTaskResult(
-    String taskId,
-    RequestHandlerExtra? extra,
-  );
+  Future<CallToolResult> getTaskResult(String taskId, RequestHandlerExtra? extra);
 }
 
 /// Handles execution and result retrieval for tasks, managing the queue loop.
@@ -63,10 +57,7 @@ class TaskResultHandler {
 
       final task = await store.getTask(taskId);
       if (task == null) {
-        throw McpError(
-          ErrorCode.invalidParams.value,
-          "Task not found: $taskId",
-        );
+        throw McpError(ErrorCode.invalidParams.value, "Task not found: $taskId");
       }
 
       // Deliver queued messages (requests from client to server logic?)
@@ -88,10 +79,7 @@ class TaskResultHandler {
         } else {
           // If we ever support other result types, handle them here.
           // For now, assume CallToolResult as that's what we store.
-          throw McpError(
-            ErrorCode.internalError.value,
-            "Unexpected result type: ${result.runtimeType}",
-          );
+          throw McpError(ErrorCode.internalError.value, "Unexpected result type: ${result.runtimeType}");
         }
 
         // Add related task meta
@@ -107,10 +95,7 @@ class TaskResultHandler {
       }
 
       // Wait for update or new message
-      await Future.any([
-        updateFuture,
-        messageFuture,
-      ]);
+      await Future.any([updateFuture, messageFuture]);
     }
   }
 
@@ -141,8 +126,7 @@ class TaskResultHandler {
             response = await server.experimental.elicitForTask(taskId, params);
           } else if (request.method == 'sampling/createMessage') {
             final params = CreateMessageRequest.fromJson(request.params!);
-            response =
-                await server.experimental.createMessageForTask(taskId, params);
+            response = await server.experimental.createMessageForTask(taskId, params);
           } else {
             throw Exception("Unknown request method: ${request.method}");
           }

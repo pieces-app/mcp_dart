@@ -43,24 +43,14 @@ class TaskClient {
       // 1. Call the tool using generic request to capture 'task' field if present.
       // We cannot use client.callTool() because it forces CallToolResult return type
       // which ignores the 'task' field.
-      final callParamsJson =
-          CallToolRequest(name: name, arguments: arguments).toJson();
+      final callParamsJson = CallToolRequest(name: name, arguments: arguments).toJson();
 
       // Add task augmentation params directly to params (per MCP spec)
-      final paramsWithTask = <String, dynamic>{
-        ...callParamsJson,
-        if (task != null) 'task': task,
-      };
+      final paramsWithTask = <String, dynamic>{...callParamsJson, if (task != null) 'task': task};
 
-      final req = JsonRpcCallToolRequest(
-        id: -1,
-        params: paramsWithTask,
-      );
+      final req = JsonRpcCallToolRequest(id: -1, params: paramsWithTask);
 
-      final response = await client.request<_RawResult>(
-        req,
-        (json) => _RawResult(json, meta: json['_meta']),
-      );
+      final response = await client.request<_RawResult>(req, (json) => _RawResult(json, meta: json['_meta']));
 
       final data = response.data;
 
@@ -70,10 +60,7 @@ class TaskClient {
         yield TaskCreatedMessage(taskResult.task);
 
         // Poll for status updates until terminal, then fetch result
-        await for (final msg in _monitorTask(
-          taskResult.task.taskId,
-          taskResult.task,
-        )) {
+        await for (final msg in _monitorTask(taskResult.task.taskId, taskResult.task)) {
           yield msg;
         }
       } else {
@@ -86,10 +73,7 @@ class TaskClient {
     }
   }
 
-  Stream<TaskStreamMessage> _monitorTask(
-    String taskId,
-    Task initialTask,
-  ) async* {
+  Stream<TaskStreamMessage> _monitorTask(String taskId, Task initialTask) async* {
     var currentTask = initialTask;
 
     // Poll until task reaches terminal state
@@ -132,58 +116,33 @@ class TaskClient {
         yield TaskErrorMessage(e);
       }
     } else if (currentTask.status == TaskStatus.failed) {
-      yield TaskErrorMessage(
-        Exception(
-          'Task failed: ${currentTask.statusMessage ?? "Unknown error"}',
-        ),
-      );
+      yield TaskErrorMessage(Exception('Task failed: ${currentTask.statusMessage ?? "Unknown error"}'));
     } else if (currentTask.status == TaskStatus.cancelled) {
       yield TaskErrorMessage(Exception('Task was cancelled'));
     }
   }
 
   Future<Task> _getTask(String taskId) async {
-    final req = JsonRpcGetTaskRequest(
-      id: -1,
-      getParams: GetTaskRequest(taskId: taskId),
-    );
+    final req = JsonRpcGetTaskRequest(id: -1, getParams: GetTaskRequest(taskId: taskId));
 
-    return await client.request<Task>(
-      req,
-      (json) => Task.fromJson(json),
-    );
+    return await client.request<Task>(req, (json) => Task.fromJson(json));
   }
 
   Future<CallToolResult> _getTaskResult(String taskId) async {
-    final req = JsonRpcTaskResultRequest(
-      id: -1,
-      resultParams: TaskResultRequest(taskId: taskId),
-    );
-    return await client.request<CallToolResult>(
-      req,
-      (json) => CallToolResult.fromJson(json),
-    );
+    final req = JsonRpcTaskResultRequest(id: -1, resultParams: TaskResultRequest(taskId: taskId));
+    return await client.request<CallToolResult>(req, (json) => CallToolResult.fromJson(json));
   }
 
   /// List all tasks on the server
   Future<List<Task>> listTasks() async {
     final req = JsonRpcListTasksRequest(id: -1);
-    final result = await client.request<ListTasksResult>(
-      req,
-      (json) => ListTasksResult.fromJson(json),
-    );
+    final result = await client.request<ListTasksResult>(req, (json) => ListTasksResult.fromJson(json));
     return result.tasks;
   }
 
   /// Cancel a task by ID
   Future<void> cancelTask(String taskId) async {
-    final req = JsonRpcCancelTaskRequest(
-      id: -1,
-      cancelParams: CancelTaskRequest(taskId: taskId),
-    );
-    await client.request<EmptyResult>(
-      req,
-      (json) => const EmptyResult(),
-    );
+    final req = JsonRpcCancelTaskRequest(id: -1, cancelParams: CancelTaskRequest(taskId: taskId));
+    await client.request<EmptyResult>(req, (json) => const EmptyResult());
   }
 }

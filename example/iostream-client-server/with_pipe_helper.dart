@@ -16,16 +16,10 @@ class PipeTransport {
     final serverToClientController = StreamController<List<int>>();
 
     // Client reads from server's output, writes to server's input
-    client = IOStreamTransport(
-      stream: serverToClientController.stream,
-      sink: clientToServerController.sink,
-    );
+    client = IOStreamTransport(stream: serverToClientController.stream, sink: clientToServerController.sink);
 
     // Server reads from client's output, writes to client's input
-    server = IOStreamTransport(
-      stream: clientToServerController.stream,
-      sink: serverToClientController.sink,
-    );
+    server = IOStreamTransport(stream: clientToServerController.stream, sink: serverToClientController.sink);
   }
 }
 
@@ -33,10 +27,7 @@ class PipeTransport {
 Future<void> main() async {
   // Create a client
   final client = McpClient(
-    const Implementation(
-      name: "example-dart-iostream-client",
-      version: "1.0.0",
-    ),
+    const Implementation(name: "example-dart-iostream-client", version: "1.0.0"),
     options: const McpClientOptions(capabilities: ClientCapabilities()),
   );
 

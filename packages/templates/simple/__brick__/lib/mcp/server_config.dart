@@ -3,10 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 
 /// Supported transport types for the MCP server.
-enum TransportType {
-  stdio,
-  http,
-}
+enum TransportType { stdio, http }
 
 /// Configuration for the MCP Server.
 class ServerConfig {
@@ -40,8 +37,7 @@ class ServerConfig {
     final transportStr = results.option('transport');
     final transport = TransportType.values.firstWhere(
       (e) => e.name == transportStr,
-      orElse: () =>
-          throw FormatException('Unknown transport type: $transportStr'),
+      orElse: () => throw FormatException('Unknown transport type: $transportStr'),
     );
 
     final host = results.option('host')!;
@@ -81,34 +77,11 @@ class ServerConfig {
         allowed: TransportType.values.map((e) => e.name).toList(),
         defaultsTo: TransportType.stdio.name,
       )
-      ..addOption(
-        'host',
-        abbr: 'h',
-        help: 'Host to bind for HTTP transport.',
-        defaultsTo: '0.0.0.0',
-      )
-      ..addOption(
-        'port',
-        abbr: 'p',
-        help: 'Port to bind for HTTP transport.',
-        defaultsTo: '3000',
-      )
-      ..addOption(
-        'path',
-        help: 'Endpoint path for HTTP transport.',
-        defaultsTo: '/mcp',
-      )
-      ..addFlag(
-        'verbose',
-        abbr: 'v',
-        help: 'Enable verbose logging.',
-        negatable: false,
-      )
-      ..addFlag(
-        'help',
-        help: 'Show this help message.',
-        negatable: false,
-      );
+      ..addOption('host', abbr: 'h', help: 'Host to bind for HTTP transport.', defaultsTo: '0.0.0.0')
+      ..addOption('port', abbr: 'p', help: 'Port to bind for HTTP transport.', defaultsTo: '3000')
+      ..addOption('path', help: 'Endpoint path for HTTP transport.', defaultsTo: '/mcp')
+      ..addFlag('verbose', abbr: 'v', help: 'Enable verbose logging.', negatable: false)
+      ..addFlag('help', help: 'Show this help message.', negatable: false);
   }
 
   /// Prints the usage information to stderr.
@@ -123,17 +96,9 @@ class ServerConfig {
       ..writeln(parser.usage)
       ..writeln()
       ..writeln('Examples:')
-      ..writeln(
-        '  dart run bin/server.dart                          # stdio transport',
-      )
-      ..writeln(
-        '  dart run bin/server.dart -t http                  # HTTP on 0.0.0.0:3000',
-      )
-      ..writeln(
-        '  dart run bin/server.dart -t http -p 8080          # HTTP on port 8080',
-      )
-      ..writeln(
-        '  dart run bin/server.dart -t http -h localhost     # HTTP on localhost only',
-      );
+      ..writeln('  dart run bin/server.dart                          # stdio transport')
+      ..writeln('  dart run bin/server.dart -t http                  # HTTP on 0.0.0.0:3000')
+      ..writeln('  dart run bin/server.dart -t http -p 8080          # HTTP on port 8080')
+      ..writeln('  dart run bin/server.dart -t http -h localhost     # HTTP on localhost only');
   }
 }

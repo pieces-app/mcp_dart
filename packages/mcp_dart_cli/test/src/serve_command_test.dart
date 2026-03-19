@@ -24,8 +24,7 @@ void main() {
 
     test('has correct name and description', () {
       expect(command.name, equals('serve'));
-      expect(command.description,
-          equals('Runs the MCP server in the current directory.'));
+      expect(command.description, equals('Runs the MCP server in the current directory.'));
     });
 
     group('with temp directory', () {
@@ -45,13 +44,11 @@ void main() {
       });
 
       test('fails if pubspec.yaml is missing', () async {
-        final runner = CommandRunner<int>('mcp_dart', 'CLI')
-          ..addCommand(command);
+        final runner = CommandRunner<int>('mcp_dart', 'CLI')..addCommand(command);
         final exitCode = await runner.run(['serve']);
 
         expect(exitCode, equals(ExitCode.usage.code));
-        verify(() => logger.err(
-            'Error: pubspec.yaml not found in current directory.')).called(1);
+        verify(() => logger.err('Error: pubspec.yaml not found in current directory.')).called(1);
       });
     });
   });

@@ -23,10 +23,7 @@ void main() {
 
     if (method == 'GET' && path == '/sse_test') {
       try {
-        final transport = SseServerTransport(
-          response: request.response,
-          messageEndpointPath: '/messages_test',
-        );
+        final transport = SseServerTransport(response: request.response, messageEndpointPath: '/messages_test');
         final sessionId = transport.sessionId;
         activeTransports[sessionId] = transport;
         // print("Test Server: SSE Transport created for session $sessionId");
@@ -35,9 +32,7 @@ void main() {
           // print("Test Server: SSE Transport closed for session $sessionId");
           activeTransports.remove(sessionId);
         };
-        transport.onerror = (e) => print(
-              "Test Server: Transport error for session $sessionId: $e",
-            );
+        transport.onerror = (e) => print("Test Server: Transport error for session $sessionId: $e");
 
         // Start the transport AFTER setting handlers
         await transport.start();
@@ -98,69 +93,59 @@ void main() {
 
   // --- Test Cases ---
 
-  test(
-    'SseServerTransport - start() sends headers and endpoint event',
-    () async {
-      final sseUrl = '$serverUrlBase/sse_test';
-      final client = HttpClient();
-      final request = await client.getUrl(Uri.parse(sseUrl));
-      request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
-      final response = await request.close();
+  test('SseServerTransport - start() sends headers and endpoint event', () async {
+    final sseUrl = '$serverUrlBase/sse_test';
+    final client = HttpClient();
+    final request = await client.getUrl(Uri.parse(sseUrl));
+    request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
+    final response = await request.close();
 
-      expect(
-        response.statusCode,
-        equals(HttpStatus.ok),
-      ); // Initial response is OK
+    expect(response.statusCode, equals(HttpStatus.ok)); // Initial response is OK
 
-      final completer = Completer<List<String>>();
-      final outputLines = <String>[];
-      late StreamSubscription sub;
+    final completer = Completer<List<String>>();
+    final outputLines = <String>[];
+    late StreamSubscription sub;
 
-      sub = response
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen(
-        (line) {
-          outputLines.add(line);
-          // Check for the endpoint event data
-          if (line.startsWith('data: /messages_test?sessionId=')) {
+    sub = response
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(
+          (line) {
+            outputLines.add(line);
+            // Check for the endpoint event data
+            if (line.startsWith('data: /messages_test?sessionId=')) {
+              if (!completer.isCompleted) completer.complete(outputLines);
+            }
+          },
+          onDone: () {
             if (!completer.isCompleted) completer.complete(outputLines);
-          }
-        },
-        onDone: () {
-          if (!completer.isCompleted) completer.complete(outputLines);
-          client.close();
-        },
-        onError: (e) {
-          if (!completer.isCompleted) completer.completeError(e);
-          client.close();
-        },
-      );
+            client.close();
+          },
+          onError: (e) {
+            if (!completer.isCompleted) completer.completeError(e);
+            client.close();
+          },
+        );
 
-      // Wait for the endpoint event or timeout
-      final List<String> receivedLines = await completer.future;
+    // Wait for the endpoint event or timeout
+    final List<String> receivedLines = await completer.future;
 
-      // Verify content
-      expect(receivedLines, contains(startsWith('event: endpoint')));
-      expect(
-        receivedLines,
-        contains(startsWith('data: /messages_test?sessionId=')),
-      );
+    // Verify content
+    expect(receivedLines, contains(startsWith('event: endpoint')));
+    expect(receivedLines, contains(startsWith('data: /messages_test?sessionId=')));
 
-      // Verify server state (simplistic check for one transport)
-      expect(activeTransports.length, equals(1));
-      expect(activeTransports.values.first, isA<SseServerTransport>());
+    // Verify server state (simplistic check for one transport)
+    expect(activeTransports.length, equals(1));
+    expect(activeTransports.values.first, isA<SseServerTransport>());
 
-      await sub.cancel();
-      client.close();
-    },
-  );
+    await sub.cancel();
+    client.close();
+  });
 
   test('SseServerTransport - send() formats message correctly', () async {
     final sseUrl = '$serverUrlBase/sse_test';
     final client = HttpClient();
-    final completer =
-        Completer<String>(); // Completes with received data containing message
+    final completer = Completer<String>(); // Completes with received data containing message
     late StreamSubscription responseSub;
     late SseServerTransport serverTransport;
     String receivedData = '';
@@ -170,13 +155,13 @@ void main() {
     request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
     final response = await request.close();
 
-    responseSub = response.transform(utf8.decoder).listen(
+    responseSub = response
+        .transform(utf8.decoder)
+        .listen(
           (dataChunk) {
             receivedData += dataChunk;
             // Check if we received the specific message event
-            if (receivedData.contains(
-              'event: message\ndata: {"jsonrpc":"2.0","id":1,"method":"ping"}\n\n',
-            )) {
+            if (receivedData.contains('event: message\ndata: {"jsonrpc":"2.0","id":1,"method":"ping"}\n\n')) {
               if (!completer.isCompleted) completer.complete(receivedData);
             }
           },
@@ -187,9 +172,7 @@ void main() {
         );
 
     // Wait for server to create the transport
-    await Future.delayed(
-      const Duration(milliseconds: 100),
-    ); // Allow server handler time
+    await Future.delayed(const Duration(milliseconds: 100)); // Allow server handler time
     expect(activeTransports.length, 1, reason: "Transport should be active");
     serverTransport = activeTransports.values.first;
 
@@ -211,18 +194,14 @@ void main() {
     final sseUrl = '$serverUrlBase/sse_test';
     final postUrlBase = '$serverUrlBase/messages_test';
     final client = HttpClient();
-    final messageCompleter =
-        Completer<JsonRpcMessage>(); // Captures msg on server
+    final messageCompleter = Completer<JsonRpcMessage>(); // Captures msg on server
     late SseServerTransport serverTransport;
 
     // 1. Establish SSE connection (and keep it alive)
     final sseRequest = await client.getUrl(Uri.parse(sseUrl));
     sseRequest.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
     final sseResponse = await sseRequest.close();
-    final sseSub = sseResponse.listen(
-      (_) {},
-      onDone: () => print("SSE Client (POST Test) closed."),
-    ); // Keep alive
+    final sseSub = sseResponse.listen((_) {}, onDone: () => print("SSE Client (POST Test) closed.")); // Keep alive
 
     // Wait for server to create transport
     await Future.delayed(const Duration(milliseconds: 100));
@@ -252,9 +231,7 @@ void main() {
       await postResponse.drain(); // Consume response body
 
       // 4. Wait for server's onmessage
-      final receivedMsg = await messageCompleter.future.timeout(
-        const Duration(seconds: 2),
-      );
+      final receivedMsg = await messageCompleter.future.timeout(const Duration(seconds: 2));
 
       // Verify received message structure/content
       expect(receivedMsg, isA<JsonRpcPingRequest>());
@@ -331,8 +308,7 @@ void main() {
     serverTransport.onerror = (err) {
       if (!errorCompleter.isCompleted) errorCompleter.complete(err);
     };
-    serverTransport.onmessage =
-        (msg) => fail("onmessage called with invalid JSON");
+    serverTransport.onmessage = (msg) => fail("onmessage called with invalid JSON");
 
     // 3. Send POST request with invalid JSON
     final postBody = utf8.encode("this is not valid json");
@@ -347,20 +323,12 @@ void main() {
       postResponse = await postRequest.close();
 
       // Verify POST response status (should be error)
-      expect(
-        postResponse.statusCode,
-        HttpStatus.internalServerError,
-      ); // Or 400, depending on error handling
+      expect(postResponse.statusCode, HttpStatus.internalServerError); // Or 400, depending on error handling
       await postResponse.drain();
 
       // 4. Verify server's onerror was called
-      final serverError = await errorCompleter.future.timeout(
-        const Duration(seconds: 2),
-      );
-      expect(
-        serverError,
-        isA<Error>(),
-      ); // Or check for specific FormatException etc.
+      final serverError = await errorCompleter.future.timeout(const Duration(seconds: 2));
+      expect(serverError, isA<Error>()); // Or check for specific FormatException etc.
     } finally {
       await sseSub.cancel();
       client.close();
@@ -450,9 +418,7 @@ void main() {
 
     await transport.close();
 
-    await oncloseCompleter.future.timeout(
-      const Duration(seconds: 2),
-    );
+    await oncloseCompleter.future.timeout(const Duration(seconds: 2));
 
     await sseSub.cancel();
     client.close();

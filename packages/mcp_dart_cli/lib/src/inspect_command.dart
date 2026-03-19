@@ -15,8 +15,7 @@ class InspectCommand extends Command<int> {
   final name = 'inspect';
 
   @override
-  final description =
-      'Inspects an MCP server, listing capabilities or executing specific tools/resources/prompts.';
+  final description = 'Inspects an MCP server, listing capabilities or executing specific tools/resources/prompts.';
 
   final Logger _logger;
   late final InspectPrinter _printer;
@@ -27,26 +26,11 @@ class InspectCommand extends Command<int> {
     _handlers = InspectHandlers(_logger);
 
     argParser
-      ..addOption(
-        'tool',
-        help: 'The name of a tool to execute.',
-      )
-      ..addOption(
-        'url',
-        help: 'The URL of the MCP server to connect to (Streamable HTTP).',
-      )
-      ..addOption(
-        'resource',
-        help: 'The URI of a resource to read.',
-      )
-      ..addOption(
-        'prompt',
-        help: 'The name of a prompt to retrieve.',
-      )
-      ..addOption(
-        'json-args',
-        help: 'JSON arguments for the tool or prompt.',
-      )
+      ..addOption('tool', help: 'The name of a tool to execute.')
+      ..addOption('url', help: 'The URL of the MCP server to connect to (Streamable HTTP).')
+      ..addOption('resource', help: 'The URI of a resource to read.')
+      ..addOption('prompt', help: 'The name of a prompt to retrieve.')
+      ..addOption('json-args', help: 'JSON arguments for the tool or prompt.')
       ..addOption(
         'command',
         abbr: 'c',
@@ -54,15 +38,8 @@ class InspectCommand extends Command<int> {
             'The executable command to start the MCP server (e.g. "npx", "python"). '
             'If omitted, attempts to run the local dart project.',
       )
-      ..addMultiOption(
-        'server-args',
-        abbr: 'a',
-        help: 'Arguments to pass to the server command.',
-      )
-      ..addMultiOption(
-        'env',
-        help: 'Environment variables for the server in KEY=VALUE format.',
-      )
+      ..addMultiOption('server-args', abbr: 'a', help: 'Arguments to pass to the server command.')
+      ..addMultiOption('env', help: 'Environment variables for the server in KEY=VALUE format.')
       ..addOption(
         'wait',
         abbr: 'w',
@@ -147,8 +124,7 @@ class InspectCommand extends Command<int> {
     }
 
     if (urlStr != null) {
-      _logger
-          .err('Cannot specify positional command arguments when using --url.');
+      _logger.err('Cannot specify positional command arguments when using --url.');
       return null;
     }
 
@@ -197,44 +173,26 @@ class InspectCommand extends Command<int> {
     Map<String, String> envMap,
   ) async {
     final clientOptions = McpClientOptions(
-      capabilities: const ClientCapabilities(
-        sampling: ClientCapabilitiesSampling(),
-      ),
+      capabilities: const ClientCapabilities(sampling: ClientCapabilitiesSampling()),
     );
 
     if (command != null) {
-      return McpConnection.connectToCommand(
-        _logger,
-        command,
-        serverArgs,
-        env: envMap,
-        options: clientOptions,
-      );
+      return McpConnection.connectToCommand(_logger, command, serverArgs, env: envMap, options: clientOptions);
     } else if (urlStr != null) {
       final uri = Uri.parse(urlStr);
-      return McpConnection.connectToUrl(
-        _logger,
-        uri,
-        options: clientOptions,
-      );
+      return McpConnection.connectToUrl(_logger, uri, options: clientOptions);
     } else {
       if (serverArgs.isNotEmpty || envMap.isNotEmpty) {
-        _logger.info(
-            "Using local project. --server-args and --env are ignored for local project runner.");
+        _logger.info("Using local project. --server-args and --env are ignored for local project runner.");
       }
-      return McpConnection.connectToLocalProject(
-        _logger,
-        options: clientOptions,
-      );
+      return McpConnection.connectToLocalProject(_logger, options: clientOptions);
     }
   }
 
-  Future<void> _executeTool(
-      McpClient client, String name, Map<String, dynamic> args) async {
+  Future<void> _executeTool(McpClient client, String name, Map<String, dynamic> args) async {
     _logger.info('Executing tool: $name...');
     try {
-      final result =
-          await client.callTool(CallToolRequest(name: name, arguments: args));
+      final result = await client.callTool(CallToolRequest(name: name, arguments: args));
       _printer.printToolResult(result);
     } catch (e) {
       _logger.err('Tool execution failed: $e');
@@ -251,13 +209,11 @@ class InspectCommand extends Command<int> {
     }
   }
 
-  Future<void> _getPrompt(
-      McpClient client, String name, Map<String, dynamic> args) async {
+  Future<void> _getPrompt(McpClient client, String name, Map<String, dynamic> args) async {
     _logger.info('Getting prompt: $name...');
     try {
       final stringArgs = args.map((k, v) => MapEntry(k, v.toString()));
-      final result = await client
-          .getPrompt(GetPromptRequest(name: name, arguments: stringArgs));
+      final result = await client.getPrompt(GetPromptRequest(name: name, arguments: stringArgs));
       _printer.printPromptResult(result);
     } catch (e) {
       _logger.err('Get prompt failed: $e');

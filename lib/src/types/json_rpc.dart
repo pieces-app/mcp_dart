@@ -14,13 +14,7 @@ import 'tasks.dart';
 const latestProtocolVersion = "2025-11-25";
 
 /// List of supported Model Context Protocol versions.
-const supportedProtocolVersions = [
-  latestProtocolVersion,
-  "2025-06-18",
-  "2025-03-26",
-  "2024-11-05",
-  "2024-10-07",
-];
+const supportedProtocolVersions = [latestProtocolVersion, "2025-06-18", "2025-03-26", "2024-11-05", "2024-10-07"];
 
 /// JSON-RPC protocol version string.
 const jsonRpcVersion = "2.0";
@@ -51,22 +45,15 @@ class Method {
   static const notificationsInitialized = "notifications/initialized";
   static const notificationsCancelled = "notifications/cancelled";
   static const notificationsProgress = "notifications/progress";
-  static const notificationsResourcesListChanged =
-      "notifications/resources/list_changed";
-  static const notificationsResourcesUpdated =
-      "notifications/resources/updated";
-  static const notificationsPromptsListChanged =
-      "notifications/prompts/list_changed";
-  static const notificationsToolsListChanged =
-      "notifications/tools/list_changed";
-  static const notificationsCompletionsListChanged =
-      "notifications/completions/list_changed";
+  static const notificationsResourcesListChanged = "notifications/resources/list_changed";
+  static const notificationsResourcesUpdated = "notifications/resources/updated";
+  static const notificationsPromptsListChanged = "notifications/prompts/list_changed";
+  static const notificationsToolsListChanged = "notifications/tools/list_changed";
+  static const notificationsCompletionsListChanged = "notifications/completions/list_changed";
   static const notificationsMessage = "notifications/message";
-  static const notificationsRootsListChanged =
-      "notifications/roots/list_changed";
+  static const notificationsRootsListChanged = "notifications/roots/list_changed";
   static const notificationsTasksStatus = "notifications/tasks/status";
-  static const notificationsElicitationComplete =
-      "notifications/elicitation/complete";
+  static const notificationsElicitationComplete = "notifications/elicitation/complete";
 
   const Method._();
 }
@@ -105,20 +92,16 @@ sealed class JsonRpcMessage {
           Method.ping => JsonRpcPingRequest.fromJson(json),
           Method.resourcesList => JsonRpcListResourcesRequest.fromJson(json),
           Method.resourcesRead => JsonRpcReadResourceRequest.fromJson(json),
-          Method.resourcesTemplatesList =>
-            JsonRpcListResourceTemplatesRequest.fromJson(json),
+          Method.resourcesTemplatesList => JsonRpcListResourceTemplatesRequest.fromJson(json),
           Method.resourcesSubscribe => JsonRpcSubscribeRequest.fromJson(json),
-          Method.resourcesUnsubscribe =>
-            JsonRpcUnsubscribeRequest.fromJson(json),
+          Method.resourcesUnsubscribe => JsonRpcUnsubscribeRequest.fromJson(json),
           Method.promptsList => JsonRpcListPromptsRequest.fromJson(json),
           Method.promptsGet => JsonRpcGetPromptRequest.fromJson(json),
           Method.elicitationCreate => JsonRpcElicitRequest.fromJson(json),
           Method.toolsList => JsonRpcListToolsRequest.fromJson(json),
           Method.toolsCall => JsonRpcCallToolRequest.fromJson(json),
           Method.loggingSetLevel => JsonRpcSetLevelRequest.fromJson(json),
-          Method.samplingCreateMessage => JsonRpcCreateMessageRequest.fromJson(
-              json,
-            ),
+          Method.samplingCreateMessage => JsonRpcCreateMessageRequest.fromJson(json),
           Method.completionComplete => JsonRpcCompleteRequest.fromJson(json),
           Method.rootsList => JsonRpcListRootsRequest.fromJson(json),
           Method.tasksList => JsonRpcListTasksRequest.fromJson(json),
@@ -126,59 +109,41 @@ sealed class JsonRpcMessage {
           Method.tasksGet => JsonRpcGetTaskRequest.fromJson(json),
           Method.tasksResult => JsonRpcTaskResultRequest.fromJson(json),
           _ => JsonRpcRequest(
-              id: id,
-              method: method,
-              params: json['params'] as Map<String, dynamic>?,
-              meta: json['_meta'] as Map<String, dynamic>? ??
-                  (json['params'] as Map<String, dynamic>?)?['_meta']
-                      as Map<String, dynamic>?,
-            ),
+            id: id,
+            method: method,
+            params: json['params'] as Map<String, dynamic>?,
+            meta:
+                json['_meta'] as Map<String, dynamic>? ??
+                (json['params'] as Map<String, dynamic>?)?['_meta'] as Map<String, dynamic>?,
+          ),
         };
       } else {
         return switch (method) {
-          Method.notificationsInitialized =>
-            JsonRpcInitializedNotification.fromJson(json),
-          Method.notificationsCancelled =>
-            JsonRpcCancelledNotification.fromJson(
-              json,
-            ),
-          Method.notificationsProgress => JsonRpcProgressNotification.fromJson(
-              json,
-            ),
-          Method.notificationsResourcesListChanged =>
-            JsonRpcResourceListChangedNotification.fromJson(json),
-          Method.notificationsResourcesUpdated =>
-            JsonRpcResourceUpdatedNotification.fromJson(json),
-          Method.notificationsPromptsListChanged =>
-            JsonRpcPromptListChangedNotification.fromJson(json),
-          Method.notificationsToolsListChanged =>
-            JsonRpcToolListChangedNotification.fromJson(json),
-          Method.notificationsCompletionsListChanged =>
-            JsonRpcCompletionListChangedNotification.fromJson(json),
-          Method.notificationsMessage =>
-            JsonRpcLoggingMessageNotification.fromJson(
-              json,
-            ),
-          Method.notificationsRootsListChanged =>
-            JsonRpcRootsListChangedNotification.fromJson(json),
-          Method.notificationsTasksStatus =>
-            JsonRpcTaskStatusNotification.fromJson(json),
-          Method.notificationsElicitationComplete =>
-            JsonRpcElicitationCompleteNotification.fromJson(json),
+          Method.notificationsInitialized => JsonRpcInitializedNotification.fromJson(json),
+          Method.notificationsCancelled => JsonRpcCancelledNotification.fromJson(json),
+          Method.notificationsProgress => JsonRpcProgressNotification.fromJson(json),
+          Method.notificationsResourcesListChanged => JsonRpcResourceListChangedNotification.fromJson(json),
+          Method.notificationsResourcesUpdated => JsonRpcResourceUpdatedNotification.fromJson(json),
+          Method.notificationsPromptsListChanged => JsonRpcPromptListChangedNotification.fromJson(json),
+          Method.notificationsToolsListChanged => JsonRpcToolListChangedNotification.fromJson(json),
+          Method.notificationsCompletionsListChanged => JsonRpcCompletionListChangedNotification.fromJson(json),
+          Method.notificationsMessage => JsonRpcLoggingMessageNotification.fromJson(json),
+          Method.notificationsRootsListChanged => JsonRpcRootsListChangedNotification.fromJson(json),
+          Method.notificationsTasksStatus => JsonRpcTaskStatusNotification.fromJson(json),
+          Method.notificationsElicitationComplete => JsonRpcElicitationCompleteNotification.fromJson(json),
           _ => JsonRpcNotification(
-              method: method,
-              params: json['params'] as Map<String, dynamic>?,
-              meta: json['_meta'] as Map<String, dynamic>? ??
-                  (json['params'] as Map<String, dynamic>?)?['_meta']
-                      as Map<String, dynamic>?,
-            ),
+            method: method,
+            params: json['params'] as Map<String, dynamic>?,
+            meta:
+                json['_meta'] as Map<String, dynamic>? ??
+                (json['params'] as Map<String, dynamic>?)?['_meta'] as Map<String, dynamic>?,
+          ),
         };
       }
     } else if (json.containsKey('result')) {
       final resultData = json['result'] as Map<String, dynamic>;
       final meta = resultData['_meta'] as Map<String, dynamic>?;
-      final actualResult = Map<String, dynamic>.from(resultData)
-        ..remove('_meta');
+      final actualResult = Map<String, dynamic>.from(resultData)..remove('_meta');
       return JsonRpcResponse(id: id, result: actualResult, meta: meta);
     } else if (json.containsKey('error')) {
       return JsonRpcError.fromJson(json);
@@ -206,27 +171,18 @@ class JsonRpcRequest extends JsonRpcMessage {
   final Map<String, dynamic>? meta;
 
   /// Creates a JSON-RPC request.
-  const JsonRpcRequest({
-    required this.id,
-    required this.method,
-    this.params,
-    this.meta,
-  });
+  const JsonRpcRequest({required this.id, required this.method, this.params, this.meta});
 
   /// The progress token for out-of-band progress notifications.
   ProgressToken? get progressToken => meta?['progressToken'];
 
   @override
   Map<String, dynamic> toJson() => {
-        'jsonrpc': jsonrpc,
-        'id': id,
-        'method': method,
-        if (params != null || meta != null)
-          'params': <String, dynamic>{
-            ...?params,
-            if (meta != null) '_meta': meta,
-          },
-      };
+    'jsonrpc': jsonrpc,
+    'id': id,
+    'method': method,
+    if (params != null || meta != null) 'params': <String, dynamic>{...?params, if (meta != null) '_meta': meta},
+  };
 }
 
 /// Base class for JSON-RPC notifications which do not expect a response.
@@ -245,14 +201,10 @@ class JsonRpcNotification extends JsonRpcMessage {
 
   @override
   Map<String, dynamic> toJson() => {
-        'jsonrpc': jsonrpc,
-        'method': method,
-        if (params != null || meta != null)
-          'params': <String, dynamic>{
-            ...?params,
-            if (meta != null) '_meta': meta,
-          },
-      };
+    'jsonrpc': jsonrpc,
+    'method': method,
+    if (params != null || meta != null) 'params': <String, dynamic>{...?params, if (meta != null) '_meta': meta},
+  };
 }
 
 /// Represents a successful (non-error) response to a request.
@@ -271,10 +223,10 @@ class JsonRpcResponse extends JsonRpcMessage {
 
   @override
   Map<String, dynamic> toJson() => {
-        'jsonrpc': jsonrpc,
-        'id': id,
-        'result': <String, dynamic>{...result, if (meta != null) '_meta': meta},
-      };
+    'jsonrpc': jsonrpc,
+    'id': id,
+    'result': <String, dynamic>{...result, if (meta != null) '_meta': meta},
+  };
 }
 // --- JSON-RPC Error ---
 
@@ -297,9 +249,8 @@ enum ErrorCode {
   const ErrorCode(this.value);
 
   /// Finds an [ErrorCode] based on its integer [value], or returns null.
-  static ErrorCode? fromValue(int value) => values
-      .cast<ErrorCode?>()
-      .firstWhere((e) => e?.value == value, orElse: () => null);
+  static ErrorCode? fromValue(int value) =>
+      values.cast<ErrorCode?>().firstWhere((e) => e?.value == value, orElse: () => null);
 }
 
 /// Represents the `error` object in a JSON-RPC error response.
@@ -308,24 +259,12 @@ class JsonRpcErrorData {
   final String message;
   final dynamic data;
 
-  const JsonRpcErrorData({
-    required this.code,
-    required this.message,
-    this.data,
-  });
+  const JsonRpcErrorData({required this.code, required this.message, this.data});
 
   factory JsonRpcErrorData.fromJson(Map<String, dynamic> json) =>
-      JsonRpcErrorData(
-        code: json['code'] as int,
-        message: json['message'] as String,
-        data: json['data'],
-      );
+      JsonRpcErrorData(code: json['code'] as int, message: json['message'] as String, data: json['data']);
 
-  Map<String, dynamic> toJson() => {
-        'code': code,
-        'message': message,
-        if (data != null) 'data': data,
-      };
+  Map<String, dynamic> toJson() => {'code': code, 'message': message, if (data != null) 'data': data};
 }
 
 /// Represents a response indicating an error occurred during a request.
@@ -335,17 +274,11 @@ class JsonRpcError extends JsonRpcMessage {
 
   const JsonRpcError({required this.id, required this.error});
 
-  factory JsonRpcError.fromJson(Map<String, dynamic> json) => JsonRpcError(
-        id: json['id'],
-        error: JsonRpcErrorData.fromJson(json['error'] as Map<String, dynamic>),
-      );
+  factory JsonRpcError.fromJson(Map<String, dynamic> json) =>
+      JsonRpcError(id: json['id'], error: JsonRpcErrorData.fromJson(json['error'] as Map<String, dynamic>));
 
   @override
-  Map<String, dynamic> toJson() => {
-        'jsonrpc': jsonrpc,
-        'id': id,
-        'error': error.toJson(),
-      };
+  Map<String, dynamic> toJson() => {'jsonrpc': jsonrpc, 'id': id, 'error': error.toJson()};
 }
 
 /// Base class for specific MCP result types.
@@ -371,31 +304,20 @@ class McpError extends Error {
   McpError(this.code, this.message, [this.data]);
 
   @override
-  String toString() =>
-      'McpError $code: $message ${data != null ? '(data: $data)' : ''}';
+  String toString() => 'McpError $code: $message ${data != null ? '(data: $data)' : ''}';
 }
 
 /// JSON-RPC request to list tools.
 class JsonRpcListToolsRequest extends JsonRpcRequest {
-  const JsonRpcListToolsRequest({
-    required super.id,
-    super.params,
-    super.meta,
-  }) : super(method: Method.toolsList);
+  const JsonRpcListToolsRequest({required super.id, super.params, super.meta}) : super(method: Method.toolsList);
 
-  @Deprecated(
-    'Use JsonRpcListToolsRequest(id: ..., params: params?.toJson(), meta: meta) instead.',
-  )
+  @Deprecated('Use JsonRpcListToolsRequest(id: ..., params: params?.toJson(), meta: meta) instead.')
   factory JsonRpcListToolsRequest.fromListParams({
     required RequestId id,
     ListToolsRequest? params,
     Map<String, dynamic>? meta,
   }) {
-    return JsonRpcListToolsRequest(
-      id: id,
-      params: params?.toJson(),
-      meta: meta,
-    );
+    return JsonRpcListToolsRequest(id: id, params: params?.toJson(), meta: meta);
   }
 
   factory JsonRpcListToolsRequest.fromJson(Map<String, dynamic> json) {
@@ -417,19 +339,16 @@ class JsonRpcListToolsRequest extends JsonRpcRequest {
 
 /// JSON-RPC request to call a tool.
 class JsonRpcCallToolRequest extends JsonRpcRequest {
-  const JsonRpcCallToolRequest({
-    required super.id,
-    required Map<String, dynamic> params,
-    super.meta,
-  }) : super(method: Method.toolsCall, params: params);
+  const JsonRpcCallToolRequest({required super.id, required Map<String, dynamic> params, super.meta})
+    : super(method: Method.toolsCall, params: params);
 
   factory JsonRpcCallToolRequest.fromJson(Map<String, dynamic> json) {
     return JsonRpcCallToolRequest(
       id: json['id'],
       params: json['params'] as Map<String, dynamic>? ?? {},
-      meta: json['_meta'] as Map<String, dynamic>? ??
-          (json['params'] as Map<String, dynamic>?)?['_meta']
-              as Map<String, dynamic>?,
+      meta:
+          json['_meta'] as Map<String, dynamic>? ??
+          (json['params'] as Map<String, dynamic>?)?['_meta'] as Map<String, dynamic>?,
     );
   }
 
@@ -444,8 +363,7 @@ class JsonRpcCallToolRequest extends JsonRpcRequest {
   bool get isTaskAugmented {
     // Check for task augmentation in meta or params as per convention
     // Usually handled by side-channel or specific params
-    return meta?.containsKey('task') == true ||
-        params?.containsKey('task') == true;
+    return meta?.containsKey('task') == true || params?.containsKey('task') == true;
   }
 
   TaskCreation? get taskParams {

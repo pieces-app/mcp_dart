@@ -10,12 +10,7 @@ class PromptsPanel extends StatefulComponent {
   final Function(String name, Map<String, String> args) onGetPrompt;
   final GetPromptResult? promptResult;
 
-  const PromptsPanel({
-    required this.prompts,
-    required this.onGetPrompt,
-    this.promptResult,
-    super.key,
-  });
+  const PromptsPanel({required this.prompts, required this.onGetPrompt, this.promptResult, super.key});
 
   @override
   State<PromptsPanel> createState() => _PromptsPanelState();
@@ -58,9 +53,7 @@ class _PromptsPanelState extends State<PromptsPanel> {
           p([Component.text('No prompts available.')]),
         ])
       else
-        div(classes: 'prompts-list', [
-          for (final prompt in component.prompts) _buildPromptItem(prompt),
-        ]),
+        div(classes: 'prompts-list', [for (final prompt in component.prompts) _buildPromptItem(prompt)]),
 
       if (_selectedPrompt != null) _buildDialog(),
 
@@ -110,20 +103,14 @@ class _PromptsPanelState extends State<PromptsPanel> {
       div(classes: 'dialog', [
         div(classes: 'dialog-header', [
           h3([Component.text('Get Prompt: ${_selectedPrompt!.name}')]),
-          button(
-            classes: 'btn-close',
-            onClick: () => setState(() => _selectedPrompt = null),
-            [Component.text('×')],
-          ),
+          button(classes: 'btn-close', onClick: () => setState(() => _selectedPrompt = null), [Component.text('×')]),
         ]),
         div(classes: 'dialog-content', [
           for (final arg in _selectedPrompt!.arguments!)
             div(classes: 'form-group', [
               label(
                 attributes: {'for': 'arg-${arg.name}'},
-                [
-                  Component.text('${arg.name}${arg.required == true ? '*' : ''}'),
-                ],
+                [Component.text('${arg.name}${arg.required == true ? '*' : ''}')],
               ),
               input(
                 id: 'arg-${arg.name}',
@@ -138,16 +125,12 @@ class _PromptsPanelState extends State<PromptsPanel> {
             ]),
         ]),
         div(classes: 'dialog-actions', [
-          button(
-            classes: 'btn btn-secondary',
-            onClick: () => setState(() => _selectedPrompt = null),
-            [Component.text('Cancel')],
-          ),
-          button(
-            classes: 'btn btn-primary',
-            onClick: () => _executeGetPrompt(_selectedPrompt!.name, _argValues),
-            [Component.text('Get Prompt')],
-          ),
+          button(classes: 'btn btn-secondary', onClick: () => setState(() => _selectedPrompt = null), [
+            Component.text('Cancel'),
+          ]),
+          button(classes: 'btn btn-primary', onClick: () => _executeGetPrompt(_selectedPrompt!.name, _argValues), [
+            Component.text('Get Prompt'),
+          ]),
         ]),
       ]),
     ]);
