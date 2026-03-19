@@ -25,8 +25,7 @@ void main() {
     test('multiple variables with reserved expansion', () {
       // Use reserved expansion {+path} to avoid encoding /
       final expander = UriTemplateExpander('https://{host}{+path}');
-      final result =
-          expander.expand({'host': 'example.com', 'path': '/api/v1'});
+      final result = expander.expand({'host': 'example.com', 'path': '/api/v1'});
       expect(result, equals('https://example.com/api/v1'));
     });
 
@@ -278,20 +277,14 @@ void main() {
     test('throws on unclosed expression', () {
       expect(
         () => UriTemplateExpander('/path/{unclosed'),
-        throwsA(
-          isA<ArgumentError>()
-              .having((e) => e.message, 'message', contains('Unclosed')),
-        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('Unclosed'))),
       );
     });
 
     test('throws on empty expression', () {
       expect(
         () => UriTemplateExpander('/path/{}'),
-        throwsA(
-          isA<ArgumentError>()
-              .having((e) => e.message, 'message', contains('Empty')),
-        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('Empty'))),
       );
     });
 
@@ -299,13 +292,7 @@ void main() {
       final longTemplate = 'a' * (maxTemplateLength + 1);
       expect(
         () => UriTemplateExpander(longTemplate),
-        throwsA(
-          isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('exceeds maximum length'),
-          ),
-        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('exceeds maximum length'))),
       );
     });
 
@@ -313,28 +300,15 @@ void main() {
       final longVar = 'x' * (maxVariableLength + 1);
       expect(
         () => UriTemplateExpander('/path/{$longVar}'),
-        throwsA(
-          isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('exceeds maximum length'),
-          ),
-        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('exceeds maximum length'))),
       );
     });
 
     test('throws on too many expressions', () {
-      final manyExpressions =
-          List.generate(maxTemplateExpressions + 1, (i) => '{x$i}').join('/');
+      final manyExpressions = List.generate(maxTemplateExpressions + 1, (i) => '{x$i}').join('/');
       expect(
         () => UriTemplateExpander(manyExpressions),
-        throwsA(
-          isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('too many expressions'),
-          ),
-        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('too many expressions'))),
       );
     });
 
@@ -343,39 +317,27 @@ void main() {
       final longValue = 'x' * (maxVariableLength + 1);
       expect(
         () => expander.expand({'var': longValue}),
-        throwsA(
-          isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('exceeds maximum length'),
-          ),
-        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('exceeds maximum length'))),
       );
     });
   });
 
   group('UriTemplateExpander - Complex Scenarios', () {
     test('mixed literal and expressions', () {
-      final expander =
-          UriTemplateExpander('https://api.example.com/v1/{resource}{?limit}');
+      final expander = UriTemplateExpander('https://api.example.com/v1/{resource}{?limit}');
       final result = expander.expand({'resource': 'users', 'limit': '10'});
       expect(result, equals('https://api.example.com/v1/users?limit=10'));
     });
 
     test('multiple expressions of different types', () {
       final expander = UriTemplateExpander('/api{/version}{?query,page}');
-      final result =
-          expander.expand({'version': 'v2', 'query': 'test', 'page': '2'});
+      final result = expander.expand({'version': 'v2', 'query': 'test', 'page': '2'});
       expect(result, equals('/api/v2?query=test&page=2'));
     });
 
     test('real-world resource template example', () {
       final expander = UriTemplateExpander('file:///{directory}/{file}.{ext}');
-      final result = expander.expand({
-        'directory': 'documents',
-        'file': 'report',
-        'ext': 'pdf',
-      });
+      final result = expander.expand({'directory': 'documents', 'file': 'report', 'ext': 'pdf'});
       expect(result, equals('file:///documents/report.pdf'));
     });
 

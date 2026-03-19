@@ -36,12 +36,7 @@ void main(List<String> args) async {
       case TransportType.stdio:
         await _runStdioServer(logger);
       case TransportType.http:
-        await _runHttpServer(
-          logger,
-          host: config.host,
-          port: config.port,
-          path: config.path,
-        );
+        await _runHttpServer(logger, host: config.host, port: config.port, path: config.path);
     }
   } on FormatException catch (e) {
     stderr.writeln('Error: ${e.message}');

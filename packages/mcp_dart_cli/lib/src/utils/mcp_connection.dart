@@ -17,10 +17,7 @@ class McpConnection {
 
   /// Connects to a local MCP project in the current directory.
   /// Generates the runner script if needed.
-  static Future<McpConnection> connectToLocalProject(
-    Logger logger, {
-    McpClientOptions? options,
-  }) async {
+  static Future<McpConnection> connectToLocalProject(Logger logger, {McpClientOptions? options}) async {
     final pubspecFile = File('pubspec.yaml');
     if (!pubspecFile.existsSync()) {
       throw 'pubspec.yaml not found in current directory.';
@@ -51,12 +48,7 @@ class McpConnection {
     await generateRunnerScript(dotDartToolDir, packageName);
     final runnerFile = File(p.join(dotDartToolDir.path, 'runner.dart'));
 
-    return connectToCommand(
-      logger,
-      'dart',
-      ['run', runnerFile.path],
-      options: options,
-    );
+    return connectToCommand(logger, 'dart', ['run', runnerFile.path], options: options);
   }
 
   /// Connects to an external MCP server command.
@@ -93,11 +85,7 @@ class McpConnection {
   }
 
   /// Connects to an external MCP server via URL (Streamable HTTP).
-  static Future<McpConnection> connectToUrl(
-    Logger logger,
-    Uri url, {
-    McpClientOptions? options,
-  }) async {
+  static Future<McpConnection> connectToUrl(Logger logger, Uri url, {McpClientOptions? options}) async {
     logger.detail('Connecting to server: $url');
 
     final transport = StreamableHttpClientTransport(url);

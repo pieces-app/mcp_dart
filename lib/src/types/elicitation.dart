@@ -44,29 +44,18 @@ class ElicitRequest {
   /// Required for URL mode to correlate with completion notifications.
   final String? elicitationId;
 
-  const ElicitRequest({
-    this.mode,
-    required this.message,
-    this.requestedSchema,
-    this.url,
-    this.elicitationId,
-  });
+  const ElicitRequest({this.mode, required this.message, this.requestedSchema, this.url, this.elicitationId});
 
   /// Creates form mode elicitation parameters.
-  const ElicitRequest.form({
-    required this.message,
-    required ElicitationInputSchema this.requestedSchema,
-  })  : mode = ElicitationMode.form,
-        url = null,
-        elicitationId = null;
+  const ElicitRequest.form({required this.message, required ElicitationInputSchema this.requestedSchema})
+    : mode = ElicitationMode.form,
+      url = null,
+      elicitationId = null;
 
   /// Creates URL mode elicitation parameters.
-  const ElicitRequest.url({
-    required this.message,
-    required String this.url,
-    required String this.elicitationId,
-  })  : mode = ElicitationMode.url,
-        requestedSchema = null;
+  const ElicitRequest.url({required this.message, required String this.url, required String this.elicitationId})
+    : mode = ElicitationMode.url,
+      requestedSchema = null;
 
   factory ElicitRequest.fromJson(Map<String, dynamic> json) {
     final modeStr = json['mode'] as String?;
@@ -86,13 +75,12 @@ class ElicitRequest {
   }
 
   Map<String, dynamic> toJson() => {
-        if (mode != null) 'mode': mode!.name,
-        'message': message,
-        if (requestedSchema != null)
-          'requestedSchema': requestedSchema!.toJson(),
-        if (url != null) 'url': url,
-        if (elicitationId != null) 'elicitationId': elicitationId,
-      };
+    if (mode != null) 'mode': mode!.name,
+    'message': message,
+    if (requestedSchema != null) 'requestedSchema': requestedSchema!.toJson(),
+    if (url != null) 'url': url,
+    if (elicitationId != null) 'elicitationId': elicitationId,
+  };
 
   /// Whether this is a form mode elicitation.
   bool get isFormMode => mode == null || mode == ElicitationMode.form;
@@ -106,11 +94,8 @@ class JsonRpcElicitRequest extends JsonRpcRequest {
   /// The elicit parameters
   final ElicitRequest elicitParams;
 
-  JsonRpcElicitRequest({
-    required super.id,
-    required this.elicitParams,
-    super.meta,
-  }) : super(method: Method.elicitationCreate, params: elicitParams.toJson());
+  JsonRpcElicitRequest({required super.id, required this.elicitParams, super.meta})
+    : super(method: Method.elicitationCreate, params: elicitParams.toJson());
 
   factory JsonRpcElicitRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -118,11 +103,7 @@ class JsonRpcElicitRequest extends JsonRpcRequest {
       throw const FormatException("Missing params for elicit request");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcElicitRequest(
-      id: json['id'],
-      elicitParams: ElicitRequest.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcElicitRequest(id: json['id'], elicitParams: ElicitRequest.fromJson(paramsMap), meta: meta);
   }
 }
 
@@ -144,13 +125,7 @@ class ElicitResult implements BaseResultData {
   @override
   final Map<String, dynamic>? meta;
 
-  const ElicitResult({
-    required this.action,
-    this.content,
-    this.url,
-    this.elicitationId,
-    this.meta,
-  });
+  const ElicitResult({required this.action, this.content, this.url, this.elicitationId, this.meta});
 
   factory ElicitResult.fromJson(Map<String, dynamic> json) {
     final meta = json['_meta'] as Map<String, dynamic>?;
@@ -165,11 +140,11 @@ class ElicitResult implements BaseResultData {
 
   @override
   Map<String, dynamic> toJson() => {
-        'action': action,
-        if (content != null) 'content': content,
-        if (url != null) 'url': url,
-        if (elicitationId != null) 'elicitationId': elicitationId,
-      };
+    'action': action,
+    if (content != null) 'content': content,
+    if (url != null) 'url': url,
+    if (elicitationId != null) 'elicitationId': elicitationId,
+  };
 
   /// Helper to check if the user accepted the input
   bool get accepted => action == 'accept';
@@ -196,9 +171,7 @@ class ElicitationCompleteNotification {
   const ElicitationCompleteNotification({required this.elicitationId});
 
   factory ElicitationCompleteNotification.fromJson(Map<String, dynamic> json) {
-    return ElicitationCompleteNotification(
-      elicitationId: json['elicitationId'] as String,
-    );
+    return ElicitationCompleteNotification(elicitationId: json['elicitationId'] as String);
   }
 
   Map<String, dynamic> toJson() => {'elicitationId': elicitationId};
@@ -212,22 +185,13 @@ class JsonRpcElicitationCompleteNotification extends JsonRpcNotification {
   /// The notification parameters containing the elicitation ID.
   final ElicitationCompleteNotification completeParams;
 
-  JsonRpcElicitationCompleteNotification({
-    required this.completeParams,
-    super.meta,
-  }) : super(
-          method: Method.notificationsElicitationComplete,
-          params: completeParams.toJson(),
-        );
+  JsonRpcElicitationCompleteNotification({required this.completeParams, super.meta})
+    : super(method: Method.notificationsElicitationComplete, params: completeParams.toJson());
 
-  factory JsonRpcElicitationCompleteNotification.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory JsonRpcElicitationCompleteNotification.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
     if (paramsMap == null) {
-      throw const FormatException(
-        "Missing params for elicitation complete notification",
-      );
+      throw const FormatException("Missing params for elicitation complete notification");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
     return JsonRpcElicitationCompleteNotification(
@@ -251,15 +215,11 @@ class URLElicitationRequiredErrorData {
   factory URLElicitationRequiredErrorData.fromJson(Map<String, dynamic> json) {
     final elicitationsList = json['elicitations'] as List<dynamic>? ?? [];
     return URLElicitationRequiredErrorData(
-      elicitations: elicitationsList
-          .map((e) => ElicitRequest.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      elicitations: elicitationsList.map((e) => ElicitRequest.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'elicitations': elicitations.map((e) => e.toJson()).toList(),
-      };
+  Map<String, dynamic> toJson() => {'elicitations': elicitations.map((e) => e.toJson()).toList()};
 }
 
 /// Deprecated alias for [ElicitRequest].

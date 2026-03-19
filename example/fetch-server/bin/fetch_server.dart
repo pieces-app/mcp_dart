@@ -4,25 +4,14 @@ import 'package:http/http.dart' as http;
 import 'package:mcp_dart/mcp_dart.dart';
 
 void main(List<String> arguments) async {
-  final server = McpServer(
-    const Implementation(
-      name: 'fetch',
-      version: '0.1.0',
-    ),
-  );
+  final server = McpServer(const Implementation(name: 'fetch', version: '0.1.0'));
 
   server.registerTool(
     'fetch',
-    description:
-        'Fetches a URL from the internet and optionally extracts its contents as markdown.',
+    description: 'Fetches a URL from the internet and optionally extracts its contents as markdown.',
     inputSchema: ToolInputSchema(
       properties: {
-        'url': JsonSchema.string(
-          description: 'URL to fetch',
-          format: 'uri',
-          minLength: 1,
-          title: 'Url',
-        ),
+        'url': JsonSchema.string(description: 'URL to fetch', format: 'uri', minLength: 1, title: 'Url'),
         'max_length': JsonSchema.integer(
           defaultValue: 5000,
           description: 'Maximum number of characters to return.',
@@ -39,8 +28,7 @@ void main(List<String> arguments) async {
         ),
         'raw': JsonSchema.boolean(
           defaultValue: false,
-          description:
-              'Get the actual HTML content of the requested page, without simplification.',
+          description: 'Get the actual HTML content of the requested page, without simplification.',
           title: 'Raw',
         ),
       },
@@ -52,10 +40,7 @@ void main(List<String> arguments) async {
       final raw = args['raw'] as bool? ?? false;
 
       if (url == null || url is! String || url.isEmpty) {
-        throw McpError(
-          ErrorCode.invalidParams.value,
-          'Missing or invalid "url" argument.',
-        );
+        throw McpError(ErrorCode.invalidParams.value, 'Missing or invalid "url" argument.');
       }
 
       try {
@@ -63,12 +48,7 @@ void main(List<String> arguments) async {
 
         if (response.statusCode != 200) {
           return CallToolResult(
-            content: [
-              TextContent(
-                text:
-                    'Fetch error: ${response.statusCode} - ${response.reasonPhrase}',
-              ),
-            ],
+            content: [TextContent(text: 'Fetch error: ${response.statusCode} - ${response.reasonPhrase}')],
             isError: true,
           );
         }
@@ -83,26 +63,12 @@ void main(List<String> arguments) async {
 
         // Apply start_index and max_length
         final effectiveStartIndex = startIndex.clamp(0, content.length);
-        final effectiveEndIndex =
-            (effectiveStartIndex + maxLength).clamp(0, content.length);
+        final effectiveEndIndex = (effectiveStartIndex + maxLength).clamp(0, content.length);
         content = content.substring(effectiveStartIndex, effectiveEndIndex);
 
-        return CallToolResult.fromContent(
-          [
-            TextContent(
-              text: content,
-            ),
-          ],
-        );
+        return CallToolResult.fromContent([TextContent(text: content)]);
       } catch (e) {
-        return CallToolResult(
-          content: [
-            TextContent(
-              text: 'Fetch error: ${e.toString()}',
-            ),
-          ],
-          isError: true,
-        );
+        return CallToolResult(content: [TextContent(text: 'Fetch error: ${e.toString()}')], isError: true);
       }
     },
   );

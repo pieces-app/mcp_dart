@@ -42,8 +42,7 @@ void main() {
     late MockTransport transport;
 
     setUp(() {
-      mcpServer =
-          McpServer(const Implementation(name: 'TestServer', version: '1.0.0'));
+      mcpServer = McpServer(const Implementation(name: 'TestServer', version: '1.0.0'));
       transport = MockTransport();
     });
 
@@ -53,14 +52,7 @@ void main() {
       mcpServer.experimental.onListTasks((extra) async {
         listCallbackInvoked = true;
         return const ListTasksResult(
-          tasks: [
-            Task(
-              taskId: 'task1',
-              status: TaskStatus.working,
-              statusMessage: 'Processing...',
-              ttl: 3600,
-            ),
-          ],
+          tasks: [Task(taskId: 'task1', status: TaskStatus.working, statusMessage: 'Processing...', ttl: 3600)],
         );
       });
       mcpServer.experimental.onCancelTask((taskId, extra) async {});
@@ -83,9 +75,7 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 10));
 
       expect(listCallbackInvoked, isTrue);
-      final response = transport.sentMessages
-          .whereType<JsonRpcResponse>()
-          .firstWhere((r) => r.id == 2);
+      final response = transport.sentMessages.whereType<JsonRpcResponse>().firstWhere((r) => r.id == 2);
       final result = ListTasksResult.fromJson(response.result);
       expect(result.tasks.length, 1);
       expect(result.tasks.first.taskId, 'task1');
@@ -94,8 +84,7 @@ void main() {
     test('handles cancel task request', () async {
       var cancelledTaskId = '';
 
-      mcpServer.experimental
-          .onListTasks((extra) async => const ListTasksResult(tasks: []));
+      mcpServer.experimental.onListTasks((extra) async => const ListTasksResult(tasks: []));
       mcpServer.experimental.onCancelTask((taskId, extra) async {
         cancelledTaskId = taskId;
       });
@@ -121,14 +110,11 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 10));
 
       expect(cancelledTaskId, 'task123');
-      final response = transport.sentMessages
-          .whereType<JsonRpcResponse>()
-          .firstWhere((r) => r.id == 2);
+      final response = transport.sentMessages.whereType<JsonRpcResponse>().firstWhere((r) => r.id == 2);
       expect(response.result, isEmpty); // EmptyResult
     });
 
-    test('throws error if tasks handlers not registered but requested',
-        () async {
+    test('throws error if tasks handlers not registered but requested', () async {
       // Do not register tasks handlers
 
       await mcpServer.connect(transport);
@@ -149,9 +135,7 @@ void main() {
       transport.receiveMessage(listRequest);
       await Future.delayed(const Duration(milliseconds: 10));
 
-      final errorResponse = transport.sentMessages
-          .whereType<JsonRpcError>()
-          .firstWhere((r) => r.id == 2);
+      final errorResponse = transport.sentMessages.whereType<JsonRpcError>().firstWhere((r) => r.id == 2);
       expect(errorResponse.error.code, equals(ErrorCode.methodNotFound.value));
     });
   });

@@ -17,9 +17,7 @@ void main() async {
     description: 'Perform basic arithmetic operations',
     inputSchema: JsonSchema.object(
       properties: {
-        'operation': JsonSchema.string(
-          enumValues: ['add', 'subtract', 'multiply', 'divide'],
-        ),
+        'operation': JsonSchema.string(enumValues: ['add', 'subtract', 'multiply', 'divide']),
         'a': JsonSchema.number(),
         'b': JsonSchema.number(),
       },
@@ -29,24 +27,21 @@ void main() async {
       final operation = args['operation'];
       final a = args['a'];
       final b = args['b'];
-      return CallToolResult.fromContent(
-        [
-          TextContent(
-            text: switch (operation) {
-              'add' => 'Result: ${a + b}',
-              'subtract' => 'Result: ${a - b}',
-              'multiply' => 'Result: ${a * b}',
-              'divide' => 'Result: ${a / b}',
-              _ => throw Exception('Invalid operation'),
-            },
-          ),
-        ],
-      );
+      return CallToolResult.fromContent([
+        TextContent(
+          text: switch (operation) {
+            'add' => 'Result: ${a + b}',
+            'subtract' => 'Result: ${a - b}',
+            'multiply' => 'Result: ${a * b}',
+            'divide' => 'Result: ${a / b}',
+            _ => throw Exception('Invalid operation'),
+          },
+        ),
+      ]);
     },
   );
 
-  server.registerResource("Application Logs", 'file:///logs', null,
-      (uri, extra) async {
+  server.registerResource("Application Logs", 'file:///logs', null, (uri, extra) async {
     if (uri.scheme != 'file') {
       throw Exception('Invalid URI scheme: ${uri.scheme}');
     }
@@ -62,9 +57,7 @@ void main() async {
     // final text = await file.readAsString();
     final text = 'Sample log content';
     return ReadResourceResult(
-      contents: [
-        TextResourceContents(uri: uri.path, mimeType: 'text/plain', text: text),
-      ],
+      contents: [TextResourceContents(uri: uri.path, mimeType: 'text/plain', text: text)],
     );
   });
 
@@ -72,11 +65,7 @@ void main() async {
     'analyze-code',
     description: 'Analyze code for potential improvements',
     argsSchema: {
-      'language': const PromptArgumentDefinition(
-        type: String,
-        description: 'Programming language',
-        required: true,
-      ),
+      'language': const PromptArgumentDefinition(type: String, description: 'Programming language', required: true),
     },
     callback: (args, extra) async {
       return const GetPromptResult(

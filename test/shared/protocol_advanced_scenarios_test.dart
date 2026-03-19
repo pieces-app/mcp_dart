@@ -94,8 +94,7 @@ void main() {
       } catch (_) {}
     });
 
-    test('progress notification with invalid progressToken calls onerror',
-        () async {
+    test('progress notification with invalid progressToken calls onerror', () async {
       await protocol.connect(transport);
 
       final errors = <Error>[];
@@ -130,9 +129,7 @@ void main() {
         await protocol.request<EmptyResult>(
           const JsonRpcPingRequest(id: 0),
           (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
-          RequestOptions(
-            timeout: timeoutDuration,
-          ),
+          RequestOptions(timeout: timeoutDuration),
         );
         fail('Request should have timed out');
       } catch (e) {
@@ -156,16 +153,14 @@ void main() {
       // Send a request with abort signal
       protocol
           .request<EmptyResult>(
-        const JsonRpcPingRequest(id: 0),
-        (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
-        RequestOptions(
-          signal: controller.signal,
-        ),
-      )
+            const JsonRpcPingRequest(id: 0),
+            (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
+            RequestOptions(signal: controller.signal),
+          )
           .catchError((e) {
-        requestAborted = true;
-        return const EmptyResult();
-      });
+            requestAborted = true;
+            return const EmptyResult();
+          });
 
       // Wait a moment, then abort
       await Future.delayed(const Duration(milliseconds: 50));

@@ -140,13 +140,7 @@ void main() {
 
       // Send should handle failure
       try {
-        await transport.send(
-          const JsonRpcRequest(
-            id: 1,
-            method: 'test/method',
-            params: {},
-          ),
-        );
+        await transport.send(const JsonRpcRequest(id: 1, method: 'test/method', params: {}));
         fail('Should have thrown an error');
       } catch (e) {
         expect(e, isA<McpError>());
@@ -180,13 +174,7 @@ void main() {
       // Send should timeout
       try {
         await transport
-            .send(
-              const JsonRpcRequest(
-                id: 1,
-                method: 'test/method',
-                params: {},
-              ),
-            )
+            .send(const JsonRpcRequest(id: 1, method: 'test/method', params: {}))
             .timeout(const Duration(milliseconds: 500));
         fail('Should have timed out');
       } catch (e) {
@@ -201,10 +189,7 @@ void main() {
       await transport.start();
 
       // finishAuth without authProvider should throw
-      expect(
-        () async => await transport.finishAuth('code'),
-        throwsA(isA<UnauthorizedError>()),
-      );
+      expect(() async => await transport.finishAuth('code'), throwsA(isA<UnauthorizedError>()));
     });
 
     test('authentication flow handles token refresh', () async {
@@ -212,9 +197,7 @@ void main() {
 
       transport = StreamableHttpClientTransport(
         serverUrl,
-        opts: StreamableHttpClientTransportOptions(
-          authProvider: authProvider,
-        ),
+        opts: StreamableHttpClientTransportOptions(authProvider: authProvider),
       );
 
       await transport.start();
@@ -230,8 +213,7 @@ void main() {
 
       final subscription = requestController!.stream.listen((request) async {
         if (request.uri.path == '/mcp' && request.method == 'GET') {
-          request.response.headers.contentType =
-              ContentType('text', 'event-stream');
+          request.response.headers.contentType = ContentType('text', 'event-stream');
           request.response.bufferOutput = false;
 
           // Send malformed SSE data
@@ -273,9 +255,7 @@ void main() {
 
       transport = StreamableHttpClientTransport(
         serverUrl,
-        opts: StreamableHttpClientTransportOptions(
-          reconnectionOptions: customOptions,
-        ),
+        opts: StreamableHttpClientTransportOptions(reconnectionOptions: customOptions),
       );
 
       // Configuration is accepted
@@ -295,13 +275,7 @@ void main() {
 
       // Send should throw McpError for 401 response without authProvider
       try {
-        await transport.send(
-          const JsonRpcRequest(
-            id: 1,
-            method: 'test/method',
-            params: {},
-          ),
-        );
+        await transport.send(const JsonRpcRequest(id: 1, method: 'test/method', params: {}));
         fail('Should have thrown McpError');
       } catch (e) {
         expect(e, isA<McpError>());

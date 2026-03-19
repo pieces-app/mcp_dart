@@ -93,15 +93,12 @@ class DoctorCommand extends Command<int> {
         for (final tool in tools.tools) {
           try {
             final dummyArgs = generateDummyArguments(tool.inputSchema);
-            await connection.client.callTool(
-                CallToolRequest(name: tool.name, arguments: dummyArgs));
-            _logger.detail(
-                '    [✓] Tool "${tool.name}" executed successfully (dummy args)');
+            await connection.client.callTool(CallToolRequest(name: tool.name, arguments: dummyArgs));
+            _logger.detail('    [✓] Tool "${tool.name}" executed successfully (dummy args)');
           } catch (e) {
             if (e is McpError && e.code == -32602) {
               // Invalid params is "success" in terms of reaching the tool
-              _logger.detail(
-                  '    [✓] Tool "${tool.name}" reachable (rejected dummy args)');
+              _logger.detail('    [✓] Tool "${tool.name}" reachable (rejected dummy args)');
             } else {
               _logger.warn('    [!] Tool "${tool.name}" execution error: $e');
               // We don't fail the doctor for runtime errors in tools, just warn.
@@ -120,10 +117,8 @@ class DoctorCommand extends Command<int> {
         _logger.success('[✓] Listed ${resources.resources.length} resources');
         for (final resource in resources.resources) {
           try {
-            await connection.client
-                .readResource(ReadResourceRequest(uri: resource.uri));
-            _logger
-                .detail('    [✓] Resource "${resource.uri}" read successfully');
+            await connection.client.readResource(ReadResourceRequest(uri: resource.uri));
+            _logger.detail('    [✓] Resource "${resource.uri}" read successfully');
           } catch (e) {
             _logger.warn('    [!] Resource "${resource.uri}" read error: $e');
           }
@@ -139,10 +134,8 @@ class DoctorCommand extends Command<int> {
         _logger.success('[✓] Listed ${prompts.prompts.length} prompts');
         for (final prompt in prompts.prompts) {
           try {
-            await connection.client
-                .getPrompt(GetPromptRequest(name: prompt.name));
-            _logger.detail(
-                '    [✓] Prompt "${prompt.name}" retrieved successfully');
+            await connection.client.getPrompt(GetPromptRequest(name: prompt.name));
+            _logger.detail('    [✓] Prompt "${prompt.name}" retrieved successfully');
           } catch (e) {
             _logger.warn('    [!] Prompt "${prompt.name}" error: $e');
           }
@@ -177,9 +170,7 @@ class DoctorCommand extends Command<int> {
       final yaml = loadYaml(content);
       final dependencies = yaml['dependencies'] as Map?;
 
-      if (dependencies != null &&
-          (dependencies.containsKey('mcp') ||
-              dependencies.containsKey('mcp_dart'))) {
+      if (dependencies != null && (dependencies.containsKey('mcp') || dependencies.containsKey('mcp_dart'))) {
         return _Check(true, '[✓] mcp dependency found');
       }
       return _Check(false, '[x] mcp dependency not found in pubspec.yaml');
@@ -193,8 +184,7 @@ class DoctorCommand extends Command<int> {
     if (file.existsSync()) {
       return _Check(true, '[✓] lib/mcp/mcp.dart exists');
     } else {
-      return _Check(false,
-          '[x] lib/mcp/mcp.dart not found (required for "serve" command)');
+      return _Check(false, '[x] lib/mcp/mcp.dart not found (required for "serve" command)');
     }
   }
 

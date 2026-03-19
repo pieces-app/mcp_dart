@@ -8,8 +8,7 @@ class JsonSchemaValidationException implements Exception {
   JsonSchemaValidationException(this.message, [this.path = const []]);
 
   @override
-  String toString() =>
-      "JsonSchemaValidationException: $message (at ${path.join('/')})";
+  String toString() => "JsonSchemaValidationException: $message (at ${path.join('/')})";
 }
 
 /// Extension on [JsonSchema] to provide validation capability.
@@ -59,188 +58,119 @@ extension JsonSchemaValidation on JsonSchema {
 
   void _validateString(JsonString schema, dynamic data, List<String> path) {
     if (data is! String) {
-      throw JsonSchemaValidationException(
-        'Expected string, got ${data.runtimeType}',
-        path,
-      );
+      throw JsonSchemaValidationException('Expected string, got ${data.runtimeType}', path);
     }
 
     if (schema.minLength != null) {
       if (data.length < schema.minLength!) {
-        throw JsonSchemaValidationException(
-          'Length must be >= ${schema.minLength}',
-          path,
-        );
+        throw JsonSchemaValidationException('Length must be >= ${schema.minLength}', path);
       }
     }
 
     if (schema.maxLength != null) {
       if (data.length > schema.maxLength!) {
-        throw JsonSchemaValidationException(
-          'Length must be <= ${schema.maxLength}',
-          path,
-        );
+        throw JsonSchemaValidationException('Length must be <= ${schema.maxLength}', path);
       }
     }
 
     if (schema.pattern != null) {
       final pattern = RegExp(schema.pattern!);
       if (!pattern.hasMatch(data)) {
-        throw JsonSchemaValidationException(
-          'Value does not match pattern: ${schema.pattern}',
-          path,
-        );
+        throw JsonSchemaValidationException('Value does not match pattern: ${schema.pattern}', path);
       }
     }
 
     if (schema.enumValues != null) {
       if (!schema.enumValues!.contains(data)) {
-        throw JsonSchemaValidationException(
-          'Value must be one of ${schema.enumValues}',
-          path,
-        );
+        throw JsonSchemaValidationException('Value must be one of ${schema.enumValues}', path);
       }
     }
   }
 
   void _validateNumber(JsonNumber schema, dynamic data, List<String> path) {
     if (data is! num) {
-      throw JsonSchemaValidationException(
-        'Expected number, got ${data.runtimeType}',
-        path,
-      );
+      throw JsonSchemaValidationException('Expected number, got ${data.runtimeType}', path);
     }
 
     if (schema.minimum != null && data < schema.minimum!) {
-      throw JsonSchemaValidationException(
-        'Value must be >= ${schema.minimum}',
-        path,
-      );
+      throw JsonSchemaValidationException('Value must be >= ${schema.minimum}', path);
     }
 
     if (schema.maximum != null && data > schema.maximum!) {
-      throw JsonSchemaValidationException(
-        'Value must be <= ${schema.maximum}',
-        path,
-      );
+      throw JsonSchemaValidationException('Value must be <= ${schema.maximum}', path);
     }
 
     if (schema.exclusiveMinimum != null && data <= schema.exclusiveMinimum!) {
-      throw JsonSchemaValidationException(
-        'Value must be > ${schema.exclusiveMinimum}',
-        path,
-      );
+      throw JsonSchemaValidationException('Value must be > ${schema.exclusiveMinimum}', path);
     }
 
     if (schema.exclusiveMaximum != null && data >= schema.exclusiveMaximum!) {
-      throw JsonSchemaValidationException(
-        'Value must be < ${schema.exclusiveMaximum}',
-        path,
-      );
+      throw JsonSchemaValidationException('Value must be < ${schema.exclusiveMaximum}', path);
     }
 
     if (schema.multipleOf != null) {
       if ((data % schema.multipleOf!).abs() > 1e-10) {
-        throw JsonSchemaValidationException(
-          'Value must be multiple of ${schema.multipleOf}',
-          path,
-        );
+        throw JsonSchemaValidationException('Value must be multiple of ${schema.multipleOf}', path);
       }
     }
   }
 
   void _validateInteger(JsonInteger schema, dynamic data, List<String> path) {
     if (data is! int) {
-      throw JsonSchemaValidationException(
-        'Expected integer, got ${data.runtimeType}',
-        path,
-      );
+      throw JsonSchemaValidationException('Expected integer, got ${data.runtimeType}', path);
     }
 
     if (schema.minimum != null && data < schema.minimum!) {
-      throw JsonSchemaValidationException(
-        'Value must be >= ${schema.minimum}',
-        path,
-      );
+      throw JsonSchemaValidationException('Value must be >= ${schema.minimum}', path);
     }
 
     if (schema.maximum != null && data > schema.maximum!) {
-      throw JsonSchemaValidationException(
-        'Value must be <= ${schema.maximum}',
-        path,
-      );
+      throw JsonSchemaValidationException('Value must be <= ${schema.maximum}', path);
     }
 
     if (schema.exclusiveMinimum != null && data <= schema.exclusiveMinimum!) {
-      throw JsonSchemaValidationException(
-        'Value must be > ${schema.exclusiveMinimum}',
-        path,
-      );
+      throw JsonSchemaValidationException('Value must be > ${schema.exclusiveMinimum}', path);
     }
 
     if (schema.exclusiveMaximum != null && data >= schema.exclusiveMaximum!) {
-      throw JsonSchemaValidationException(
-        'Value must be < ${schema.exclusiveMaximum}',
-        path,
-      );
+      throw JsonSchemaValidationException('Value must be < ${schema.exclusiveMaximum}', path);
     }
 
     if (schema.multipleOf != null) {
       if ((data % schema.multipleOf!).abs() > 0) {
-        throw JsonSchemaValidationException(
-          'Value must be multiple of ${schema.multipleOf}',
-          path,
-        );
+        throw JsonSchemaValidationException('Value must be multiple of ${schema.multipleOf}', path);
       }
     }
   }
 
   void _validateBoolean(dynamic data, List<String> path) {
     if (data is! bool) {
-      throw JsonSchemaValidationException(
-        'Expected boolean, got ${data.runtimeType}',
-        path,
-      );
+      throw JsonSchemaValidationException('Expected boolean, got ${data.runtimeType}', path);
     }
   }
 
   void _validateNull(dynamic data, List<String> path) {
     if (data != null) {
-      throw JsonSchemaValidationException(
-        'Expected null, got ${data.runtimeType}',
-        path,
-      );
+      throw JsonSchemaValidationException('Expected null, got ${data.runtimeType}', path);
     }
   }
 
   void _validateArray(JsonArray schema, dynamic data, List<String> path) {
     if (data is! List) {
-      throw JsonSchemaValidationException(
-        'Expected array, got ${data.runtimeType}',
-        path,
-      );
+      throw JsonSchemaValidationException('Expected array, got ${data.runtimeType}', path);
     }
 
     if (schema.minItems != null && data.length < schema.minItems!) {
-      throw JsonSchemaValidationException(
-        'Array length must be >= ${schema.minItems}',
-        path,
-      );
+      throw JsonSchemaValidationException('Array length must be >= ${schema.minItems}', path);
     }
 
     if (schema.maxItems != null && data.length > schema.maxItems!) {
-      throw JsonSchemaValidationException(
-        'Array length must be <= ${schema.maxItems}',
-        path,
-      );
+      throw JsonSchemaValidationException('Array length must be <= ${schema.maxItems}', path);
     }
 
     if (schema.uniqueItems == true) {
       if (!_hasUniqueItems(data)) {
-        throw JsonSchemaValidationException(
-          'Array must have unique items',
-          path,
-        );
+        throw JsonSchemaValidationException('Array must have unique items', path);
       }
     }
 
@@ -253,19 +183,13 @@ extension JsonSchemaValidation on JsonSchema {
 
   void _validateObject(JsonObject schema, dynamic data, List<String> path) {
     if (data is! Map) {
-      throw JsonSchemaValidationException(
-        'Expected object, got ${data.runtimeType}',
-        path,
-      );
+      throw JsonSchemaValidationException('Expected object, got ${data.runtimeType}', path);
     }
 
     if (schema.required != null) {
       for (final key in schema.required!) {
         if (!data.containsKey(key)) {
-          throw JsonSchemaValidationException(
-            'Missing required property: $key',
-            path,
-          );
+          throw JsonSchemaValidationException('Missing required property: $key', path);
         }
       }
     }
@@ -276,10 +200,7 @@ extension JsonSchemaValidation on JsonSchema {
           final required = schema.dependentRequired![key]!;
           for (final reqKey in required) {
             if (!data.containsKey(reqKey)) {
-              throw JsonSchemaValidationException(
-                'Dependency failed: $key requires $reqKey',
-                path,
-              );
+              throw JsonSchemaValidationException('Dependency failed: $key requires $reqKey', path);
             }
           }
         }
@@ -302,10 +223,7 @@ extension JsonSchemaValidation on JsonSchema {
 
     // additionalProperties is a bool? in JsonObject
     if (schema.additionalProperties == false && extraKeys.isNotEmpty) {
-      throw JsonSchemaValidationException(
-        'Additional properties not allowed: ${extraKeys.join(', ')}',
-        path,
-      );
+      throw JsonSchemaValidationException('Additional properties not allowed: ${extraKeys.join(', ')}', path);
     }
     // Note: JsonSchema implementation of additionalProperties as Schema is NOT in JsonObject class currently
     // The class definition has `bool? additionalProperties`.
@@ -315,10 +233,7 @@ extension JsonSchemaValidation on JsonSchema {
 
   void _validateEnum(JsonEnum schema, dynamic data, List<String> path) {
     if (!schema.values.any((e) => _deepEquals(e, data))) {
-      throw JsonSchemaValidationException(
-        'Value must be one of ${schema.values}',
-        path,
-      );
+      throw JsonSchemaValidationException('Value must be one of ${schema.values}', path);
     }
   }
 
@@ -338,10 +253,7 @@ extension JsonSchemaValidation on JsonSchema {
       } catch (_) {}
     }
     if (!isValid) {
-      throw JsonSchemaValidationException(
-        'Value does not match anyOf schemas',
-        path,
-      );
+      throw JsonSchemaValidationException('Value does not match anyOf schemas', path);
     }
   }
 
@@ -354,10 +266,7 @@ extension JsonSchemaValidation on JsonSchema {
       } catch (_) {}
     }
     if (validCount != 1) {
-      throw JsonSchemaValidationException(
-        'Value matches $validCount schemas, expected exactly 1 for oneOf',
-        path,
-      );
+      throw JsonSchemaValidationException('Value matches $validCount schemas, expected exactly 1 for oneOf', path);
     }
   }
 
@@ -367,10 +276,7 @@ extension JsonSchemaValidation on JsonSchema {
     } catch (_) {
       return;
     }
-    throw JsonSchemaValidationException(
-      'Value matches not schema',
-      path,
-    );
+    throw JsonSchemaValidationException('Value matches not schema', path);
   }
 
   bool _hasUniqueItems(List data) {

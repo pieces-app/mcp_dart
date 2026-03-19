@@ -41,15 +41,8 @@ void main() {
     });
 
     test('JsonInteger serializes correctly', () {
-      final schema = JsonSchema.integer(
-        minimum: 1,
-        maximum: 10,
-      );
-      expect(schema.toJson(), {
-        'type': 'integer',
-        'minimum': 1,
-        'maximum': 10,
-      });
+      final schema = JsonSchema.integer(minimum: 1, maximum: 10);
+      expect(schema.toJson(), {'type': 'integer', 'minimum': 1, 'maximum': 10});
     });
 
     test('JsonBoolean serializes correctly', () {
@@ -61,12 +54,7 @@ void main() {
     });
 
     test('JsonArray serializes correctly', () {
-      final schema = JsonSchema.array(
-        items: JsonSchema.string(),
-        minItems: 1,
-        maxItems: 5,
-        uniqueItems: true,
-      );
+      final schema = JsonSchema.array(items: JsonSchema.string(), minItems: 1, maxItems: 5, uniqueItems: true);
       expect(schema.toJson(), {
         'type': 'array',
         'items': {'type': 'string'},
@@ -78,10 +66,7 @@ void main() {
 
     test('JsonObject serializes correctly', () {
       final schema = JsonSchema.object(
-        properties: {
-          'name': JsonSchema.string(),
-          'age': JsonSchema.integer(),
-        },
+        properties: {'name': JsonSchema.string(), 'age': JsonSchema.integer()},
         required: ['name'],
         additionalProperties: false,
         dependentRequired: {
@@ -103,10 +88,7 @@ void main() {
     });
 
     test('JsonAllOf serializes correctly', () {
-      final schema = JsonSchema.allOf([
-        JsonSchema.string(),
-        JsonSchema.integer(),
-      ]);
+      final schema = JsonSchema.allOf([JsonSchema.string(), JsonSchema.integer()]);
       expect(schema.toJson(), {
         'allOf': [
           {'type': 'string'},
@@ -116,10 +98,7 @@ void main() {
     });
 
     test('JsonAnyOf serializes correctly', () {
-      final schema = JsonSchema.anyOf([
-        JsonSchema.string(),
-        JsonSchema.integer(),
-      ]);
+      final schema = JsonSchema.anyOf([JsonSchema.string(), JsonSchema.integer()]);
       expect(schema.toJson(), {
         'anyOf': [
           {'type': 'string'},
@@ -129,10 +108,7 @@ void main() {
     });
 
     test('JsonOneOf serializes correctly', () {
-      final schema = JsonSchema.oneOf([
-        JsonSchema.string(),
-        JsonSchema.integer(),
-      ]);
+      final schema = JsonSchema.oneOf([JsonSchema.string(), JsonSchema.integer()]);
       expect(schema.toJson(), {
         'oneOf': [
           {'type': 'string'},
@@ -154,32 +130,20 @@ void main() {
       final schema = JsonSchema.string(minLength: 3);
 
       schema.validate('abc'); // Should pass
-      expect(
-        () => schema.validate('ab'),
-        throwsA(isA<JsonSchemaValidationException>()),
-      );
+      expect(() => schema.validate('ab'), throwsA(isA<JsonSchemaValidationException>()));
     });
 
     test('validates object schema', () {
       final schema = JsonSchema.object(
-        properties: {
-          'name': JsonSchema.string(),
-          'age': JsonSchema.integer(minimum: 0),
-        },
+        properties: {'name': JsonSchema.string(), 'age': JsonSchema.integer(minimum: 0)},
         required: ['name'],
       );
 
       schema.validate({'name': 'Alice', 'age': 30}); // Pass
       schema.validate({'name': 'Bob'}); // Pass
 
-      expect(
-        () => schema.validate({'age': 30}),
-        throwsA(isA<JsonSchemaValidationException>()),
-      );
-      expect(
-        () => schema.validate({'name': 'Alice', 'age': -1}),
-        throwsA(isA<JsonSchemaValidationException>()),
-      );
+      expect(() => schema.validate({'age': 30}), throwsA(isA<JsonSchemaValidationException>()));
+      expect(() => schema.validate({'name': 'Alice', 'age': -1}), throwsA(isA<JsonSchemaValidationException>()));
     });
   });
 }

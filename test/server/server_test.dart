@@ -8,8 +8,7 @@ import 'package:test/test.dart';
 class MockTransport extends Transport {
   final List<JsonRpcMessage> sentMessages = [];
   final List<JsonRpcMessage> receivedMessages = [];
-  final StreamController<JsonRpcMessage> messageController =
-      StreamController<JsonRpcMessage>.broadcast();
+  final StreamController<JsonRpcMessage> messageController = StreamController<JsonRpcMessage>.broadcast();
   bool isStarted = false;
   bool isClosed = false;
   ClientCapabilities? clientCapabilities;
@@ -130,10 +129,7 @@ void main() {
         },
         tools: ServerCapabilitiesTools(),
       );
-      final options = McpServerOptions(
-        capabilities: capabilities,
-        instructions: 'Test instructions',
-      );
+      final options = McpServerOptions(capabilities: capabilities, instructions: 'Test instructions');
 
       final customServer = Server(serverInfo, options: options);
       expect(customServer.getCapabilities().logging, isNotNull);
@@ -143,8 +139,7 @@ void main() {
     test('Register capabilities before connecting', () {
       final newCapabilities = const ServerCapabilities(
         prompts: ServerCapabilitiesPrompts(listChanged: true),
-        resources:
-            ServerCapabilitiesResources(subscribe: true, listChanged: true),
+        resources: ServerCapabilitiesResources(subscribe: true, listChanged: true),
       );
 
       server.registerCapabilities(newCapabilities);
@@ -155,18 +150,12 @@ void main() {
       expect(serverCapabilities.resources?.listChanged, isTrue);
     });
 
-    test('Cannot register capabilities after connecting to transport',
-        () async {
+    test('Cannot register capabilities after connecting to transport', () async {
       await server.connect(transport);
 
-      final newCapabilities = const ServerCapabilities(
-        prompts: ServerCapabilitiesPrompts(listChanged: true),
-      );
+      final newCapabilities = const ServerCapabilities(prompts: ServerCapabilitiesPrompts(listChanged: true));
 
-      expect(
-        () => server.registerCapabilities(newCapabilities),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => server.registerCapabilities(newCapabilities), throwsA(isA<StateError>()));
     });
 
     test('Handles initialize request correctly', () async {
@@ -188,10 +177,7 @@ void main() {
         clientInfo: const Implementation(name: 'TestClient', version: '1.0.0'),
       );
 
-      final initRequest = JsonRpcInitializeRequest(
-        id: 1,
-        initParams: initParams,
-      );
+      final initRequest = JsonRpcInitializeRequest(id: 1, initParams: initParams);
 
       // Send initialize request to the server
       transport.receiveMessage(initRequest);
@@ -201,12 +187,7 @@ void main() {
 
       // Check that server responded with initialize result
       expect(transport.sentMessages.length, 1);
-      expect(
-        transport.sentMessages.first.runtimeType
-            .toString()
-            .contains('JsonRpcResponse'),
-        isTrue,
-      );
+      expect(transport.sentMessages.first.runtimeType.toString().contains('JsonRpcResponse'), isTrue);
 
       final response = transport.sentMessages.first as JsonRpcResponse;
       expect(response.id, 1);
@@ -236,9 +217,7 @@ void main() {
       expect(initialized, isTrue);
     });
 
-    test(
-        'Falls back to latest protocol version if requested version is not supported',
-        () async {
+    test('Falls back to latest protocol version if requested version is not supported', () async {
       await server.connect(transport);
 
       final clientCapabilities = const ClientCapabilities();
@@ -249,10 +228,7 @@ void main() {
         clientInfo: const Implementation(name: 'TestClient', version: '1.0.0'),
       );
 
-      final initRequest = JsonRpcInitializeRequest(
-        id: 1,
-        initParams: initParams,
-      );
+      final initRequest = JsonRpcInitializeRequest(id: 1, initParams: initParams);
 
       // Send initialize request to the server
       transport.receiveMessage(initRequest);
@@ -277,18 +253,13 @@ void main() {
       final result = await server.ping();
 
       // Verify request was sent
-      expect(
-        transport.sentMessages
-            .any((msg) => msg is JsonRpcRequest && msg.method == "ping"),
-        isTrue,
-      );
+      expect(transport.sentMessages.any((msg) => msg is JsonRpcRequest && msg.method == "ping"), isTrue);
 
       // Verify response was received
       expect(result, isA<EmptyResult>());
     });
 
-    test('Can send createMessage request when client has sampling capability',
-        () async {
+    test('Can send createMessage request when client has sampling capability', () async {
       await server.connect(transport);
 
       // Initialize with client capabilities including sampling
@@ -310,37 +281,26 @@ void main() {
 
       // Verify request was sent
       expect(
-        transport.sentMessages.any(
-          (msg) =>
-              msg is JsonRpcRequest && msg.method == "sampling/createMessage",
-        ),
+        transport.sentMessages.any((msg) => msg is JsonRpcRequest && msg.method == "sampling/createMessage"),
         isTrue,
       );
 
       // Verify response was processed correctly
       expect(result.role, equals(SamplingMessageRole.assistant));
-      expect(
-        (result.content as SamplingTextContent).text,
-        equals('Test response'),
-      );
+      expect((result.content as SamplingTextContent).text, equals('Test response'));
     });
 
-    test('Cannot send createMessage request without client sampling capability',
-        () async {
+    test('Cannot send createMessage request without client sampling capability', () async {
       await server.connect(transport);
 
       // Initialize with client capabilities WITHOUT sampling
       await _initializeClient(transport, server, withSampling: false);
 
       // Attempt to send create message request should throw synchronously
-      expect(
-        () => server.assertCapabilityForMethod('sampling/createMessage'),
-        throwsA(isA<McpError>()),
-      );
+      expect(() => server.assertCapabilityForMethod('sampling/createMessage'), throwsA(isA<McpError>()));
     });
 
-    test('Can send listRoots request when client has roots capability',
-        () async {
+    test('Can send listRoots request when client has roots capability', () async {
       await server.connect(transport);
 
       // Initialize with client capabilities including roots
@@ -350,11 +310,7 @@ void main() {
       final result = await server.listRoots();
 
       // Verify request was sent
-      expect(
-        transport.sentMessages
-            .any((msg) => msg is JsonRpcRequest && msg.method == "roots/list"),
-        isTrue,
-      );
+      expect(transport.sentMessages.any((msg) => msg is JsonRpcRequest && msg.method == "roots/list"), isTrue);
 
       // Verify response was processed correctly
       expect(result.roots.length, equals(2));
@@ -362,26 +318,20 @@ void main() {
       expect(result.roots[1].uri, equals('file:///path/to/root2'));
     });
 
-    test('Cannot send listRoots request without client roots capability',
-        () async {
+    test('Cannot send listRoots request without client roots capability', () async {
       await server.connect(transport);
 
       // Initialize with client capabilities WITHOUT roots
       await _initializeClient(transport, server, withRoots: false);
 
       // Attempt to check capability directly should throw
-      expect(
-        () => server.assertCapabilityForMethod('roots/list'),
-        throwsA(isA<McpError>()),
-      );
+      expect(() => server.assertCapabilityForMethod('roots/list'), throwsA(isA<McpError>()));
     });
 
-    test('Server can send resource notifications when capability is registered',
-        () async {
+    test('Server can send resource notifications when capability is registered', () async {
       // Create server with resource capabilities
       final capabilities = const ServerCapabilities(
-        resources:
-            ServerCapabilitiesResources(listChanged: true, subscribe: true),
+        resources: ServerCapabilitiesResources(listChanged: true, subscribe: true),
       );
       final options = McpServerOptions(capabilities: capabilities);
       final resourceServer = Server(serverInfo, options: options);
@@ -392,73 +342,44 @@ void main() {
       await resourceServer.sendResourceListChanged();
 
       // Send resource updated notification
-      final resourceParams = const ResourceUpdatedNotification(
-        uri: 'test-resource',
-      );
+      final resourceParams = const ResourceUpdatedNotification(uri: 'test-resource');
       await resourceServer.sendResourceUpdated(resourceParams);
 
       // Check notifications were sent
       expect(
         transport.sentMessages.any(
-          (msg) =>
-              msg is JsonRpcNotification &&
-              msg.method == "notifications/resources/list_changed",
+          (msg) => msg is JsonRpcNotification && msg.method == "notifications/resources/list_changed",
         ),
         isTrue,
       );
       expect(
         transport.sentMessages.any(
-          (msg) =>
-              msg is JsonRpcNotification &&
-              msg.method == "notifications/resources/updated",
+          (msg) => msg is JsonRpcNotification && msg.method == "notifications/resources/updated",
         ),
         isTrue,
       );
     });
 
-    test('Server cannot send notifications when capability is not registered',
-        () {
+    test('Server cannot send notifications when capability is not registered', () {
       // Create server with NO capabilities
       final options = const McpServerOptions();
       final plainServer = Server(serverInfo, options: options);
 
-      expect(
-        () => plainServer.sendResourceListChanged(),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => plainServer.sendResourceListChanged(), throwsA(isA<StateError>()));
 
-      final resourceParams = const ResourceUpdatedNotification(
-        uri: 'test-resource',
-      );
-      expect(
-        () => plainServer.sendResourceUpdated(resourceParams),
-        throwsA(isA<StateError>()),
-      );
-      expect(
-        () => plainServer.sendPromptListChanged(),
-        throwsA(isA<StateError>()),
-      );
-      expect(
-        () => plainServer.sendToolListChanged(),
-        throwsA(isA<StateError>()),
-      );
+      final resourceParams = const ResourceUpdatedNotification(uri: 'test-resource');
+      expect(() => plainServer.sendResourceUpdated(resourceParams), throwsA(isA<StateError>()));
+      expect(() => plainServer.sendPromptListChanged(), throwsA(isA<StateError>()));
+      expect(() => plainServer.sendToolListChanged(), throwsA(isA<StateError>()));
 
       // Logging notification requires logging capability
-      final logParams = const LoggingMessageNotification(
-        level: LoggingLevel.info,
-        data: 'Test log',
-      );
-      expect(
-        () => plainServer.sendLoggingMessage(logParams),
-        returnsNormally,
-      );
+      final logParams = const LoggingMessageNotification(level: LoggingLevel.info, data: 'Test log');
+      expect(() => plainServer.sendLoggingMessage(logParams), returnsNormally);
     });
 
     test('Verify request handler capability assertions', () async {
       // Create server with only tools capability
-      final capabilities = const ServerCapabilities(
-        tools: ServerCapabilitiesTools(),
-      );
+      final capabilities = const ServerCapabilities(tools: ServerCapabilitiesTools());
       final options = McpServerOptions(capabilities: capabilities);
       final server = Server(serverInfo, options: options);
 
@@ -467,18 +388,9 @@ void main() {
       server.assertRequestHandlerCapability('tools/list');
 
       // These should throw - no capability
-      expect(
-        () => server.assertRequestHandlerCapability('resources/list'),
-        throwsA(isA<StateError>()),
-      );
-      expect(
-        () => server.assertRequestHandlerCapability('prompts/list'),
-        throwsA(isA<StateError>()),
-      );
-      expect(
-        () => server.assertRequestHandlerCapability('logging/setLevel'),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => server.assertRequestHandlerCapability('resources/list'), throwsA(isA<StateError>()));
+      expect(() => server.assertRequestHandlerCapability('prompts/list'), throwsA(isA<StateError>()));
+      expect(() => server.assertRequestHandlerCapability('logging/setLevel'), throwsA(isA<StateError>()));
 
       // Core methods should always be allowed
       server.assertRequestHandlerCapability('initialize');
@@ -533,9 +445,7 @@ void _addCriticalPathTests() {
     late MockTransport transport;
 
     setUp(() {
-      server = Server(
-        const Implementation(name: 'TestServer', version: '1.0.0'),
-      );
+      server = Server(const Implementation(name: 'TestServer', version: '1.0.0'));
       transport = MockTransport();
     });
 
@@ -547,10 +457,7 @@ void _addCriticalPathTests() {
       // Attempt to send elicitation request
       expect(
         () => server.assertCapabilityForMethod('elicitation/create'),
-        throwsA(
-          isA<McpError>()
-              .having((e) => e.message, 'message', contains('elicitation')),
-        ),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('elicitation'))),
       );
     });
 
@@ -560,10 +467,7 @@ void _addCriticalPathTests() {
       await _initializeClient(transport, server, withElicitation: true);
 
       // Should not throw
-      expect(
-        () => server.assertCapabilityForMethod('elicitation/create'),
-        returnsNormally,
-      );
+      expect(() => server.assertCapabilityForMethod('elicitation/create'), returnsNormally);
     });
   });
 
@@ -578,15 +482,11 @@ void _addCriticalPathTests() {
 
       expect(
         () => server.assertNotificationCapability('notifications/message'),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('logging')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('logging'))),
       );
     });
 
-    test('notifications/resources/updated requires subscribe capability',
-        () async {
+    test('notifications/resources/updated requires subscribe capability', () async {
       server = Server(
         const Implementation(name: 'TestServer', version: '1.0.0'),
         options: const McpServerOptions(
@@ -597,38 +497,23 @@ void _addCriticalPathTests() {
       );
 
       expect(
-        () => server
-            .assertNotificationCapability('notifications/resources/updated'),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('resource subscription'),
-          ),
-        ),
+        () => server.assertNotificationCapability('notifications/resources/updated'),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('resource subscription'))),
       );
     });
 
-    test('notifications/resources/updated succeeds with subscribe capability',
-        () {
+    test('notifications/resources/updated succeeds with subscribe capability', () {
       server = Server(
         const Implementation(name: 'TestServer', version: '1.0.0'),
         options: const McpServerOptions(
-          capabilities: ServerCapabilities(
-            resources: ServerCapabilitiesResources(subscribe: true),
-          ),
+          capabilities: ServerCapabilities(resources: ServerCapabilitiesResources(subscribe: true)),
         ),
       );
 
-      expect(
-        () => server
-            .assertNotificationCapability('notifications/resources/updated'),
-        returnsNormally,
-      );
+      expect(() => server.assertNotificationCapability('notifications/resources/updated'), returnsNormally);
     });
 
-    test('notifications/resources/list_changed requires listChanged capability',
-        () {
+    test('notifications/resources/list_changed requires listChanged capability', () {
       server = Server(
         const Implementation(name: 'TestServer', version: '1.0.0'),
         options: const McpServerOptions(
@@ -639,16 +524,8 @@ void _addCriticalPathTests() {
       );
 
       expect(
-        () => server.assertNotificationCapability(
-          'notifications/resources/list_changed',
-        ),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('resource list changed notifications'),
-          ),
-        ),
+        () => server.assertNotificationCapability('notifications/resources/list_changed'),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('resource list changed notifications'))),
       );
     });
 
@@ -663,15 +540,8 @@ void _addCriticalPathTests() {
       );
 
       expect(
-        () => server
-            .assertNotificationCapability('notifications/tools/list_changed'),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('tool list changed notifications'),
-          ),
-        ),
+        () => server.assertNotificationCapability('notifications/tools/list_changed'),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('tool list changed notifications'))),
       );
     });
 
@@ -686,44 +556,25 @@ void _addCriticalPathTests() {
       );
 
       expect(
-        () => server
-            .assertNotificationCapability('notifications/prompts/list_changed'),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('prompt list changed notifications'),
-          ),
-        ),
+        () => server.assertNotificationCapability('notifications/prompts/list_changed'),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('prompt list changed notifications'))),
       );
     });
 
-    test('notifications/cancelled and notifications/progress always allowed',
-        () {
+    test('notifications/cancelled and notifications/progress always allowed', () {
       server = Server(
         const Implementation(name: 'TestServer', version: '1.0.0'),
         // No special capabilities
       );
 
-      expect(
-        () => server.assertNotificationCapability('notifications/cancelled'),
-        returnsNormally,
-      );
-      expect(
-        () => server.assertNotificationCapability('notifications/progress'),
-        returnsNormally,
-      );
+      expect(() => server.assertNotificationCapability('notifications/cancelled'), returnsNormally);
+      expect(() => server.assertNotificationCapability('notifications/progress'), returnsNormally);
     });
 
     test('custom notification logs warning but does not throw', () {
-      server = Server(
-        const Implementation(name: 'TestServer', version: '1.0.0'),
-      );
+      server = Server(const Implementation(name: 'TestServer', version: '1.0.0'));
 
-      expect(
-        () => server.assertNotificationCapability('notifications/custom'),
-        returnsNormally,
-      );
+      expect(() => server.assertNotificationCapability('notifications/custom'), returnsNormally);
     });
   });
 
@@ -738,10 +589,7 @@ void _addCriticalPathTests() {
 
       expect(
         () => server.assertRequestHandlerCapability('logging/setLevel'),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('logging')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('logging'))),
       );
     });
 
@@ -753,17 +601,11 @@ void _addCriticalPathTests() {
 
       expect(
         () => server.assertRequestHandlerCapability('prompts/get'),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('prompts')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('prompts'))),
       );
       expect(
         () => server.assertRequestHandlerCapability('prompts/list'),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('prompts')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('prompts'))),
       );
     });
 
@@ -775,24 +617,15 @@ void _addCriticalPathTests() {
 
       expect(
         () => server.assertRequestHandlerCapability('resources/list'),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('resources')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('resources'))),
       );
       expect(
         () => server.assertRequestHandlerCapability('resources/templates/list'),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('resources')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('resources'))),
       );
       expect(
         () => server.assertRequestHandlerCapability('resources/read'),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('resources')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('resources'))),
       );
     });
 
@@ -808,23 +641,11 @@ void _addCriticalPathTests() {
 
       expect(
         () => server.assertRequestHandlerCapability('resources/subscribe'),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('resources.subscribe'),
-          ),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('resources.subscribe'))),
       );
       expect(
         () => server.assertRequestHandlerCapability('resources/unsubscribe'),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('resources.subscribe'),
-          ),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('resources.subscribe'))),
       );
     });
 
@@ -836,17 +657,11 @@ void _addCriticalPathTests() {
 
       expect(
         () => server.assertRequestHandlerCapability('tools/call'),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('tools')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('tools'))),
       );
       expect(
         () => server.assertRequestHandlerCapability('tools/list'),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('tools')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('tools'))),
       );
     });
 
@@ -856,29 +671,15 @@ void _addCriticalPathTests() {
         // No special capabilities
       );
 
-      expect(
-        () => server.assertRequestHandlerCapability('initialize'),
-        returnsNormally,
-      );
-      expect(
-        () => server.assertRequestHandlerCapability('ping'),
-        returnsNormally,
-      );
-      expect(
-        () => server.assertRequestHandlerCapability('completion/complete'),
-        returnsNormally,
-      );
+      expect(() => server.assertRequestHandlerCapability('initialize'), returnsNormally);
+      expect(() => server.assertRequestHandlerCapability('ping'), returnsNormally);
+      expect(() => server.assertRequestHandlerCapability('completion/complete'), returnsNormally);
     });
 
     test('custom request handler logs info but does not throw', () {
-      server = Server(
-        const Implementation(name: 'TestServer', version: '1.0.0'),
-      );
+      server = Server(const Implementation(name: 'TestServer', version: '1.0.0'));
 
-      expect(
-        () => server.assertRequestHandlerCapability('custom/method'),
-        returnsNormally,
-      );
+      expect(() => server.assertRequestHandlerCapability('custom/method'), returnsNormally);
     });
   });
 }

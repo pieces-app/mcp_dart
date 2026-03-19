@@ -8,10 +8,7 @@ void main() {
         id: 1,
         initParams: const InitializeRequestParams(
           protocolVersion: latestProtocolVersion,
-          capabilities: ClientCapabilities(
-            experimental: {'featureX': true},
-            sampling: ClientCapabilitiesSampling(),
-          ),
+          capabilities: ClientCapabilities(experimental: {'featureX': true}, sampling: ClientCapabilitiesSampling()),
           clientInfo: Implementation(name: 'test-client', version: '1.0.0'),
         ),
       );
@@ -23,18 +20,11 @@ void main() {
 
       final deserialized = JsonRpcInitializeRequest.fromJson(json);
       expect(deserialized.id, equals(request.id));
-      expect(
-        deserialized.initParams.protocolVersion,
-        equals(latestProtocolVersion),
-      );
+      expect(deserialized.initParams.protocolVersion, equals(latestProtocolVersion));
     });
 
     test('JsonRpcResponse serialization', () {
-      final response = const JsonRpcResponse(
-        id: 1,
-        result: {'key': 'value'},
-        meta: {'metaKey': 'metaValue'},
-      );
+      final response = const JsonRpcResponse(id: 1, result: {'key': 'value'}, meta: {'metaKey': 'metaValue'});
 
       final json = response.toJson();
       expect(json['jsonrpc'], equals(jsonRpcVersion));
@@ -57,26 +47,19 @@ void main() {
       expect(json['jsonrpc'], equals(jsonRpcVersion));
       expect(json['error']['code'], equals(ErrorCode.invalidRequest.value));
       expect(json['error']['message'], equals('Invalid request'));
-      expect(
-        json['error']['data']['details'],
-        equals('Missing required field'),
-      );
+      expect(json['error']['data']['details'], equals('Missing required field'));
 
       final deserialized = JsonRpcError.fromJson(json);
       expect(deserialized.id, equals(error.id));
       expect(deserialized.error.code, equals(ErrorCode.invalidRequest.value));
       expect(deserialized.error.message, equals('Invalid request'));
-      expect(
-        deserialized.error.data['details'],
-        equals('Missing required field'),
-      );
+      expect(deserialized.error.data['details'], equals('Missing required field'));
     });
   });
 
   group('Capabilities Tests', () {
     test('ServerCapabilitiesCompletions serialization and deserialization', () {
-      final completions =
-          const ServerCapabilitiesCompletions(listChanged: true);
+      final completions = const ServerCapabilitiesCompletions(listChanged: true);
 
       final json = completions.toJson();
       expect(json['listChanged'], equals(true));
@@ -90,8 +73,7 @@ void main() {
         experimental: {'featureY': true},
         logging: {'enabled': true},
         prompts: ServerCapabilitiesPrompts(listChanged: true),
-        resources:
-            ServerCapabilitiesResources(subscribe: true, listChanged: true),
+        resources: ServerCapabilitiesResources(subscribe: true, listChanged: true),
         tools: ServerCapabilitiesTools(listChanged: true),
         completions: ServerCapabilitiesCompletions(listChanged: true),
       );
@@ -115,8 +97,7 @@ void main() {
         experimental: {'featureY': true},
         logging: {'enabled': true},
         prompts: ServerCapabilitiesPrompts(listChanged: true),
-        resources:
-            ServerCapabilitiesResources(subscribe: true, listChanged: true),
+        resources: ServerCapabilitiesResources(subscribe: true, listChanged: true),
         tools: ServerCapabilitiesTools(listChanged: true),
       );
 
@@ -161,8 +142,7 @@ void main() {
     });
 
     test('ImageContent serialization and deserialization', () {
-      final content =
-          const ImageContent(data: 'base64data', mimeType: 'image/png');
+      final content = const ImageContent(data: 'base64data', mimeType: 'image/png');
       final json = content.toJson();
       expect(json['type'], equals('image'));
       expect(json['data'], equals('base64data'));
@@ -174,11 +154,7 @@ void main() {
     });
 
     test('ImageContent supports optional theme', () {
-      final content = const ImageContent(
-        data: 'base64data',
-        mimeType: 'image/png',
-        theme: 'dark',
-      );
+      final content = const ImageContent(data: 'base64data', mimeType: 'image/png', theme: 'dark');
 
       final json = content.toJson();
       expect(json['theme'], equals('dark'));
@@ -188,8 +164,7 @@ void main() {
     });
 
     test('AudioContent serialization and deserialization', () {
-      final content =
-          const AudioContent(data: 'base64data', mimeType: 'audio/wav');
+      final content = const AudioContent(data: 'base64data', mimeType: 'audio/wav');
       final json = content.toJson();
       expect(json['type'], equals('audio'));
       expect(json['data'], equals('base64data'));
@@ -229,11 +204,7 @@ void main() {
     });
 
     test('Content.fromJson handles resource_link content type', () {
-      final json = {
-        'type': 'resource_link',
-        'uri': 'file:///docs/spec.md',
-        'name': 'spec',
-      };
+      final json = {'type': 'resource_link', 'uri': 'file:///docs/spec.md', 'name': 'spec'};
 
       final content = Content.fromJson(json);
       expect(content, isA<ResourceLink>());
@@ -273,8 +244,7 @@ void main() {
       expect(json['text'], equals('Sample text content'));
       expect(json['mimeType'], equals('text/plain'));
 
-      final deserialized =
-          ResourceContents.fromJson(json) as TextResourceContents;
+      final deserialized = ResourceContents.fromJson(json) as TextResourceContents;
       expect(deserialized.uri, equals('file://example.txt'));
       expect(deserialized.text, equals('Sample text content'));
     });
@@ -291,8 +261,7 @@ void main() {
       expect(json['blob'], equals('base64data'));
       expect(json['mimeType'], equals('application/octet-stream'));
 
-      final deserialized =
-          ResourceContents.fromJson(json) as BlobResourceContents;
+      final deserialized = ResourceContents.fromJson(json) as BlobResourceContents;
       expect(deserialized.uri, equals('file://example.bin'));
       expect(deserialized.blob, equals('base64data'));
     });
@@ -303,13 +272,7 @@ void main() {
       final prompt = const Prompt(
         name: 'example-prompt',
         description: 'A sample prompt',
-        arguments: [
-          PromptArgument(
-            name: 'arg1',
-            description: 'Argument 1',
-            required: true,
-          ),
-        ],
+        arguments: [PromptArgument(name: 'arg1', description: 'Argument 1', required: true)],
       );
 
       final json = prompt.toJson();
@@ -323,11 +286,7 @@ void main() {
     });
 
     test('PromptArgument serialization and deserialization', () {
-      final argument = const PromptArgument(
-        name: 'arg1',
-        description: 'Argument 1',
-        required: true,
-      );
+      final argument = const PromptArgument(name: 'arg1', description: 'Argument 1', required: true);
 
       final json = argument.toJson();
       expect(json['name'], equals('arg1'));
@@ -370,10 +329,7 @@ void main() {
       expect(deserialized.stopReason, equals(StopReason.maxTokens));
       expect(deserialized.role, equals(SamplingMessageRole.assistant));
       expect(deserialized.content, isA<SamplingTextContent>());
-      expect(
-        (deserialized.content as SamplingTextContent).text,
-        equals('Hello, world!'),
-      );
+      expect((deserialized.content as SamplingTextContent).text, equals('Hello, world!'));
       expect(deserialized.meta, equals({'key': 'value'}));
     });
 
@@ -412,21 +368,14 @@ void main() {
 
   group('JsonRpcMessage.fromJson Tests', () {
     test('Parses valid request with method and id', () {
-      final json = {
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'ping',
-      };
+      final json = {'jsonrpc': '2.0', 'id': 1, 'method': 'ping'};
       final message = JsonRpcMessage.fromJson(json);
       expect(message, isA<JsonRpcPingRequest>());
       expect((message as JsonRpcPingRequest).id, equals(1));
     });
 
     test('Parses valid notification without id', () {
-      final json = {
-        'jsonrpc': '2.0',
-        'method': 'notifications/initialized',
-      };
+      final json = {'jsonrpc': '2.0', 'method': 'notifications/initialized'};
       final message = JsonRpcMessage.fromJson(json);
       expect(message, isA<JsonRpcInitializedNotification>());
     });
@@ -463,40 +412,26 @@ void main() {
     });
 
     test('Throws FormatException for invalid JSON-RPC version', () {
-      final json = {
-        'jsonrpc': '1.0',
-        'id': 1,
-        'method': 'ping',
-      };
+      final json = {'jsonrpc': '1.0', 'id': 1, 'method': 'ping'};
       expect(() => JsonRpcMessage.fromJson(json), throwsFormatException);
     });
 
     test('Parses unknown method as generic JsonRpcRequest', () {
-      final json = {
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'unknownMethod',
-      };
+      final json = {'jsonrpc': '2.0', 'id': 1, 'method': 'unknownMethod'};
       final message = JsonRpcMessage.fromJson(json);
       expect(message, isA<JsonRpcRequest>());
       expect((message as JsonRpcRequest).method, equals('unknownMethod'));
     });
 
     test('Throws FormatException for invalid message format', () {
-      final json = {
-        'jsonrpc': '2.0',
-        'id': 1,
-      };
+      final json = {'jsonrpc': '2.0', 'id': 1};
       expect(() => JsonRpcMessage.fromJson(json), throwsFormatException);
     });
   });
 
   group('JsonSchema Tests', () {
     test('JsonBoolean serialization and deserialization', () {
-      final schema = JsonSchema.boolean(
-        defaultValue: true,
-        description: "Confirm action",
-      );
+      final schema = JsonSchema.boolean(defaultValue: true, description: "Confirm action");
 
       final json = schema.toJson();
       expect(json['type'], equals('boolean'));
@@ -533,12 +468,7 @@ void main() {
     });
 
     test('JsonNumber with range serialization', () {
-      final schema = JsonSchema.number(
-        minimum: 0,
-        maximum: 100,
-        defaultValue: 50,
-        description: "Age",
-      );
+      final schema = JsonSchema.number(minimum: 0, maximum: 100, defaultValue: 50, description: "Age");
 
       final json = schema.toJson();
       expect(json['type'], equals('number'));
@@ -591,10 +521,7 @@ void main() {
 
   group('Elicitation Message Tests', () {
     test('ElicitRequestParams serialization', () {
-      final params = ElicitRequestParams(
-        message: "Enter your name",
-        requestedSchema: JsonSchema.string(minLength: 1),
-      );
+      final params = ElicitRequestParams(message: "Enter your name", requestedSchema: JsonSchema.string(minLength: 1));
 
       final json = params.toJson();
       expect(json['message'], equals("Enter your name"));
@@ -623,17 +550,11 @@ void main() {
       final restored = JsonRpcElicitRequest.fromJson(json);
       expect(restored.id, equals(42));
       expect(restored.elicitParams.message, equals('Choose option'));
-      expect(
-        restored.elicitParams.requestedSchema!.toJson()['type'],
-        equals('string'),
-      );
+      expect(restored.elicitParams.requestedSchema!.toJson()['type'], equals('string'));
     });
 
     test('ElicitResult serialization', () {
-      final result = const ElicitResult(
-        action: 'accept',
-        content: {'name': 'John Doe'},
-      );
+      final result = const ElicitResult(action: 'accept', content: {'name': 'John Doe'});
 
       final json = result.toJson();
       expect(json['action'], equals('accept'));
@@ -646,9 +567,7 @@ void main() {
     });
 
     test('ElicitResult with rejected input', () {
-      final result = const ElicitResult(
-        action: 'decline',
-      );
+      final result = const ElicitResult(action: 'decline');
 
       final json = result.toJson();
       expect(json['action'], equals('decline'));
@@ -713,8 +632,7 @@ void main() {
   });
 
   group('Extensions Capability Tests', () {
-    test('ClientCapabilities with extensions serialization and deserialization',
-        () {
+    test('ClientCapabilities with extensions serialization and deserialization', () {
       final capabilities = ClientCapabilities(
         extensions: {
           'io.modelcontextprotocol/ui': {
@@ -725,10 +643,7 @@ void main() {
 
       final json = capabilities.toJson();
       expect(json['extensions'], isNotNull);
-      expect(
-        json['extensions']['io.modelcontextprotocol/ui']['mimeTypes'],
-        equals(['text/html;profile=mcp-app']),
-      );
+      expect(json['extensions']['io.modelcontextprotocol/ui']['mimeTypes'], equals(['text/html;profile=mcp-app']));
 
       final deserialized = ClientCapabilities.fromJson(json);
       expect(deserialized.extensions, isNotNull);
@@ -739,16 +654,13 @@ void main() {
     });
 
     test('ClientCapabilities without extensions omits key from JSON', () {
-      final capabilities = const ClientCapabilities(
-        sampling: ClientCapabilitiesSampling(),
-      );
+      final capabilities = const ClientCapabilities(sampling: ClientCapabilitiesSampling());
 
       final json = capabilities.toJson();
       expect(json.containsKey('extensions'), isFalse);
     });
 
-    test('ServerCapabilities with extensions serialization and deserialization',
-        () {
+    test('ServerCapabilities with extensions serialization and deserialization', () {
       final capabilities = ServerCapabilities(
         extensions: {
           'io.modelcontextprotocol/ui': {
@@ -760,10 +672,7 @@ void main() {
 
       final json = capabilities.toJson();
       expect(json['extensions'], isNotNull);
-      expect(
-        json['extensions']['io.modelcontextprotocol/ui']['mimeTypes'],
-        equals(['text/html;profile=mcp-app']),
-      );
+      expect(json['extensions']['io.modelcontextprotocol/ui']['mimeTypes'], equals(['text/html;profile=mcp-app']));
       expect(json['tools']['listChanged'], equals(true));
 
       final deserialized = ServerCapabilities.fromJson(json);
@@ -776,9 +685,7 @@ void main() {
     });
 
     test('ServerCapabilities without extensions omits key from JSON', () {
-      final capabilities = const ServerCapabilities(
-        logging: {'enabled': true},
-      );
+      final capabilities = const ServerCapabilities(logging: {'enabled': true});
 
       final json = capabilities.toJson();
       expect(json.containsKey('extensions'), isFalse);
@@ -796,16 +703,14 @@ void main() {
               },
             },
           ),
-          clientInfo:
-              const Implementation(name: 'test-client', version: '1.0.0'),
+          clientInfo: const Implementation(name: 'test-client', version: '1.0.0'),
         ),
       );
 
       final json = request.toJson();
       final deserialized = JsonRpcInitializeRequest.fromJson(json);
       expect(
-        deserialized.initParams.capabilities.extensions?[
-            'io.modelcontextprotocol/ui']?['mimeTypes'],
+        deserialized.initParams.capabilities.extensions?['io.modelcontextprotocol/ui']?['mimeTypes'],
         equals(['text/html;profile=mcp-app']),
       );
     });
@@ -816,9 +721,7 @@ void main() {
           'io.modelcontextprotocol/ui': {
             'mimeTypes': ['text/html;profile=mcp-app'],
           },
-          'io.modelcontextprotocol/other': {
-            'enabled': true,
-          },
+          'io.modelcontextprotocol/other': {'enabled': true},
         },
       );
 
@@ -829,10 +732,7 @@ void main() {
         deserialized.extensions!['io.modelcontextprotocol/ui']!['mimeTypes'],
         equals(['text/html;profile=mcp-app']),
       );
-      expect(
-        deserialized.extensions!['io.modelcontextprotocol/other']!['enabled'],
-        equals(true),
-      );
+      expect(deserialized.extensions!['io.modelcontextprotocol/other']!['enabled'], equals(true));
     });
   });
 }

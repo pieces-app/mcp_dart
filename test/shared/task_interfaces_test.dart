@@ -5,50 +5,24 @@ import 'package:test/test.dart';
 void main() {
   group('QueuedMessage', () {
     test('constructs with required parameters', () {
-      final message = const JsonRpcNotification(
-        method: 'test/notify',
-        params: {'key': 'value'},
-      );
-      final queuedMessage = QueuedMessage(
-        type: 'notification',
-        message: message,
-        timestamp: 1234567890,
-      );
+      final message = const JsonRpcNotification(method: 'test/notify', params: {'key': 'value'});
+      final queuedMessage = QueuedMessage(type: 'notification', message: message, timestamp: 1234567890);
       expect(queuedMessage.type, equals('notification'));
       expect(queuedMessage.message, equals(message));
       expect(queuedMessage.timestamp, equals(1234567890));
     });
 
     test('supports different message types', () {
-      final request = const JsonRpcRequest(
-        id: 1,
-        method: 'test/request',
-        params: {},
-      );
-      final requestQueued = QueuedMessage(
-        type: 'request',
-        message: request,
-        timestamp: 100,
-      );
+      final request = const JsonRpcRequest(id: 1, method: 'test/request', params: {});
+      final requestQueued = QueuedMessage(type: 'request', message: request, timestamp: 100);
       expect(requestQueued.type, equals('request'));
 
       final response = const JsonRpcResponse(id: 1, result: {'data': 'test'});
-      final responseQueued = QueuedMessage(
-        type: 'response',
-        message: response,
-        timestamp: 200,
-      );
+      final responseQueued = QueuedMessage(type: 'response', message: response, timestamp: 200);
       expect(responseQueued.type, equals('response'));
 
-      final error = const JsonRpcError(
-        id: 1,
-        error: JsonRpcErrorData(code: -1, message: 'error'),
-      );
-      final errorQueued = QueuedMessage(
-        type: 'error',
-        message: error,
-        timestamp: 300,
-      );
+      final error = const JsonRpcError(id: 1, error: JsonRpcErrorData(code: -1, message: 'error'));
+      final errorQueued = QueuedMessage(type: 'error', message: error, timestamp: 300);
       expect(errorQueued.type, equals('error'));
     });
   });
@@ -93,10 +67,7 @@ void main() {
 
     test('handles nested data', () {
       const authInfo = AuthInfo({
-        'credentials': {
-          'apiKey': 'key123',
-          'secret': 'secret456',
-        },
+        'credentials': {'apiKey': 'key123', 'secret': 'secret456'},
         'permissions': ['read', 'write'],
       });
       expect(authInfo.data['credentials'], isA<Map>());
@@ -106,10 +77,7 @@ void main() {
 
   group('RequestInfo', () {
     test('constructs with data map', () {
-      const requestInfo = RequestInfo({
-        'method': 'tools/call',
-        'path': '/api/v1/tools',
-      });
+      const requestInfo = RequestInfo({'method': 'tools/call', 'path': '/api/v1/tools'});
       expect(requestInfo.data['method'], equals('tools/call'));
       expect(requestInfo.data['path'], equals('/api/v1/tools'));
     });
@@ -121,10 +89,7 @@ void main() {
 
     test('handles complex request metadata', () {
       const requestInfo = RequestInfo({
-        'headers': {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer token',
-        },
+        'headers': {'Content-Type': 'application/json', 'Authorization': 'Bearer token'},
         'query': {'page': 1, 'limit': 10},
         'timestamp': 1234567890,
       });

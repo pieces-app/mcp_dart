@@ -12,19 +12,15 @@ import 'package:test/test.dart';
 /// Tests features: roots, sampling, elicitation, completion, progress.
 void main() {
   // Locate the TS server (compiled JS version)
-  final defaultTsPath =
-      p.join(io.Directory.current.path, 'test/interop/ts/dist/server.js');
-  final tsServerScript =
-      io.Platform.environment['TS_INTEROP_SERVER_CMD'] ?? defaultTsPath;
+  final defaultTsPath = p.join(io.Directory.current.path, 'test/interop/ts/dist/server.js');
+  final tsServerScript = io.Platform.environment['TS_INTEROP_SERVER_CMD'] ?? defaultTsPath;
 
   // Check if we should skip
   final skipTests = !io.File(tsServerScript).existsSync();
 
   group('TS Interop - Dart Client Features', () {
     if (skipTests) {
-      print(
-        'Skipping TS Interop Feature tests: TS server not found at $tsServerScript',
-      );
+      print('Skipping TS Interop Feature tests: TS server not found at $tsServerScript');
       return;
     }
 
@@ -57,24 +53,14 @@ void main() {
         // 3. Set up client-side handlers for server-initiated requests
 
         // Roots handler - return mock roots
-        client.setRequestHandler<JsonRpcListRootsRequest>(
-          Method.rootsList,
-          (request, extra) async {
-            return ListRootsResult(
-              roots: [
-                Root(
-                  uri: 'file:///home/user/documents',
-                  name: 'Documents',
-                ),
-                Root(
-                  uri: 'file:///home/user/projects',
-                  name: 'Projects',
-                ),
-              ],
-            );
-          },
-          (id, params, meta) => JsonRpcListRootsRequest(id: id),
-        );
+        client.setRequestHandler<JsonRpcListRootsRequest>(Method.rootsList, (request, extra) async {
+          return ListRootsResult(
+            roots: [
+              Root(uri: 'file:///home/user/documents', name: 'Documents'),
+              Root(uri: 'file:///home/user/projects', name: 'Projects'),
+            ],
+          );
+        }, (id, params, meta) => JsonRpcListRootsRequest(id: id));
 
         // Sampling handler - return mock LLM response
         client.onSamplingRequest = (params) async {
@@ -90,18 +76,13 @@ void main() {
           return CreateMessageResult(
             model: 'mock-llm-model',
             role: SamplingMessageRole.assistant,
-            content: SamplingTextContent(
-              text: 'Mock LLM response to: $promptText',
-            ),
+            content: SamplingTextContent(text: 'Mock LLM response to: $promptText'),
           );
         };
 
         // Elicitation handler - return mock acceptance
         client.onElicitRequest = (params) async {
-          return const ElicitResult(
-            action: 'accept',
-            content: {'confirmed': true},
-          );
+          return const ElicitResult(action: 'accept', content: {'confirmed': true});
         };
 
         // 4. Connect the Client to the transport
@@ -113,14 +94,11 @@ void main() {
       });
 
       test('get_roots - server lists client roots', () async {
-        final result = await client.callTool(
-          const CallToolRequest(name: 'get_roots', arguments: {}),
-        );
+        final result = await client.callTool(const CallToolRequest(name: 'get_roots', arguments: {}));
 
         expect(result.content, isNotEmpty);
         final textContent = result.content.first as TextContent;
-        final roots =
-            (jsonDecode(textContent.text) as List).cast<Map<String, dynamic>>();
+        final roots = (jsonDecode(textContent.text) as List).cast<Map<String, dynamic>>();
 
         expect(roots, hasLength(2));
         expect(roots[0]['name'], equals('Documents'));
@@ -129,10 +107,7 @@ void main() {
 
       test('sample_llm - server requests LLM completion', () async {
         final result = await client.callTool(
-          const CallToolRequest(
-            name: 'sample_llm',
-            arguments: {'prompt': 'Hello, world!'},
-          ),
+          const CallToolRequest(name: 'sample_llm', arguments: {'prompt': 'Hello, world!'}),
         );
 
         expect(result.content, isNotEmpty);
@@ -143,16 +118,12 @@ void main() {
 
       test('elicit_input - server requests user input', () async {
         final result = await client.callTool(
-          const CallToolRequest(
-            name: 'elicit_input',
-            arguments: {'message': 'Please confirm'},
-          ),
+          const CallToolRequest(name: 'elicit_input', arguments: {'message': 'Please confirm'}),
         );
 
         expect(result.content, isNotEmpty);
         final textContent = result.content.first as TextContent;
-        final elicitResult =
-            jsonDecode(textContent.text) as Map<String, dynamic>;
+        final elicitResult = jsonDecode(textContent.text) as Map<String, dynamic>;
         expect(elicitResult['action'], equals('accept'));
       });
 
@@ -170,12 +141,7 @@ void main() {
       test('progress_demo - tool completes with progress', () async {
         // Note: Progress notifications may not be received in all transport modes
         // The important thing is the tool call completes successfully
-        final result = await client.callTool(
-          const CallToolRequest(
-            name: 'progress_demo',
-            arguments: {'steps': 4},
-          ),
-        );
+        final result = await client.callTool(const CallToolRequest(name: 'progress_demo', arguments: {'steps': 4}));
 
         expect(result.content, isNotEmpty);
         final textContent = result.content.first as TextContent;

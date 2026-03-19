@@ -5,9 +5,7 @@ sealed class Reference {
   /// The type of reference ("ref/resource" or "ref/prompt").
   final String type;
 
-  const Reference({
-    required this.type,
-  });
+  const Reference({required this.type});
 
   factory Reference.fromJson(Map<String, dynamic> json) {
     final type = json['type'] as String?;
@@ -19,12 +17,12 @@ sealed class Reference {
   }
 
   Map<String, dynamic> toJson() => {
-        'type': type,
-        ...switch (this) {
-          final ResourceReference r => {'uri': r.uri},
-          final PromptReference p => {'name': p.name},
-        },
-      };
+    'type': type,
+    ...switch (this) {
+      final ResourceReference r => {'uri': r.uri},
+      final PromptReference p => {'name': p.name},
+    },
+  };
 }
 
 /// Reference to a resource or resource template URI.
@@ -34,9 +32,7 @@ class ResourceReference extends Reference {
   const ResourceReference({required this.uri}) : super(type: 'ref/resource');
 
   factory ResourceReference.fromJson(Map<String, dynamic> json) {
-    return ResourceReference(
-      uri: json['uri'] as String,
-    );
+    return ResourceReference(uri: json['uri'] as String);
   }
 }
 
@@ -47,9 +43,7 @@ class PromptReference extends Reference {
   const PromptReference({required this.name}) : super(type: 'ref/prompt');
 
   factory PromptReference.fromJson(Map<String, dynamic> json) {
-    return PromptReference(
-      name: json['name'] as String,
-    );
+    return PromptReference(name: json['name'] as String);
   }
 }
 
@@ -61,22 +55,13 @@ class ArgumentCompletionInfo {
   /// The current value entered by the user for completion matching.
   final String value;
 
-  const ArgumentCompletionInfo({
-    required this.name,
-    required this.value,
-  });
+  const ArgumentCompletionInfo({required this.name, required this.value});
 
   factory ArgumentCompletionInfo.fromJson(Map<String, dynamic> json) {
-    return ArgumentCompletionInfo(
-      name: json['name'] as String,
-      value: json['value'] as String,
-    );
+    return ArgumentCompletionInfo(name: json['name'] as String, value: json['value'] as String);
   }
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'value': value,
-      };
+  Map<String, dynamic> toJson() => {'name': name, 'value': value};
 }
 
 /// Parameters for the `completion/complete` request.
@@ -89,18 +74,12 @@ class CompleteRequest {
 
   const CompleteRequest({required this.ref, required this.argument});
 
-  factory CompleteRequest.fromJson(Map<String, dynamic> json) =>
-      CompleteRequest(
-        ref: Reference.fromJson(json['ref'] as Map<String, dynamic>),
-        argument: ArgumentCompletionInfo.fromJson(
-          json['argument'] as Map<String, dynamic>,
-        ),
-      );
+  factory CompleteRequest.fromJson(Map<String, dynamic> json) => CompleteRequest(
+    ref: Reference.fromJson(json['ref'] as Map<String, dynamic>),
+    argument: ArgumentCompletionInfo.fromJson(json['argument'] as Map<String, dynamic>),
+  );
 
-  Map<String, dynamic> toJson() => {
-        'ref': ref.toJson(),
-        'argument': argument.toJson(),
-      };
+  Map<String, dynamic> toJson() => {'ref': ref.toJson(), 'argument': argument.toJson()};
 }
 
 /// Request sent from client to ask server for completion options for an argument.
@@ -108,14 +87,8 @@ class JsonRpcCompleteRequest extends JsonRpcRequest {
   /// The completion parameters.
   final CompleteRequest completeParams;
 
-  JsonRpcCompleteRequest({
-    required super.id,
-    required this.completeParams,
-    super.meta,
-  }) : super(
-          method: Method.completionComplete,
-          params: completeParams.toJson(),
-        );
+  JsonRpcCompleteRequest({required super.id, required this.completeParams, super.meta})
+    : super(method: Method.completionComplete, params: completeParams.toJson());
 
   factory JsonRpcCompleteRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -123,11 +96,7 @@ class JsonRpcCompleteRequest extends JsonRpcRequest {
       throw const FormatException("Missing params for complete request");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcCompleteRequest(
-      id: json['id'],
-      completeParams: CompleteRequest.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcCompleteRequest(id: json['id'], completeParams: CompleteRequest.fromJson(paramsMap), meta: meta);
   }
 }
 
@@ -142,11 +111,7 @@ class CompletionResultData {
   /// Indicates if more options exist beyond those returned.
   final bool? hasMore;
 
-  const CompletionResultData({
-    required this.values,
-    this.total,
-    this.hasMore,
-  }) : assert(values.length <= 100);
+  const CompletionResultData({required this.values, this.total, this.hasMore}) : assert(values.length <= 100);
 
   factory CompletionResultData.fromJson(Map<String, dynamic> json) {
     return CompletionResultData(
@@ -157,10 +122,10 @@ class CompletionResultData {
   }
 
   Map<String, dynamic> toJson() => {
-        'values': values,
-        if (total != null) 'total': total,
-        if (hasMore != null) 'hasMore': hasMore,
-      };
+    'values': values,
+    if (total != null) 'total': total,
+    if (hasMore != null) 'hasMore': hasMore,
+  };
 }
 
 /// Result data for a successful `completion/complete` request.
@@ -177,9 +142,7 @@ class CompleteResult implements BaseResultData {
   factory CompleteResult.fromJson(Map<String, dynamic> json) {
     final meta = json['_meta'] as Map<String, dynamic>?;
     return CompleteResult(
-      completion: CompletionResultData.fromJson(
-        json['completion'] as Map<String, dynamic>,
-      ),
+      completion: CompletionResultData.fromJson(json['completion'] as Map<String, dynamic>),
       meta: meta,
     );
   }
@@ -190,12 +153,9 @@ class CompleteResult implements BaseResultData {
 
 /// Notification from server indicating the list of available completions has changed.
 class JsonRpcCompletionListChangedNotification extends JsonRpcNotification {
-  const JsonRpcCompletionListChangedNotification()
-      : super(method: Method.notificationsCompletionsListChanged);
+  const JsonRpcCompletionListChangedNotification() : super(method: Method.notificationsCompletionsListChanged);
 
-  factory JsonRpcCompletionListChangedNotification.fromJson(
-    Map<String, dynamic> json,
-  ) =>
+  factory JsonRpcCompletionListChangedNotification.fromJson(Map<String, dynamic> json) =>
       const JsonRpcCompletionListChangedNotification();
 }
 

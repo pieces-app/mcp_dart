@@ -65,46 +65,31 @@ void main() {
         final name = 'a' * 129;
         final result = validateToolName(name);
         expect(result.isValid, isFalse);
-        expect(
-          result.warnings.any((w) => w.contains('exceeds maximum length')),
-          isTrue,
-        );
+        expect(result.warnings.any((w) => w.contains('exceeds maximum length')), isTrue);
       });
 
       test('rejects names with spaces', () {
         final result = validateToolName('my tool');
         expect(result.isValid, isFalse);
-        expect(
-          result.warnings.any((w) => w.contains('contains spaces')),
-          isTrue,
-        );
+        expect(result.warnings.any((w) => w.contains('contains spaces')), isTrue);
       });
 
       test('rejects names with commas', () {
         final result = validateToolName('tool,name');
         expect(result.isValid, isFalse);
-        expect(
-          result.warnings.any((w) => w.contains('contains commas')),
-          isTrue,
-        );
+        expect(result.warnings.any((w) => w.contains('contains commas')), isTrue);
       });
 
       test('rejects names with special characters', () {
         final result = validateToolName('tool@name#test');
         expect(result.isValid, isFalse);
-        expect(
-          result.warnings.any((w) => w.contains('invalid characters')),
-          isTrue,
-        );
+        expect(result.warnings.any((w) => w.contains('invalid characters')), isTrue);
       });
 
       test('rejects names with unicode characters', () {
         final result = validateToolName('tööl_näme');
         expect(result.isValid, isFalse);
-        expect(
-          result.warnings.any((w) => w.contains('invalid characters')),
-          isTrue,
-        );
+        expect(result.warnings.any((w) => w.contains('invalid characters')), isTrue);
       });
     });
 
@@ -112,47 +97,32 @@ void main() {
       test('warns when name starts with dash', () {
         final result = validateToolName('-mytool');
         expect(result.isValid, isTrue);
-        expect(
-          result.warnings.any((w) => w.contains('starts or ends with a dash')),
-          isTrue,
-        );
+        expect(result.warnings.any((w) => w.contains('starts or ends with a dash')), isTrue);
       });
 
       test('warns when name ends with dash', () {
         final result = validateToolName('mytool-');
         expect(result.isValid, isTrue);
-        expect(
-          result.warnings.any((w) => w.contains('starts or ends with a dash')),
-          isTrue,
-        );
+        expect(result.warnings.any((w) => w.contains('starts or ends with a dash')), isTrue);
       });
 
       test('warns when name starts with dot', () {
         final result = validateToolName('.mytool');
         expect(result.isValid, isTrue);
-        expect(
-          result.warnings.any((w) => w.contains('starts or ends with a dot')),
-          isTrue,
-        );
+        expect(result.warnings.any((w) => w.contains('starts or ends with a dot')), isTrue);
       });
 
       test('warns when name ends with dot', () {
         final result = validateToolName('mytool.');
         expect(result.isValid, isTrue);
-        expect(
-          result.warnings.any((w) => w.contains('starts or ends with a dot')),
-          isTrue,
-        );
+        expect(result.warnings.any((w) => w.contains('starts or ends with a dot')), isTrue);
       });
     });
   });
 
   group('ToolNameValidationResult', () {
     test('constructs with isValid and warnings', () {
-      const result = ToolNameValidationResult(
-        isValid: true,
-        warnings: ['warning1', 'warning2'],
-      );
+      const result = ToolNameValidationResult(isValid: true, warnings: ['warning1', 'warning2']);
       expect(result.isValid, isTrue);
       expect(result.warnings, hasLength(2));
     });

@@ -18,15 +18,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Simple MCP Client',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: McpClientScreen(
-        mcpService: StreamableMcpService(
-          serverUrl: 'http://localhost:3000/mcp',
-        ),
-      ),
+      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple), useMaterial3: true),
+      home: McpClientScreen(mcpService: StreamableMcpService(serverUrl: 'http://localhost:3000/mcp')),
       builder: (context, child) {
         // Add an error handling wrapper around the app
         return Builder(
@@ -35,10 +28,7 @@ class MyApp extends StatelessWidget {
             ErrorWidget.builder = (FlutterErrorDetails errorDetails) {
               return Scaffold(
                 body: Center(
-                  child: Text(
-                    'App Error: ${errorDetails.exception}',
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                  child: Text('App Error: ${errorDetails.exception}', style: const TextStyle(color: Colors.red)),
                 ),
               );
             };

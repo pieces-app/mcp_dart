@@ -16,20 +16,17 @@ class CreateCommand extends Command<int> {
   final description = 'Creates a new MCP server project.';
 
   @override
-  String get invocation =>
-      'mcp_dart create <package_name> [project_path] [arguments]';
+  String get invocation => 'mcp_dart create <package_name> [project_path] [arguments]';
 
-  CreateCommand({
-    Logger? logger,
-    @visibleForTesting MasonGeneratorFromBrick? generatorFromBrick,
-  })  : _logger = logger ?? Logger(),
-        _generatorFromBrick = generatorFromBrick ?? MasonGenerator.fromBrick {
+  CreateCommand({Logger? logger, @visibleForTesting MasonGeneratorFromBrick? generatorFromBrick})
+    : _logger = logger ?? Logger(),
+      _generatorFromBrick = generatorFromBrick ?? MasonGenerator.fromBrick {
     argParser.addOption(
       'template',
-      help: 'The template to use. Can be a local path, a Git URL '
+      help:
+          'The template to use. Can be a local path, a Git URL '
           '(url.git#ref:path), or a GitHub tree URL.',
-      defaultsTo:
-          'https://github.com/leehack/mcp_dart/tree/main/packages/templates/simple',
+      defaultsTo: 'https://github.com/leehack/mcp_dart/tree/main/packages/templates/simple',
     );
   }
 
@@ -42,22 +39,16 @@ class CreateCommand extends Command<int> {
     final String projectPath;
 
     if (argResults!.rest.isEmpty) {
-      packageName = _logger.prompt(
-        'What is the project name?',
-        defaultValue: 'mcp_server',
-      );
+      packageName = _logger.prompt('What is the project name?', defaultValue: 'mcp_server');
       projectPath = packageName;
     } else {
       final firstArg = argResults!.rest.first;
       if (_isValidPackageName(firstArg)) {
         packageName = firstArg;
-        projectPath =
-            argResults!.rest.length > 1 ? argResults!.rest[1] : packageName;
+        projectPath = argResults!.rest.length > 1 ? argResults!.rest[1] : packageName;
       } else {
         projectPath = firstArg;
-        packageName = _sanitizePackageName(
-          p.basename(p.normalize(p.absolute(projectPath))),
-        );
+        packageName = _sanitizePackageName(p.basename(p.normalize(p.absolute(projectPath))));
         _logger.info('Using inferred package name: $packageName');
       }
     }
@@ -89,9 +80,7 @@ class CreateCommand extends Command<int> {
     final directory = Directory(projectPath);
 
     if (directory.existsSync() && directory.listSync().isNotEmpty) {
-      _logger.err(
-        'Error: Directory "$projectPath" already exists and is not empty.',
-      );
+      _logger.err('Error: Directory "$projectPath" already exists and is not empty.');
       return ExitCode.cantCreate.code;
     }
 
@@ -100,18 +89,10 @@ class CreateCommand extends Command<int> {
     final generator = await _generatorFromBrick(brick);
     final progress = _logger.progress('Creating $projectPath');
 
-    await generator.generate(
-      DirectoryGeneratorTarget(directory),
-      vars: <String, dynamic>{'name': packageName},
-    );
+    await generator.generate(DirectoryGeneratorTarget(directory), vars: <String, dynamic>{'name': packageName});
     progress.complete();
 
-    await _runCommand(
-      'dart',
-      ['pub', 'get'],
-      workingDirectory: directory.path,
-      label: 'Running pub get',
-    );
+    await _runCommand('dart', ['pub', 'get'], workingDirectory: directory.path, label: 'Running pub get');
 
     // Auto-add mcp_dart to ensure latest version
     await _runCommand(
@@ -122,12 +103,7 @@ class CreateCommand extends Command<int> {
     );
 
     // Run dart format
-    await _runCommand(
-      'dart',
-      ['format', '.'],
-      workingDirectory: directory.path,
-      label: 'Formatting code',
-    );
+    await _runCommand('dart', ['format', '.'], workingDirectory: directory.path, label: 'Formatting code');
 
     _logger.success('\nSuccess! Created $projectPath.');
     _logger.info('Run your server with:');
@@ -147,22 +123,13 @@ class CreateCommand extends Command<int> {
   }) async {
     final progress = _logger.progress(label);
     try {
-      final result = await runProcess(
-        executable,
-        arguments,
-        workingDirectory: workingDirectory,
-      );
+      final result = await runProcess(executable, arguments, workingDirectory: workingDirectory);
 
       if (result.exitCode != 0) {
         progress.fail();
         _logger.err('Error running $label:');
         _logger.err(result.stderr.toString());
-        throw ProcessException(
-          executable,
-          arguments,
-          result.stderr.toString(),
-          result.exitCode,
-        );
+        throw ProcessException(executable, arguments, result.stderr.toString(), result.exitCode);
       }
       progress.complete();
     } catch (_) {
@@ -172,17 +139,8 @@ class CreateCommand extends Command<int> {
   }
 
   @visibleForTesting
-  Future<ProcessResult> runProcess(
-    String executable,
-    List<String> arguments, {
-    required String workingDirectory,
-  }) {
-    return Process.run(
-      executable,
-      arguments,
-      workingDirectory: workingDirectory,
-      runInShell: true,
-    );
+  Future<ProcessResult> runProcess(String executable, List<String> arguments, {required String workingDirectory}) {
+    return Process.run(executable, arguments, workingDirectory: workingDirectory, runInShell: true);
   }
 
   bool _isValidPackageName(String name) {

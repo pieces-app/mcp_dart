@@ -27,8 +27,7 @@ Future<void> main() async {
   final transport = StdioClientTransport(serverParams);
 
   // Define client information
-  final clientInfo =
-      const Implementation(name: 'ExampleClient', version: '1.0.0');
+  final clientInfo = const Implementation(name: 'ExampleClient', version: '1.0.0');
 
   // Create the MCP client
   final client = McpClient(clientInfo);
@@ -67,25 +66,17 @@ Future<void> main() async {
 
     print('Calling a tool...');
     final toolResult = await client.callTool(
-      const CallToolRequest(
-        name: 'calculate',
-        arguments: {'operation': 'add', 'a': 5, 'b': 10},
-      ),
+      const CallToolRequest(name: 'calculate', arguments: {'operation': 'add', 'a': 5, 'b': 10}),
     );
     print('Tool result: ${toolResult.toJson()}');
 
     print('Calling a tool...');
-    final resourceResult = await client.readResource(
-      const ReadResourceRequest(uri: 'file:///logs'),
-    );
+    final resourceResult = await client.readResource(const ReadResourceRequest(uri: 'file:///logs'));
     print('Tool result: ${resourceResult.toJson()}');
 
     print('Calling a prompt...');
     final promptResult = await client.getPrompt(
-      const GetPromptRequest(
-        name: 'analyze-code',
-        arguments: {'language': "python"},
-      ),
+      const GetPromptRequest(name: 'analyze-code', arguments: {'language': "python"}),
     );
     print('Prompt result: ${promptResult.toJson()}');
   } catch (e) {

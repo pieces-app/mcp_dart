@@ -7,20 +7,10 @@ void main() {
     final store2 = InMemoryTaskStore();
 
     // Create task in store1
-    final task1 = await store1.createTask(
-      const TaskCreationParams(),
-      1,
-      {'name': 'test1'},
-      'session1',
-    );
+    final task1 = await store1.createTask(const TaskCreationParams(), 1, {'name': 'test1'}, 'session1');
 
     // Create task in store2
-    final task2 = await store2.createTask(
-      const TaskCreationParams(),
-      2,
-      {'name': 'test2'},
-      'session2',
-    );
+    final task2 = await store2.createTask(const TaskCreationParams(), 2, {'name': 'test2'}, 'session2');
 
     expect(await store1.getTask(task1.taskId), isNotNull);
     expect(await store1.getTask(task2.taskId), isNull);

@@ -19,10 +19,7 @@ class MockTaskStore implements TaskStore {
     String? sessionId,
   ) async {
     final taskId = 'task-${tasks.length + 1}';
-    final task = Task(
-      taskId: taskId,
-      status: TaskStatus.working,
-    );
+    final task = Task(taskId: taskId, status: TaskStatus.working);
     tasks[taskId] = task;
     return task;
   }
@@ -33,12 +30,7 @@ class MockTaskStore implements TaskStore {
   }
 
   @override
-  Future<void> storeTaskResult(
-    String taskId,
-    TaskStatus status,
-    BaseResultData result, [
-    String? sessionId,
-  ]) async {
+  Future<void> storeTaskResult(String taskId, TaskStatus status, BaseResultData result, [String? sessionId]) async {
     results[taskId] = result;
     if (tasks.containsKey(taskId)) {
       tasks[taskId] = Task(taskId: taskId, status: status);
@@ -46,26 +38,14 @@ class MockTaskStore implements TaskStore {
   }
 
   @override
-  Future<BaseResultData> getTaskResult(
-    String taskId, [
-    String? sessionId,
-  ]) async {
+  Future<BaseResultData> getTaskResult(String taskId, [String? sessionId]) async {
     return results[taskId] ?? const EmptyResult();
   }
 
   @override
-  Future<void> updateTaskStatus(
-    String taskId,
-    TaskStatus status, [
-    String? statusMessage,
-    String? sessionId,
-  ]) async {
+  Future<void> updateTaskStatus(String taskId, TaskStatus status, [String? statusMessage, String? sessionId]) async {
     if (tasks.containsKey(taskId)) {
-      tasks[taskId] = Task(
-        taskId: taskId,
-        status: status,
-        statusMessage: statusMessage,
-      );
+      tasks[taskId] = Task(taskId: taskId, status: status, statusMessage: statusMessage);
     }
   }
 
@@ -80,12 +60,7 @@ class MockTaskMessageQueue implements TaskMessageQueue {
   final Map<String, List<QueuedMessage>> queues = {};
 
   @override
-  Future<void> enqueue(
-    String taskId,
-    QueuedMessage message,
-    String? sessionId, [
-    int? maxSize,
-  ]) async {
+  Future<void> enqueue(String taskId, QueuedMessage message, String? sessionId, [int? maxSize]) async {
     queues.putIfAbsent(taskId, () => []);
     queues[taskId]!.add(message);
   }
@@ -98,10 +73,7 @@ class MockTaskMessageQueue implements TaskMessageQueue {
   }
 
   @override
-  Future<List<QueuedMessage>> dequeueAll(
-    String taskId, [
-    String? sessionId,
-  ]) async {
+  Future<List<QueuedMessage>> dequeueAll(String taskId, [String? sessionId]) async {
     final queue = queues.remove(taskId);
     return queue ?? [];
   }
@@ -149,12 +121,7 @@ class TaskTestMockTransport implements Transport {
 /// Test protocol implementation with task support
 class TaskTestProtocol extends Protocol {
   TaskTestProtocol({TaskStore? taskStore, TaskMessageQueue? taskMessageQueue})
-      : super(
-          ProtocolOptions(
-            taskStore: taskStore,
-            taskMessageQueue: taskMessageQueue,
-          ),
-        );
+    : super(ProtocolOptions(taskStore: taskStore, taskMessageQueue: taskMessageQueue));
 
   @override
   void assertCapabilityForMethod(String method) {
@@ -192,10 +159,7 @@ void main() {
     setUp(() {
       taskStore = MockTaskStore();
       messageQueue = MockTaskMessageQueue();
-      protocol = TaskTestProtocol(
-        taskStore: taskStore,
-        taskMessageQueue: messageQueue,
-      );
+      protocol = TaskTestProtocol(taskStore: taskStore, taskMessageQueue: messageQueue);
       transport = TaskTestMockTransport();
     });
 
@@ -219,10 +183,7 @@ void main() {
       );
 
       // Simulate tasks/get request
-      final request = JsonRpcGetTaskRequest(
-        id: 1,
-        getParams: const GetTaskRequestParams(taskId: 'task-1'),
-      );
+      final request = JsonRpcGetTaskRequest(id: 1, getParams: const GetTaskRequestParams(taskId: 'task-1'));
 
       transport.receiveMessage(request);
 
@@ -243,10 +204,7 @@ void main() {
       await protocol.connect(transport);
 
       // Request a non-existent task
-      final request = JsonRpcGetTaskRequest(
-        id: 1,
-        getParams: const GetTaskRequestParams(taskId: 'non-existent'),
-      );
+      final request = JsonRpcGetTaskRequest(id: 1, getParams: const GetTaskRequestParams(taskId: 'non-existent'));
 
       transport.receiveMessage(request);
 
@@ -266,14 +224,8 @@ void main() {
       await protocol.connect(transport);
 
       // Pre-populate tasks
-      taskStore.tasks['task-1'] = const Task(
-        taskId: 'task-1',
-        status: TaskStatus.working,
-      );
-      taskStore.tasks['task-2'] = const Task(
-        taskId: 'task-2',
-        status: TaskStatus.completed,
-      );
+      taskStore.tasks['task-1'] = const Task(taskId: 'task-1', status: TaskStatus.working);
+      taskStore.tasks['task-2'] = const Task(taskId: 'task-2', status: TaskStatus.completed);
 
       // Simulate tasks/list request
       final request = JsonRpcListTasksRequest(id: 2);
@@ -297,16 +249,10 @@ void main() {
       await protocol.connect(transport);
 
       // Pre-populate a working task
-      taskStore.tasks['task-1'] = const Task(
-        taskId: 'task-1',
-        status: TaskStatus.working,
-      );
+      taskStore.tasks['task-1'] = const Task(taskId: 'task-1', status: TaskStatus.working);
 
       // Simulate tasks/cancel request
-      final request = JsonRpcCancelTaskRequest(
-        id: 3,
-        cancelParams: const CancelTaskRequestParams(taskId: 'task-1'),
-      );
+      final request = JsonRpcCancelTaskRequest(id: 3, cancelParams: const CancelTaskRequestParams(taskId: 'task-1'));
 
       transport.receiveMessage(request);
 
@@ -320,21 +266,14 @@ void main() {
       expect(taskStore.tasks['task-1']?.status, equals(TaskStatus.cancelled));
     });
 
-    test('tasks/cancel handler rejects cancellation of completed task',
-        () async {
+    test('tasks/cancel handler rejects cancellation of completed task', () async {
       await protocol.connect(transport);
 
       // Pre-populate a completed task
-      taskStore.tasks['task-1'] = const Task(
-        taskId: 'task-1',
-        status: TaskStatus.completed,
-      );
+      taskStore.tasks['task-1'] = const Task(taskId: 'task-1', status: TaskStatus.completed);
 
       // Simulate tasks/cancel request
-      final request = JsonRpcCancelTaskRequest(
-        id: 4,
-        cancelParams: const CancelTaskRequestParams(taskId: 'task-1'),
-      );
+      final request = JsonRpcCancelTaskRequest(id: 4, cancelParams: const CancelTaskRequestParams(taskId: 'task-1'));
 
       transport.receiveMessage(request);
 
@@ -355,10 +294,7 @@ void main() {
       await protocol.connect(transport);
 
       // Pre-populate a working task and queue
-      taskStore.tasks['task-1'] = const Task(
-        taskId: 'task-1',
-        status: TaskStatus.working,
-      );
+      taskStore.tasks['task-1'] = const Task(taskId: 'task-1', status: TaskStatus.working);
 
       // Add messages to queue
       await messageQueue.enqueue(
@@ -374,10 +310,7 @@ void main() {
       expect(messageQueue.queues['task-1']?.length, equals(1));
 
       // Simulate tasks/cancel request
-      final request = JsonRpcCancelTaskRequest(
-        id: 5,
-        cancelParams: const CancelTaskRequestParams(taskId: 'task-1'),
-      );
+      final request = JsonRpcCancelTaskRequest(id: 5, cancelParams: const CancelTaskRequestParams(taskId: 'task-1'));
 
       transport.receiveMessage(request);
 
@@ -398,10 +331,7 @@ void main() {
     setUp(() {
       taskStore = MockTaskStore();
       messageQueue = MockTaskMessageQueue();
-      protocol = TaskTestProtocol(
-        taskStore: taskStore,
-        taskMessageQueue: messageQueue,
-      );
+      protocol = TaskTestProtocol(taskStore: taskStore, taskMessageQueue: messageQueue);
       transport = TaskTestMockTransport();
     });
 
@@ -418,17 +348,11 @@ void main() {
       await protocol.connect(transport);
 
       // Create a task first
-      taskStore.tasks['task-1'] = const Task(
-        taskId: 'task-1',
-        status: TaskStatus.working,
-      );
+      taskStore.tasks['task-1'] = const Task(taskId: 'task-1', status: TaskStatus.working);
 
       // Send notification with relatedTask
       await protocol.notification(
-        const JsonRpcNotification(
-          method: 'notifications/progress',
-          params: {'progress': 50, 'total': 100},
-        ),
+        const JsonRpcNotification(method: 'notifications/progress', params: {'progress': 50, 'total': 100}),
         relatedTask: const RelatedTaskMetadata(taskId: 'task-1'),
       );
 

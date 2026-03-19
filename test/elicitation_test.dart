@@ -20,16 +20,9 @@ class MockTransport extends Transport {
     sentMessages.add(message);
 
     // Handle initialize request
-    if (message is JsonRpcRequest &&
-        message.method == 'initialize' &&
-        mockInitializeResponse != null) {
+    if (message is JsonRpcRequest && message.method == 'initialize' && mockInitializeResponse != null) {
       if (onmessage != null) {
-        onmessage!(
-          JsonRpcResponse(
-            id: message.id,
-            result: mockInitializeResponse!.toJson(),
-          ),
-        );
+        onmessage!(JsonRpcResponse(id: message.id, result: mockInitializeResponse!.toJson()));
       }
       // Send initialized notification
       Future.delayed(const Duration(milliseconds: 10), () {
@@ -41,23 +34,13 @@ class MockTransport extends Transport {
     // Handle elicit request from server
     else if (message is JsonRpcElicitRequest && mockElicitResult != null) {
       if (onmessage != null) {
-        onmessage!(
-          JsonRpcResponse(
-            id: message.id,
-            result: mockElicitResult!.toJson(),
-          ),
-        );
+        onmessage!(JsonRpcResponse(id: message.id, result: mockElicitResult!.toJson()));
       }
     }
     // Handle generic requests
     else if (message is JsonRpcRequest) {
       if (onmessage != null) {
-        onmessage!(
-          JsonRpcResponse(
-            id: message.id,
-            result: const EmptyResult().toJson(),
-          ),
-        );
+        onmessage!(JsonRpcResponse(id: message.id, result: const EmptyResult().toJson()));
       }
     }
   }
@@ -103,19 +86,12 @@ void main() {
     test('Client registers elicit handler when capability is present', () {
       final client = Client(
         const Implementation(name: 'test-client', version: '1.0.0'),
-        options: const ClientOptions(
-          capabilities: ClientCapabilities(
-            elicitation: ClientElicitation.formOnly(),
-          ),
-        ),
+        options: const ClientOptions(capabilities: ClientCapabilities(elicitation: ClientElicitation.formOnly())),
       );
 
       // Verify capability is registered by checking we can set handler
       client.onElicitRequest = (params) async {
-        return const ElicitResult(
-          action: 'accept',
-          content: {'value': 'test'},
-        );
+        return const ElicitResult(action: 'accept', content: {'value': 'test'});
       };
 
       // If no error, handler registration works
@@ -132,11 +108,7 @@ void main() {
 
       final client = Client(
         const Implementation(name: 'test-client', version: '1.0.0'),
-        options: const ClientOptions(
-          capabilities: ClientCapabilities(
-            elicitation: ClientElicitation.formOnly(),
-          ),
-        ),
+        options: const ClientOptions(capabilities: ClientCapabilities(elicitation: ClientElicitation.formOnly())),
       );
 
       await client.connect(transport);
@@ -146,18 +118,14 @@ void main() {
 
       // After setting it, handler is available
       client.onElicitRequest = (params) async {
-        return const ElicitResult(
-          action: 'accept',
-          content: {'value': 'test'},
-        );
+        return const ElicitResult(action: 'accept', content: {'value': 'test'});
       };
       expect(client.onElicitRequest, isNotNull);
 
       await client.close();
     });
 
-    test('Client successfully handles elicit request with string input',
-        () async {
+    test('Client successfully handles elicit request with string input', () async {
       final transport = MockTransport();
       transport.mockInitializeResponse = const InitializeResult(
         protocolVersion: latestProtocolVersion,
@@ -167,11 +135,7 @@ void main() {
 
       final client = Client(
         const Implementation(name: 'test-client', version: '1.0.0'),
-        options: const ClientOptions(
-          capabilities: ClientCapabilities(
-            elicitation: ClientElicitation.formOnly(),
-          ),
-        ),
+        options: const ClientOptions(capabilities: ClientCapabilities(elicitation: ClientElicitation.formOnly())),
       );
 
       // Set up elicit handler
@@ -186,10 +150,7 @@ void main() {
 
         expect(stringSchema.minLength, equals(1));
 
-        return const ElicitResult(
-          action: 'accept',
-          content: {'name': 'John Doe'},
-        );
+        return const ElicitResult(action: 'accept', content: {'name': 'John Doe'});
       };
 
       await client.connect(transport);
@@ -197,10 +158,7 @@ void main() {
       // Simulate server sending elicit request
       final elicitRequest = JsonRpcElicitRequest(
         id: 1,
-        elicitParams: ElicitRequestParams(
-          message: "Enter your name",
-          requestedSchema: JsonSchema.string(minLength: 1),
-        ),
+        elicitParams: ElicitRequestParams(message: "Enter your name", requestedSchema: JsonSchema.string(minLength: 1)),
       );
 
       transport.onmessage?.call(elicitRequest);
@@ -225,11 +183,7 @@ void main() {
 
       final client = Client(
         const Implementation(name: 'test-client', version: '1.0.0'),
-        options: const ClientOptions(
-          capabilities: ClientCapabilities(
-            elicitation: ClientElicitation.formOnly(),
-          ),
-        ),
+        options: const ClientOptions(capabilities: ClientCapabilities(elicitation: ClientElicitation.formOnly())),
       );
 
       bool handlerCalled = false;
@@ -240,10 +194,7 @@ void main() {
         final schema = params.requestedSchema!;
         expect(schema, isA<JsonBoolean>());
 
-        return const ElicitResult(
-          action: 'accept',
-          content: {'confirmed': true},
-        );
+        return const ElicitResult(action: 'accept', content: {'confirmed': true});
       };
 
       await client.connect(transport);
@@ -273,11 +224,7 @@ void main() {
 
       final client = Client(
         const Implementation(name: 'test-client', version: '1.0.0'),
-        options: const ClientOptions(
-          capabilities: ClientCapabilities(
-            elicitation: ClientElicitation.formOnly(),
-          ),
-        ),
+        options: const ClientOptions(capabilities: ClientCapabilities(elicitation: ClientElicitation.formOnly())),
       );
 
       bool handlerCalled = false;
@@ -292,10 +239,7 @@ void main() {
         expect(numberSchema.minimum, equals(0));
         expect(numberSchema.maximum, equals(120));
 
-        return const ElicitResult(
-          action: 'accept',
-          content: {'age': 25},
-        );
+        return const ElicitResult(action: 'accept', content: {'age': 25});
       };
 
       await client.connect(transport);
@@ -325,11 +269,7 @@ void main() {
 
       final client = Client(
         const Implementation(name: 'test-client', version: '1.0.0'),
-        options: const ClientOptions(
-          capabilities: ClientCapabilities(
-            elicitation: ClientElicitation.formOnly(),
-          ),
-        ),
+        options: const ClientOptions(capabilities: ClientCapabilities(elicitation: ClientElicitation.formOnly())),
       );
 
       bool handlerCalled = false;
@@ -342,10 +282,7 @@ void main() {
         final stringSchema = schema as JsonString;
         expect(stringSchema.enumValues, equals(['small', 'medium', 'large']));
 
-        return const ElicitResult(
-          action: 'accept',
-          content: {'size': 'medium'},
-        );
+        return const ElicitResult(action: 'accept', content: {'size': 'medium'});
       };
 
       await client.connect(transport);
@@ -354,10 +291,7 @@ void main() {
         id: 4,
         elicitParams: ElicitRequestParams(
           message: "Choose size",
-          requestedSchema: JsonSchema.string(
-            enumValues: ['small', 'medium', 'large'],
-            defaultValue: 'medium',
-          ),
+          requestedSchema: JsonSchema.string(enumValues: ['small', 'medium', 'large'], defaultValue: 'medium'),
         ),
       );
 
@@ -378,11 +312,7 @@ void main() {
 
       final client = Client(
         const Implementation(name: 'test-client', version: '1.0.0'),
-        options: const ClientOptions(
-          capabilities: ClientCapabilities(
-            elicitation: ClientElicitation.formOnly(),
-          ),
-        ),
+        options: const ClientOptions(capabilities: ClientCapabilities(elicitation: ClientElicitation.formOnly())),
       );
 
       ElicitResult? receivedResult;
@@ -396,10 +326,7 @@ void main() {
 
       final elicitRequest = JsonRpcElicitRequest(
         id: 5,
-        elicitParams: ElicitRequestParams(
-          message: "Enter name",
-          requestedSchema: JsonSchema.string(minLength: 1),
-        ),
+        elicitParams: ElicitRequestParams(message: "Enter name", requestedSchema: JsonSchema.string(minLength: 1)),
       );
 
       transport.onmessage?.call(elicitRequest);
@@ -416,18 +343,13 @@ void main() {
     test('Client without elicitation capability does not register handler', () {
       final client = Client(
         const Implementation(name: 'test-client', version: '1.0.0'),
-        options: const ClientOptions(
-          capabilities: ClientCapabilities(),
-        ),
+        options: const ClientOptions(capabilities: ClientCapabilities()),
       );
 
       // Attempting to set handler on client without capability
       // The handler can be set, but won't be registered internally
       client.onElicitRequest = (params) async {
-        return const ElicitResult(
-          action: 'accept',
-          content: {'value': 'test'},
-        );
+        return const ElicitResult(action: 'accept', content: {'value': 'test'});
       };
 
       // This should succeed - the handler field can be set
@@ -462,11 +384,7 @@ void main() {
     });
 
     test('JsonSchema string with format field', () {
-      final schema = JsonSchema.string(
-        format: 'email',
-        title: 'Email Address',
-        description: 'Your email',
-      );
+      final schema = JsonSchema.string(format: 'email', title: 'Email Address', description: 'Your email');
 
       final json = schema.toJson();
       expect(json['type'], equals('string'));
@@ -504,10 +422,7 @@ void main() {
       expect(urlOnlyCaps.url != null, isTrue);
 
       // Parse from JSON with sub-objects
-      final parsedCaps = ClientElicitation.fromJson({
-        'form': {},
-        'url': {},
-      });
+      final parsedCaps = ClientElicitation.fromJson({'form': {}, 'url': {}});
       expect(parsedCaps.form != null, isTrue);
       expect(parsedCaps.url != null, isTrue);
     });
@@ -548,9 +463,7 @@ void main() {
 
     test('JsonRpcElicitationCompleteNotification serialization', () {
       final notification = JsonRpcElicitationCompleteNotification(
-        completeParams: const ElicitationCompleteParams(
-          elicitationId: 'oauth-123',
-        ),
+        completeParams: const ElicitationCompleteParams(elicitationId: 'oauth-123'),
       );
 
       final json = notification.toJson();

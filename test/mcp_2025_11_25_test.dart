@@ -24,39 +24,19 @@ void main() {
 
     test('Icon Field Support', () {
       final icon = const ImageContent(data: 'base64', mimeType: 'image/png');
-      final icons = [
-        const McpIcon(
-          src: 'https://example.com/icon.png',
-          mimeType: 'image/png',
-          theme: IconTheme.dark,
-        ),
-      ];
+      final icons = [const McpIcon(src: 'https://example.com/icon.png', mimeType: 'image/png', theme: IconTheme.dark)];
 
-      final tool = Tool(
-        name: 'test-tool',
-        inputSchema: const JsonObject(),
-        icon: icon,
-        icons: icons,
-      );
+      final tool = Tool(name: 'test-tool', inputSchema: const JsonObject(), icon: icon, icons: icons);
       expect(tool.icon?.data, 'base64');
       expect(tool.toJson()['icon']['data'], 'base64');
       expect((tool.toJson()['icons'] as List).first['theme'], 'dark');
 
-      final resource = Resource(
-        uri: 'file://test',
-        name: 'test',
-        icon: icon,
-        icons: icons,
-      );
+      final resource = Resource(uri: 'file://test', name: 'test', icon: icon, icons: icons);
       expect(resource.icon?.data, 'base64');
       expect(resource.toJson()['icon']['data'], 'base64');
       expect((resource.toJson()['icons'] as List).first['theme'], 'dark');
 
-      final prompt = Prompt(
-        name: 'test-prompt',
-        icon: icon,
-        icons: icons,
-      );
+      final prompt = Prompt(name: 'test-prompt', icon: icon, icons: icons);
       expect(prompt.icon?.data, 'base64');
       expect(prompt.toJson()['icon']['data'], 'base64');
       expect((prompt.toJson()['icons'] as List).first['theme'], 'dark');
@@ -89,12 +69,10 @@ void main() {
     });
 
     test('JsonEnum SEP-1330', () {
-      final schema = const JsonEnum(
-        [
-          'simple',
-          {'value': 'complex', 'title': 'Complex Option'},
-        ],
-      );
+      final schema = const JsonEnum([
+        'simple',
+        {'value': 'complex', 'title': 'Complex Option'},
+      ]);
 
       expect(schema.values.length, 2);
       expect(schema.values[0], 'simple');
@@ -109,11 +87,7 @@ void main() {
     });
 
     test('ToolAnnotations SEP-???', () {
-      final annotations = const ToolAnnotations(
-        title: 'Test Tool',
-        priority: 0.5,
-        audience: ['user', 'assistant'],
-      );
+      final annotations = const ToolAnnotations(title: 'Test Tool', priority: 0.5, audience: ['user', 'assistant']);
       expect(annotations.priority, 0.5);
       expect(annotations.audience, contains('user'));
 
@@ -143,8 +117,7 @@ void main() {
     });
 
     test('McpServer Metadata Logic', () {
-      final server =
-          McpServer(const Implementation(name: 'test', version: '1.0'));
+      final server = McpServer(const Implementation(name: 'test', version: '1.0'));
       final icon = const ImageContent(data: 'data', mimeType: 'image/png');
       // We can rely on the fact that we updated the code to pass it through.
 
@@ -157,19 +130,14 @@ void main() {
         icon: icon,
       );
 
-      server.prompt(
-        'icon-prompt',
-        icon: icon,
-      );
+      server.prompt('icon-prompt', icon: icon);
     });
 
     test('Tasks Capabilities', () {
       final clientCaps = const ClientCapabilities(
         tasks: ClientCapabilitiesTasks(
           requests: ClientCapabilitiesTasksRequests(
-            sampling: ClientCapabilitiesTasksSampling(
-              createMessage: ClientCapabilitiesTasksSamplingCreateMessage(),
-            ),
+            sampling: ClientCapabilitiesTasksSampling(createMessage: ClientCapabilitiesTasksSamplingCreateMessage()),
           ),
         ),
       );
@@ -187,12 +155,7 @@ void main() {
     });
 
     test('Task Types', () {
-      final task = const Task(
-        taskId: '123',
-        status: TaskStatus.working,
-        createdAt: '2025-01-01T00:00:00Z',
-        ttl: 3600,
-      );
+      final task = const Task(taskId: '123', status: TaskStatus.working, createdAt: '2025-01-01T00:00:00Z', ttl: 3600);
       expect(task.status, TaskStatus.working);
 
       final json = task.toJson();
@@ -212,11 +175,7 @@ void main() {
           Tool(
             name: 'calculator',
             description: 'A calculator',
-            inputSchema: JsonObject(
-              properties: {
-                'expr': JsonSchema.string(),
-              },
-            ),
+            inputSchema: JsonObject(properties: {'expr': JsonSchema.string()}),
           ),
         ],
         toolChoice: {'type': 'auto'},
@@ -245,10 +204,7 @@ void main() {
       });
 
       test('JsonRpcGetTaskRequest serialization', () {
-        final request = JsonRpcGetTaskRequest(
-          id: 1,
-          getParams: const GetTaskRequestParams(taskId: 'task-456'),
-        );
+        final request = JsonRpcGetTaskRequest(id: 1, getParams: const GetTaskRequestParams(taskId: 'task-456'));
         expect(request.method, 'tasks/get');
         expect(request.getParams.taskId, 'task-456');
 
@@ -288,8 +244,7 @@ void main() {
       test('JsonRpcTaskResultRequest serialization', () {
         final request = JsonRpcTaskResultRequest(
           id: 2,
-          resultParams:
-              const TaskResultRequestParams(taskId: 'task-result-456'),
+          resultParams: const TaskResultRequestParams(taskId: 'task-result-456'),
         );
         expect(request.method, 'tasks/result');
         expect(request.resultParams.taskId, 'task-result-456');
@@ -415,28 +370,18 @@ void main() {
         final json = {
           'jsonrpc': '2.0',
           'method': 'notifications/tasks/status',
-          'params': {
-            'taskId': 'task-abc',
-            'status': 'input_required',
-            'statusMessage': 'Waiting for user input',
-          },
+          'params': {'taskId': 'task-abc', 'status': 'input_required', 'statusMessage': 'Waiting for user input'},
         };
         final message = JsonRpcMessage.fromJson(json);
         expect(message, isA<JsonRpcTaskStatusNotification>());
         final notification = message as JsonRpcTaskStatusNotification;
         expect(notification.statusParams.taskId, 'task-abc');
         expect(notification.statusParams.status, TaskStatus.inputRequired);
-        expect(
-          notification.statusParams.statusMessage,
-          'Waiting for user input',
-        );
+        expect(notification.statusParams.statusMessage, 'Waiting for user input');
       });
 
       test('JsonRpcCallToolRequest with taskParams', () {
-        final callRequest = const CallToolRequest(
-          name: 'long-running-tool',
-          arguments: {'input': 'value'},
-        );
+        final callRequest = const CallToolRequest(name: 'long-running-tool', arguments: {'input': 'value'});
         final request = JsonRpcCallToolRequest(
           id: 3,
           params: callRequest.toJson(),
@@ -459,10 +404,7 @@ void main() {
 
       test('JsonRpcCallToolRequest without taskParams', () {
         final callRequest = const CallToolRequest(name: 'simple-tool');
-        final request = JsonRpcCallToolRequest(
-          id: 4,
-          params: callRequest.toJson(),
-        );
+        final request = JsonRpcCallToolRequest(id: 4, params: callRequest.toJson());
 
         expect(request.isTaskAugmented, isFalse);
         expect(request.taskParams, isNull);
@@ -477,10 +419,7 @@ void main() {
 
       test('TaskStatus enum all values', () {
         expect(TaskStatusName.fromString('working'), TaskStatus.working);
-        expect(
-          TaskStatusName.fromString('input_required'),
-          TaskStatus.inputRequired,
-        );
+        expect(TaskStatusName.fromString('input_required'), TaskStatus.inputRequired);
         expect(TaskStatusName.fromString('completed'), TaskStatus.completed);
         expect(TaskStatusName.fromString('failed'), TaskStatus.failed);
         expect(TaskStatusName.fromString('cancelled'), TaskStatus.cancelled);
@@ -493,10 +432,7 @@ void main() {
       });
 
       test('TaskStatus fromString throws on invalid status', () {
-        expect(
-          () => TaskStatusName.fromString('invalid_status'),
-          throwsA(isA<FormatException>()),
-        );
+        expect(() => TaskStatusName.fromString('invalid_status'), throwsA(isA<FormatException>()));
       });
 
       test('Task all fields serialization', () {

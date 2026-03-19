@@ -61,10 +61,7 @@ class ReadBuffer {
   }
 
   void _updateBufferAfterRead(int newlineIndex) {
-    final remainingBytes = Uint8List.sublistView(
-      _bufferCache!,
-      newlineIndex + 1,
-    );
+    final remainingBytes = Uint8List.sublistView(_bufferCache!, newlineIndex + 1);
 
     _builder.clear();
     _builder.add(remainingBytes);

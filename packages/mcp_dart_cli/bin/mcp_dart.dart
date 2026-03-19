@@ -16,10 +16,7 @@ void main(List<String> arguments) async {
   }
 
   final logger = Logger();
-  final runner = CommandRunner<int>(
-    'mcp_dart',
-    'CLI for creating and managing MCP servers in Dart.',
-  )
+  final runner = CommandRunner<int>('mcp_dart', 'CLI for creating and managing MCP servers in Dart.')
     ..addCommand(CreateCommand())
     ..addCommand(ServeCommand())
     ..addCommand(DoctorCommand())

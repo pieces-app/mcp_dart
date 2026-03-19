@@ -45,11 +45,7 @@ void main() {
     setUp(() {
       mcpServer = McpServer(
         const Implementation(name: 'TestServer', version: '1.0.0'),
-        options: const ServerOptions(
-          capabilities: ServerCapabilities(
-            tools: ServerCapabilitiesTools(),
-          ),
-        ),
+        options: const ServerOptions(capabilities: ServerCapabilities(tools: ServerCapabilitiesTools())),
       );
       transport = MockTransport();
     });
@@ -57,12 +53,7 @@ void main() {
     test('valid output passes validation', () async {
       mcpServer.registerTool(
         'valid_tool',
-        outputSchema: JsonObject(
-          properties: {
-            'result': JsonSchema.string(),
-          },
-          required: ['result'],
-        ),
+        outputSchema: JsonObject(properties: {'result': JsonSchema.string()}, required: ['result']),
         callback: (args, extra) async {
           return CallToolResult.fromStructuredContent({'result': 'success'});
         },
@@ -71,10 +62,7 @@ void main() {
       await mcpServer.connect(transport);
       _sendInit(transport);
 
-      final callRequest = JsonRpcCallToolRequest(
-        id: 2,
-        params: const CallToolRequest(name: 'valid_tool').toJson(),
-      );
+      final callRequest = JsonRpcCallToolRequest(id: 2, params: const CallToolRequest(name: 'valid_tool').toJson());
       transport.receiveMessage(callRequest);
       await Future.delayed(const Duration(milliseconds: 10));
 
@@ -88,12 +76,7 @@ void main() {
     test('invalid output fails validation', () async {
       mcpServer.registerTool(
         'invalid_tool',
-        outputSchema: JsonObject(
-          properties: {
-            'result': JsonSchema.string(),
-          },
-          required: ['result'],
-        ),
+        outputSchema: JsonObject(properties: {'result': JsonSchema.string()}, required: ['result']),
         callback: (args, extra) async {
           // Missing 'result' property
           return CallToolResult.fromStructuredContent({'wrong': 'value'});
@@ -103,10 +86,7 @@ void main() {
       await mcpServer.connect(transport);
       _sendInit(transport);
 
-      final callRequest = JsonRpcCallToolRequest(
-        id: 2,
-        params: const CallToolRequest(name: 'invalid_tool').toJson(),
-      );
+      final callRequest = JsonRpcCallToolRequest(id: 2, params: const CallToolRequest(name: 'invalid_tool').toJson());
       transport.receiveMessage(callRequest);
       await Future.delayed(const Duration(milliseconds: 10));
 
@@ -120,16 +100,9 @@ void main() {
     test('invalid type in output fails validation', () async {
       mcpServer.registerTool(
         'invalid_type_tool',
-        outputSchema: JsonObject(
-          properties: {
-            'count': JsonSchema.integer(),
-          },
-          required: ['count'],
-        ),
+        outputSchema: JsonObject(properties: {'count': JsonSchema.integer()}, required: ['count']),
         callback: (args, extra) async {
-          return CallToolResult.fromStructuredContent(
-            {'count': 'not_an_integer'},
-          );
+          return CallToolResult.fromStructuredContent({'count': 'not_an_integer'});
         },
       );
 
@@ -153,28 +126,17 @@ void main() {
     test('execution error skips output validation', () async {
       mcpServer.registerTool(
         'error_tool',
-        outputSchema: JsonObject(
-          properties: {
-            'result': JsonSchema.string(),
-          },
-          required: ['result'],
-        ),
+        outputSchema: JsonObject(properties: {'result': JsonSchema.string()}, required: ['result']),
         callback: (args, extra) async {
           // Return an error result explicitly
-          return const CallToolResult(
-            content: [TextContent(text: 'Something went wrong')],
-            isError: true,
-          );
+          return const CallToolResult(content: [TextContent(text: 'Something went wrong')], isError: true);
         },
       );
 
       await mcpServer.connect(transport);
       _sendInit(transport);
 
-      final callRequest = JsonRpcCallToolRequest(
-        id: 2,
-        params: const CallToolRequest(name: 'error_tool').toJson(),
-      );
+      final callRequest = JsonRpcCallToolRequest(id: 2, params: const CallToolRequest(name: 'error_tool').toJson());
       transport.receiveMessage(callRequest);
       await Future.delayed(const Duration(milliseconds: 10));
 
@@ -189,21 +151,13 @@ void main() {
       expect(textContent.text, contains('Something went wrong'));
     });
 
-    test('unstructured content fails validation if schema requires properties',
-        () async {
+    test('unstructured content fails validation if schema requires properties', () async {
       mcpServer.registerTool(
         'unstructured_tool',
-        outputSchema: JsonObject(
-          properties: {
-            'result': JsonSchema.string(),
-          },
-          required: ['result'],
-        ),
+        outputSchema: JsonObject(properties: {'result': JsonSchema.string()}, required: ['result']),
         callback: (args, extra) async {
           // Returning unstructured content means structuredContent is {}
-          return const CallToolResult(
-            content: [TextContent(text: 'text result')],
-          );
+          return const CallToolResult(content: [TextContent(text: 'text result')]);
         },
       );
 

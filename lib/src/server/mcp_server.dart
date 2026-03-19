@@ -58,16 +58,11 @@ class CompletableField {
 }
 
 /// Function signature for a tool implementation.
-typedef ToolFunction = FutureOr<CallToolResult> Function(
-  Map<String, dynamic> args,
-  RequestHandlerExtra extra,
-);
+typedef ToolFunction = FutureOr<CallToolResult> Function(Map<String, dynamic> args, RequestHandlerExtra extra);
 
 /// Legacy callback signature for tools (deprecated style).
-typedef LegacyToolCallback = FutureOr<CallToolResult> Function({
-  Map<String, dynamic>? args,
-  RequestHandlerExtra? extra,
-});
+typedef LegacyToolCallback =
+    FutureOr<CallToolResult> Function({Map<String, dynamic>? args, RequestHandlerExtra? extra});
 
 /// Base class for tool callbacks.
 sealed class ToolCallback {}
@@ -85,10 +80,7 @@ final class InterfaceToolCallback extends ToolCallback {
 }
 
 /// Callback signature for prompts.
-typedef PromptCallback = FutureOr<GetPromptResult> Function(
-  Map<String, dynamic>? args,
-  RequestHandlerExtra? extra,
-);
+typedef PromptCallback = FutureOr<GetPromptResult> Function(Map<String, dynamic>? args, RequestHandlerExtra? extra);
 
 /// Definition of an argument for a prompt.
 class PromptArgumentDefinition {
@@ -104,65 +96,36 @@ class PromptArgumentDefinition {
   /// Configuration for auto-completion on this argument.
   final CompletableField? completable;
 
-  const PromptArgumentDefinition({
-    this.description,
-    this.required = false,
-    this.type = String,
-    this.completable,
-  });
+  const PromptArgumentDefinition({this.description, this.required = false, this.type = String, this.completable});
 }
 
 /// Metadata for a resource.
-typedef ResourceMetadata = ({
-  String? description,
-  String? mimeType,
-});
+typedef ResourceMetadata = ({String? description, String? mimeType});
 
 /// Callback to list available resources.
-typedef ListResourcesCallback = FutureOr<ListResourcesResult> Function(
-  RequestHandlerExtra extra,
-);
+typedef ListResourcesCallback = FutureOr<ListResourcesResult> Function(RequestHandlerExtra extra);
 
 /// Callback to read a specific resource.
-typedef ReadResourceCallback = FutureOr<ReadResourceResult> Function(
-  Uri uri,
-  RequestHandlerExtra extra,
-);
+typedef ReadResourceCallback = FutureOr<ReadResourceResult> Function(Uri uri, RequestHandlerExtra extra);
 
 /// Callback to read a resource template.
-typedef ReadResourceTemplateCallback = FutureOr<ReadResourceResult> Function(
-  Uri uri,
-  TemplateVariables variables,
-  RequestHandlerExtra extra,
-);
+typedef ReadResourceTemplateCallback =
+    FutureOr<ReadResourceResult> Function(Uri uri, TemplateVariables variables, RequestHandlerExtra extra);
 
 /// Callback to complete a value within a resource template.
-typedef CompleteResourceTemplateCallback = FutureOr<List<String>> Function(
-  String currentValue,
-);
+typedef CompleteResourceTemplateCallback = FutureOr<List<String>> Function(String currentValue);
 
 /// Callback to list available tasks.
-typedef ListTasksCallback = FutureOr<ListTasksResult> Function(
-  RequestHandlerExtra extra,
-);
+typedef ListTasksCallback = FutureOr<ListTasksResult> Function(RequestHandlerExtra extra);
 
 /// Callback to cancel a running task.
-typedef CancelTaskCallback = FutureOr<void> Function(
-  String taskId,
-  RequestHandlerExtra extra,
-);
+typedef CancelTaskCallback = FutureOr<void> Function(String taskId, RequestHandlerExtra extra);
 
 /// Callback to get the status of a task.
-typedef GetTaskCallback = FutureOr<Task> Function(
-  String taskId,
-  RequestHandlerExtra extra,
-);
+typedef GetTaskCallback = FutureOr<Task> Function(String taskId, RequestHandlerExtra extra);
 
 /// Callback to get the result of a completed task.
-typedef TaskResultCallback = FutureOr<CallToolResult> Function(
-  String taskId,
-  RequestHandlerExtra extra,
-);
+typedef TaskResultCallback = FutureOr<CallToolResult> Function(String taskId, RequestHandlerExtra extra);
 
 /// Registration details for a resource template.
 class ResourceTemplateRegistration {
@@ -175,11 +138,8 @@ class ResourceTemplateRegistration {
   /// Callbacks to complete variables within the template.
   final Map<String, CompleteResourceTemplateCallback>? completeCallbacks;
 
-  ResourceTemplateRegistration(
-    String templateString, {
-    required this.listCallback,
-    this.completeCallbacks,
-  }) : uriTemplate = UriTemplateExpander(templateString);
+  ResourceTemplateRegistration(String templateString, {required this.listCallback, this.completeCallbacks})
+    : uriTemplate = UriTemplateExpander(templateString);
 
   /// Gets the completion callback for a specific variable.
   CompleteResourceTemplateCallback? getCompletionCallback(String variableName) {
@@ -617,11 +577,7 @@ class _RegisteredPromptImpl implements RegisteredPrompt {
 
   Prompt toPrompt() {
     final promptArgs = argsSchemaDefinition?.entries.map((entry) {
-      return PromptArgument(
-        name: entry.key,
-        description: entry.value.description,
-        required: entry.value.required,
-      );
+      return PromptArgument(name: entry.key, description: entry.value.description, required: entry.value.required);
     }).toList();
     return Prompt(
       name: name,
@@ -686,9 +642,7 @@ class ExperimentalMcpServerTasks {
     required ToolTaskHandler handler,
   }) {
     // Validate that taskSupport is not 'forbidden' for task-based tools
-    final effectiveExecution = ToolExecution(
-      taskSupport: execution?.taskSupport ?? 'required',
-    );
+    final effectiveExecution = ToolExecution(taskSupport: execution?.taskSupport ?? 'required');
     if (effectiveExecution.taskSupport == 'forbidden') {
       throw ArgumentError(
         "Cannot register task-based tool '$name' with taskSupport 'forbidden'. Use registerTool() instead.",
@@ -709,11 +663,7 @@ class ExperimentalMcpServerTasks {
   }
 
   /// Sends an `elicitation/create` request associated with a specific task.
-  Future<ElicitResult> elicitForTask(
-    String taskId,
-    ElicitRequest params, [
-    RequestOptions? options,
-  ]) {
+  Future<ElicitResult> elicitForTask(String taskId, ElicitRequest params, [RequestOptions? options]) {
     final req = JsonRpcElicitRequest(
       id: -1,
       elicitParams: params,
@@ -721,11 +671,7 @@ class ExperimentalMcpServerTasks {
         relatedTaskMetaKey: {'taskId': taskId},
       },
     );
-    return _server.server.request<ElicitResult>(
-      req,
-      (json) => ElicitResult.fromJson(json),
-      options,
-    );
+    return _server.server.request<ElicitResult>(req, (json) => ElicitResult.fromJson(json), options);
   }
 
   /// Sends a `sampling/createMessage` request associated with a specific task.
@@ -741,11 +687,7 @@ class ExperimentalMcpServerTasks {
         relatedTaskMetaKey: {'taskId': taskId},
       },
     );
-    return _server.server.request<CreateMessageResult>(
-      req,
-      (json) => CreateMessageResult.fromJson(json),
-      options,
-    );
+    return _server.server.request<CreateMessageResult>(req, (json) => CreateMessageResult.fromJson(json), options);
   }
 
   /// Registers a callback for listing tasks.
@@ -782,8 +724,7 @@ class McpServer {
   late final Server server;
 
   final Map<String, _RegisteredResourceImpl> _registeredResources = {};
-  final Map<String, _RegisteredResourceTemplateImpl>
-      _registeredResourceTemplates = {};
+  final Map<String, _RegisteredResourceTemplateImpl> _registeredResourceTemplates = {};
   final Map<String, _RegisteredToolImpl> _registeredTools = {};
   final Map<String, _RegisteredPromptImpl> _registeredPrompts = {};
 
@@ -801,8 +742,7 @@ class McpServer {
   ExperimentalMcpServerTasks? _experimental;
 
   /// Experimental features related to tasks.
-  ExperimentalMcpServerTasks get experimental =>
-      _experimental ??= ExperimentalMcpServerTasks(this);
+  ExperimentalMcpServerTasks get experimental => _experimental ??= ExperimentalMcpServerTasks(this);
 
   /// Creates an [McpServer] instance.
   McpServer(Implementation serverInfo, {McpServerOptions? options}) {
@@ -824,10 +764,7 @@ class McpServer {
   bool get isConnected => server.transport != null;
 
   /// Sends a logging message to the client, if connected.
-  Future<void> sendLoggingMessage(
-    LoggingMessageNotification params, {
-    String? sessionId,
-  }) async {
+  Future<void> sendLoggingMessage(LoggingMessageNotification params, {String? sessionId}) async {
     return server.sendLoggingMessage(params, sessionId: sessionId);
   }
 
@@ -839,20 +776,12 @@ class McpServer {
   /// Gets the error handler for the server.
   void Function(Error)? get onError => server.onerror;
 
-  void _updateResourceUri(
-    String oldUri,
-    String newUri,
-    _RegisteredResourceImpl resource,
-  ) {
+  void _updateResourceUri(String oldUri, String newUri, _RegisteredResourceImpl resource) {
     _registeredResources.remove(oldUri);
     _registeredResources[newUri] = resource;
   }
 
-  void _updateResourceTemplateName(
-    String oldName,
-    String newName,
-    _RegisteredResourceTemplateImpl template,
-  ) {
+  void _updateResourceTemplateName(String oldName, String newName, _RegisteredResourceTemplateImpl template) {
     _registeredResourceTemplates.remove(oldName);
     _registeredResourceTemplates[newName] = template;
   }
@@ -885,11 +814,7 @@ class McpServer {
       server.assertCanSetRequestHandler(Method.tasksCancel);
       server.assertCanSetRequestHandler(Method.tasksGet);
       server.assertCanSetRequestHandler(Method.tasksResult);
-      server.registerCapabilities(
-        const ServerCapabilities(
-          tasks: ServerCapabilitiesTasks(listChanged: true),
-        ),
-      );
+      server.registerCapabilities(const ServerCapabilities(tasks: ServerCapabilitiesTasks(listChanged: true)));
       _taskHandlersInitialized = true;
     }
 
@@ -897,39 +822,25 @@ class McpServer {
       Method.tasksList,
       (request, extra) async {
         if (_listTasksCallback == null) {
-          throw McpError(
-            ErrorCode.methodNotFound.value,
-            "Task listing not supported",
-          );
+          throw McpError(ErrorCode.methodNotFound.value, "Task listing not supported");
         }
         return await Future.value(_listTasksCallback!(extra));
       },
-      (id, params, meta) => JsonRpcListTasksRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (id, params, meta) =>
+          JsonRpcListTasksRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
 
     server.setRequestHandler<JsonRpcCancelTaskRequest>(
       Method.tasksCancel,
       (request, extra) async {
         if (_cancelTaskCallback == null) {
-          throw McpError(
-            ErrorCode.methodNotFound.value,
-            "Task cancellation not supported",
-          );
+          throw McpError(ErrorCode.methodNotFound.value, "Task cancellation not supported");
         }
-        await Future.value(
-          _cancelTaskCallback!(request.cancelParams.taskId, extra),
-        );
+        await Future.value(_cancelTaskCallback!(request.cancelParams.taskId, extra));
         return const EmptyResult();
       },
-      (id, params, meta) => JsonRpcCancelTaskRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (id, params, meta) =>
+          JsonRpcCancelTaskRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
 
     if (_getTaskCallback != null) {
@@ -939,11 +850,8 @@ class McpServer {
           final taskId = request.getParams.taskId;
           return await Future.value(_getTaskCallback!(taskId, extra));
         },
-        (id, params, meta) => JsonRpcGetTaskRequest.fromJson({
-          'id': id,
-          'params': params,
-          if (meta != null) '_meta': meta,
-        }),
+        (id, params, meta) =>
+            JsonRpcGetTaskRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
       );
     }
 
@@ -954,11 +862,8 @@ class McpServer {
           final taskId = request.resultParams.taskId;
           return await Future.value(_taskResultCallback!(taskId, extra));
         },
-        (id, params, meta) => JsonRpcTaskResultRequest.fromJson({
-          'id': id,
-          'params': params,
-          if (meta != null) '_meta': meta,
-        }),
+        (id, params, meta) =>
+            JsonRpcTaskResultRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
       );
     }
   }
@@ -967,23 +872,14 @@ class McpServer {
     if (_toolHandlersInitialized) return;
     server.assertCanSetRequestHandler(Method.toolsList);
     server.assertCanSetRequestHandler(Method.toolsCall);
-    server.registerCapabilities(
-      const ServerCapabilities(tools: ServerCapabilitiesTools()),
-    );
+    server.registerCapabilities(const ServerCapabilities(tools: ServerCapabilitiesTools()));
 
     server.setRequestHandler<JsonRpcListToolsRequest>(
       Method.toolsList,
-      (request, extra) async => ListToolsResult(
-        tools: _registeredTools.values
-            .where((t) => t.enabled)
-            .map((e) => e.toTool())
-            .toList(),
-      ),
-      (id, params, meta) => JsonRpcListToolsRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (request, extra) async =>
+          ListToolsResult(tools: _registeredTools.values.where((t) => t.enabled).map((e) => e.toTool()).toList()),
+      (id, params, meta) =>
+          JsonRpcListToolsRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
 
     server.setRequestHandler<JsonRpcCallToolRequest>(
@@ -993,16 +889,10 @@ class McpServer {
         final toolArgs = request.callParams.arguments;
         final registeredTool = _registeredTools[toolName];
         if (registeredTool == null) {
-          throw McpError(
-            ErrorCode.invalidParams.value,
-            "Tool '$toolName' not found",
-          );
+          throw McpError(ErrorCode.invalidParams.value, "Tool '$toolName' not found");
         }
         if (!registeredTool.enabled) {
-          throw McpError(
-            ErrorCode.invalidParams.value,
-            "Tool '$toolName' is disabled",
-          );
+          throw McpError(ErrorCode.invalidParams.value, "Tool '$toolName' is disabled");
         }
 
         // Validate arguments against schema
@@ -1010,24 +900,18 @@ class McpServer {
           try {
             registeredTool.inputSchema!.validate(toolArgs);
           } catch (e) {
-            throw McpError(
-              ErrorCode.invalidParams.value,
-              "Invalid arguments for tool '$toolName': $e",
-            );
+            throw McpError(ErrorCode.invalidParams.value, "Invalid arguments for tool '$toolName': $e");
           }
         }
 
         try {
           final isTaskRequest = request.isTaskAugmented;
-          final taskSupport =
-              registeredTool.execution?.taskSupport ?? 'forbidden';
+          final taskSupport = registeredTool.execution?.taskSupport ?? 'forbidden';
 
-          final isTaskHandler =
-              registeredTool.callback is InterfaceToolCallback;
+          final isTaskHandler = registeredTool.callback is InterfaceToolCallback;
 
           // Validate task hint configuration
-          if ((taskSupport == 'required' || taskSupport == 'optional') &&
-              !isTaskHandler) {
+          if ((taskSupport == 'required' || taskSupport == 'optional') && !isTaskHandler) {
             throw McpError(
               ErrorCode.internalError.value,
               "Tool '$toolName' has taskSupport '$taskSupport' but was not registered with registerToolTask",
@@ -1042,20 +926,14 @@ class McpServer {
                 "Tool '$toolName' requires task augmentation (taskSupport: 'required')",
               );
             }
-            final InterfaceToolCallback taskHandler =
-                registeredTool.callback as InterfaceToolCallback;
+            final InterfaceToolCallback taskHandler = registeredTool.callback as InterfaceToolCallback;
             result = await taskHandler.handler.createTask(toolArgs, extra);
           } else if (taskSupport == 'optional') {
             if (!isTaskRequest) {
               // Ensure we have a task handler for automatic polling (checked above, but safe cast)
-              result = await _handleAutomaticTaskPolling(
-                registeredTool,
-                toolArgs,
-                extra,
-              );
+              result = await _handleAutomaticTaskPolling(registeredTool, toolArgs, extra);
             } else {
-              final InterfaceToolCallback taskHandler =
-                  registeredTool.callback as InterfaceToolCallback;
+              final InterfaceToolCallback taskHandler = registeredTool.callback as InterfaceToolCallback;
               result = await taskHandler.handler.createTask(toolArgs, extra);
             }
           } else {
@@ -1066,20 +944,14 @@ class McpServer {
                 "Tool '$toolName' does not support task augmentation (taskSupport: 'forbidden')",
               );
             }
-            final FunctionToolCallback toolCallback =
-                registeredTool.callback as FunctionToolCallback;
-            result = await toolCallback.function(
-              toolArgs,
-              extra,
-            );
+            final FunctionToolCallback toolCallback = registeredTool.callback as FunctionToolCallback;
+            result = await toolCallback.function(toolArgs, extra);
           }
 
           if (registeredTool.outputSchema != null && result is CallToolResult) {
             if (result.isError != true) {
               try {
-                registeredTool.outputSchema!.validate(
-                  result.structuredContent,
-                );
+                registeredTool.outputSchema!.validate(result.structuredContent);
               } catch (e) {
                 throw McpError(
                   ErrorCode.invalidParams.value,
@@ -1095,17 +967,11 @@ class McpServer {
           if (error is McpError) {
             rethrow; // Pass through McpErrors (like methodNotFound)
           }
-          return CallToolResult(
-            content: [TextContent(text: error.toString())],
-            isError: true,
-          );
+          return CallToolResult(content: [TextContent(text: error.toString())], isError: true);
         }
       },
-      (id, params, meta) => JsonRpcCallToolRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (id, params, meta) =>
+          JsonRpcCallToolRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
     _toolHandlersInitialized = true;
   }
@@ -1114,35 +980,21 @@ class McpServer {
     if (_completionHandlerInitialized) return;
     server.assertCanSetRequestHandler(Method.completionComplete);
     server.registerCapabilities(
-      const ServerCapabilities(
-        completions: ServerCapabilitiesCompletions(listChanged: true),
-      ),
+      const ServerCapabilities(completions: ServerCapabilitiesCompletions(listChanged: true)),
     );
     server.setRequestHandler<JsonRpcCompleteRequest>(
       Method.completionComplete,
       (request, extra) async => switch (request.completeParams.ref) {
-        final ResourceReference r => _handleResourceCompletion(
-            r,
-            request.completeParams.argument,
-          ),
-        final PromptReference p => _handlePromptCompletion(
-            p,
-            request.completeParams.argument,
-          ),
+        final ResourceReference r => _handleResourceCompletion(r, request.completeParams.argument),
+        final PromptReference p => _handlePromptCompletion(p, request.completeParams.argument),
       },
-      (id, params, meta) => JsonRpcCompleteRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (id, params, meta) =>
+          JsonRpcCompleteRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
     _completionHandlerInitialized = true;
   }
 
-  Future<CompleteResult> _handlePromptCompletion(
-    PromptReference ref,
-    ArgumentCompletionInfo argInfo,
-  ) async {
+  Future<CompleteResult> _handlePromptCompletion(PromptReference ref, ArgumentCompletionInfo argInfo) async {
     final prompt = _registeredPrompts[ref.name];
     if (prompt == null || !prompt.enabled) return _emptyCompletionResult();
 
@@ -1152,35 +1004,25 @@ class McpServer {
     try {
       return _createCompletionResult(await completer(argInfo.value));
     } catch (e) {
-      _logger.warn(
-        "Error during prompt argument completion for '${ref.name}.${argInfo.name}': $e",
-      );
+      _logger.warn("Error during prompt argument completion for '${ref.name}.${argInfo.name}': $e");
       throw McpError(ErrorCode.internalError.value, "Completion failed");
     }
   }
 
-  Future<CompleteResult> _handleResourceCompletion(
-    ResourceReference ref,
-    ArgumentCompletionInfo argInfo,
-  ) async {
+  Future<CompleteResult> _handleResourceCompletion(ResourceReference ref, ArgumentCompletionInfo argInfo) async {
     final templateEntry = _registeredResourceTemplates.entries.firstWhere(
       (e) => e.value.resourceTemplate.uriTemplate.toString() == ref.uri,
-      orElse: () => throw McpError(
-        ErrorCode.invalidParams.value,
-        "Resource template URI '${ref.uri}' not found for completion",
-      ),
+      orElse: () =>
+          throw McpError(ErrorCode.invalidParams.value, "Resource template URI '${ref.uri}' not found for completion"),
     );
     if (!templateEntry.value.enabled) return _emptyCompletionResult();
 
-    final completer = templateEntry.value.resourceTemplate
-        .getCompletionCallback(argInfo.name);
+    final completer = templateEntry.value.resourceTemplate.getCompletionCallback(argInfo.name);
     if (completer == null) return _emptyCompletionResult();
     try {
       return _createCompletionResult(await completer(argInfo.value));
     } catch (e) {
-      _logger.warn(
-        "Error during resource template completion for '${ref.uri}' variable '${argInfo.name}': $e",
-      );
+      _logger.warn("Error during resource template completion for '${ref.uri}' variable '${argInfo.name}': $e");
       throw McpError(ErrorCode.internalError.value, "Completion failed");
     }
   }
@@ -1190,48 +1032,38 @@ class McpServer {
     server.assertCanSetRequestHandler(Method.resourcesList);
     server.assertCanSetRequestHandler(Method.resourcesTemplatesList);
     server.assertCanSetRequestHandler(Method.resourcesRead);
-    server.registerCapabilities(
-      const ServerCapabilities(resources: ServerCapabilitiesResources()),
-    );
+    server.registerCapabilities(const ServerCapabilities(resources: ServerCapabilitiesResources()));
 
     server.setRequestHandler<JsonRpcListResourcesRequest>(
       Method.resourcesList,
       (request, extra) async {
-        final fixed = _registeredResources.values
-            .where((r) => r.enabled)
-            .map((e) => e.toResource())
-            .toList();
+        final fixed = _registeredResources.values.where((r) => r.enabled).map((e) => e.toResource()).toList();
         final templateFutures = _registeredResourceTemplates.values
             .where((t) => t.resourceTemplate.listCallback != null && t.enabled)
             .map((t) async {
-          try {
-            final result = await Future.value(
-              t.resourceTemplate.listCallback!(extra),
-            );
-            return result.resources
-                .map(
-                  (r) => Resource(
-                    uri: r.uri,
-                    name: r.name,
-                    description: r.description ?? t.metadata?.description,
-                    mimeType: r.mimeType ?? t.metadata?.mimeType,
-                  ),
-                )
-                .toList();
-          } catch (e) {
-            _logger.warn("Error listing resources for template: $e");
-            return <Resource>[];
-          }
-        });
+              try {
+                final result = await Future.value(t.resourceTemplate.listCallback!(extra));
+                return result.resources
+                    .map(
+                      (r) => Resource(
+                        uri: r.uri,
+                        name: r.name,
+                        description: r.description ?? t.metadata?.description,
+                        mimeType: r.mimeType ?? t.metadata?.mimeType,
+                      ),
+                    )
+                    .toList();
+              } catch (e) {
+                _logger.warn("Error listing resources for template: $e");
+                return <Resource>[];
+              }
+            });
         final templateLists = await Future.wait(templateFutures);
         final templates = templateLists.expand((list) => list).toList();
         return ListResourcesResult(resources: [...fixed, ...templates]);
       },
-      (id, params, meta) => JsonRpcListResourcesRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (id, params, meta) =>
+          JsonRpcListResourcesRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
 
     server.setRequestHandler<JsonRpcListResourceTemplatesRequest>(
@@ -1242,11 +1074,8 @@ class McpServer {
             .map((e) => e.value.toResourceTemplate())
             .toList(),
       ),
-      (id, params, meta) => JsonRpcListResourceTemplatesRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (id, params, meta) =>
+          JsonRpcListResourceTemplatesRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
 
     server.setRequestHandler<JsonRpcReadResourceRequest>(
@@ -1257,18 +1086,12 @@ class McpServer {
         try {
           uri = Uri.parse(uriString);
         } catch (e) {
-          throw McpError(
-            ErrorCode.invalidParams.value,
-            "Invalid URI: $uriString",
-          );
+          throw McpError(ErrorCode.invalidParams.value, "Invalid URI: $uriString");
         }
         final fixed = _registeredResources[uriString];
         if (fixed != null) {
           if (!fixed.enabled) {
-            throw McpError(
-              ErrorCode.invalidParams.value,
-              "Resource disabled: $uriString",
-            );
+            throw McpError(ErrorCode.invalidParams.value, "Resource disabled: $uriString");
           }
           return await Future.value(fixed.readCallback(uri, extra));
         }
@@ -1279,16 +1102,10 @@ class McpServer {
             return await Future.value(entry.readCallback(uri, vars, extra));
           }
         }
-        throw McpError(
-          ErrorCode.invalidParams.value,
-          "Resource not found: $uriString",
-        );
+        throw McpError(ErrorCode.invalidParams.value, "Resource not found: $uriString");
       },
-      (id, params, meta) => JsonRpcReadResourceRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (id, params, meta) =>
+          JsonRpcReadResourceRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
 
     _ensureCompletionHandlerInitialized();
@@ -1299,23 +1116,15 @@ class McpServer {
     if (_promptHandlersInitialized) return;
     server.assertCanSetRequestHandler(Method.promptsList);
     server.assertCanSetRequestHandler(Method.promptsGet);
-    server.registerCapabilities(
-      const ServerCapabilities(prompts: ServerCapabilitiesPrompts()),
-    );
+    server.registerCapabilities(const ServerCapabilities(prompts: ServerCapabilitiesPrompts()));
 
     server.setRequestHandler<JsonRpcListPromptsRequest>(
       Method.promptsList,
       (request, extra) async => ListPromptsResult(
-        prompts: _registeredPrompts.values
-            .where((p) => p.enabled)
-            .map((p) => p.toPrompt())
-            .toList(),
+        prompts: _registeredPrompts.values.where((p) => p.enabled).map((p) => p.toPrompt()).toList(),
       ),
-      (id, params, meta) => JsonRpcListPromptsRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (id, params, meta) =>
+          JsonRpcListPromptsRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
 
     server.setRequestHandler<JsonRpcGetPromptRequest>(
@@ -1325,25 +1134,16 @@ class McpServer {
         final args = request.getParams.arguments;
         final registered = _registeredPrompts[name];
         if (registered == null) {
-          throw McpError(
-            ErrorCode.methodNotFound.value,
-            "Prompt '$name' not found",
-          );
+          throw McpError(ErrorCode.methodNotFound.value, "Prompt '$name' not found");
         }
         if (!registered.enabled) {
-          throw McpError(
-            ErrorCode.invalidParams.value,
-            "Prompt '$name' is disabled",
-          );
+          throw McpError(ErrorCode.invalidParams.value, "Prompt '$name' is disabled");
         }
 
         try {
           dynamic parsedArgs = args ?? {};
           if (registered.argsSchemaDefinition != null) {
-            parsedArgs = _validatePromptArgs(
-              Map<String, dynamic>.from(parsedArgs),
-              registered.argsSchemaDefinition!,
-            );
+            parsedArgs = _validatePromptArgs(Map<String, dynamic>.from(parsedArgs), registered.argsSchemaDefinition!);
           }
           if (registered.callback != null) {
             return await Future.value(registered.callback!(parsedArgs, extra));
@@ -1353,27 +1153,18 @@ class McpServer {
         } catch (error) {
           _logger.warn("Error executing prompt '$name': $error");
           if (error is McpError) rethrow;
-          throw McpError(
-            ErrorCode.internalError.value,
-            "Failed to generate prompt '$name': $error",
-          );
+          throw McpError(ErrorCode.internalError.value, "Failed to generate prompt '$name': $error");
         }
       },
-      (id, params, meta) => JsonRpcGetPromptRequest.fromJson({
-        'id': id,
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (id, params, meta) =>
+          JsonRpcGetPromptRequest.fromJson({'id': id, 'params': params, if (meta != null) '_meta': meta}),
     );
 
     _ensureCompletionHandlerInitialized();
     _promptHandlersInitialized = true;
   }
 
-  Map<String, dynamic> _validatePromptArgs(
-    Map<String, dynamic> rawArgs,
-    Map<String, PromptArgumentDefinition> schema,
-  ) {
+  Map<String, dynamic> _validatePromptArgs(Map<String, dynamic> rawArgs, Map<String, PromptArgumentDefinition> schema) {
     final validatedArgs = <String, dynamic>{};
     final List<String> errors = [];
     schema.forEach((name, def) {
@@ -1390,19 +1181,14 @@ class McpServer {
         if (def.type == bool) typeOk = value is bool;
 
         if (!typeOk) {
-          errors.add(
-            "Invalid type for '$name'. Expected ${def.type}, got ${value.runtimeType}",
-          );
+          errors.add("Invalid type for '$name'. Expected ${def.type}, got ${value.runtimeType}");
         } else {
           validatedArgs[name] = value;
         }
       }
     });
     if (errors.isNotEmpty) {
-      throw McpError(
-        ErrorCode.invalidParams.value,
-        "Invalid arguments: ${errors.join('; ')}",
-      );
+      throw McpError(ErrorCode.invalidParams.value, "Invalid arguments: ${errors.join('; ')}");
     }
     return validatedArgs;
   }
@@ -1450,9 +1236,7 @@ class McpServer {
     ReadResourceTemplateCallback readCallback,
   ) {
     if (_registeredResourceTemplates.containsKey(name)) {
-      throw ArgumentError(
-        "Resource template name '$name' already registered.",
-      );
+      throw ArgumentError("Resource template name '$name' already registered.");
     }
     final resourceTemplate = _RegisteredResourceTemplateImpl(
       this,
@@ -1600,12 +1384,7 @@ class McpServer {
     ReadResourceTemplateCallback readCallback, {
     ResourceMetadata? metadata,
   }) {
-    return registerResourceTemplate(
-      name,
-      templateRegistration,
-      metadata,
-      readCallback,
-    );
+    return registerResourceTemplate(name, templateRegistration, metadata, readCallback);
   }
 
   /// Registers a tool the client can invoke.
@@ -1616,10 +1395,8 @@ class McpServer {
     String? description,
     ToolInputSchema? toolInputSchema,
     ToolOutputSchema? toolOutputSchema,
-    @Deprecated('Use toolInputSchema instead')
-    Map<String, dynamic>? inputSchemaProperties,
-    @Deprecated('Use toolOutputSchema instead')
-    Map<String, dynamic>? outputSchemaProperties,
+    @Deprecated('Use toolInputSchema instead') Map<String, dynamic>? inputSchemaProperties,
+    @Deprecated('Use toolOutputSchema instead') Map<String, dynamic>? outputSchemaProperties,
     ToolAnnotations? annotations,
     required LegacyToolCallback callback,
   }) {
@@ -1628,28 +1405,24 @@ class McpServer {
     }
     validateAndWarnToolName(name);
 
-    final toolCallback = FunctionToolCallback(
-      (args, extra) => callback(args: args, extra: extra),
-    );
+    final toolCallback = FunctionToolCallback((args, extra) => callback(args: args, extra: extra));
 
     final tool = _RegisteredToolImpl(
       this,
       name: name,
       description: description,
-      inputSchema: toolInputSchema ??
+      inputSchema:
+          toolInputSchema ??
           (inputSchemaProperties != null
               ? ToolInputSchema(
-                  properties: inputSchemaProperties.map(
-                    (key, value) => MapEntry(key, JsonSchema.fromJson(value)),
-                  ),
+                  properties: inputSchemaProperties.map((key, value) => MapEntry(key, JsonSchema.fromJson(value))),
                 )
               : null),
-      outputSchema: toolOutputSchema ??
+      outputSchema:
+          toolOutputSchema ??
           (outputSchemaProperties != null
               ? ToolOutputSchema(
-                  properties: outputSchemaProperties.map(
-                    (key, value) => MapEntry(key, JsonSchema.fromJson(value)),
-                  ),
+                  properties: outputSchemaProperties.map((key, value) => MapEntry(key, JsonSchema.fromJson(value))),
                 )
               : null),
       annotations: annotations,
@@ -1693,17 +1466,12 @@ class McpServer {
   CompleteResult _createCompletionResult(List<String> suggestions) {
     final limited = suggestions.take(100).toList();
     return CompleteResult(
-      completion: CompletionResultData(
-        values: limited,
-        total: suggestions.length,
-        hasMore: suggestions.length > 100,
-      ),
+      completion: CompletionResultData(values: limited, total: suggestions.length, hasMore: suggestions.length > 100),
     );
   }
 
-  CompleteResult _emptyCompletionResult() => CompleteResult(
-        completion: CompletionResultData(values: [], hasMore: false),
-      );
+  CompleteResult _emptyCompletionResult() =>
+      CompleteResult(completion: CompletionResultData(values: [], hasMore: false));
 
   /// Handles automatic task polling for tools with taskSupport 'optional'.
   Future<CallToolResult> _handleAutomaticTaskPolling(
@@ -1711,16 +1479,13 @@ class McpServer {
     Map<String, dynamic>? args,
     RequestHandlerExtra? extra,
   ) async {
-    final InterfaceToolCallback taskHandler =
-        tool.callback as InterfaceToolCallback;
+    final InterfaceToolCallback taskHandler = tool.callback as InterfaceToolCallback;
 
     // Create task using the tool's task handler
-    final CreateTaskResult createTaskResult =
-        await taskHandler.handler.createTask(args, extra);
+    final CreateTaskResult createTaskResult = await taskHandler.handler.createTask(args, extra);
     final String taskId = createTaskResult.task.taskId;
     Task task = createTaskResult.task;
-    final int pollInterval =
-        task.pollInterval ?? 5000; // Default to 5000ms if not specified
+    final int pollInterval = task.pollInterval ?? 5000; // Default to 5000ms if not specified
 
     // Poll until completion
     while (task.status != TaskStatus.completed &&
@@ -1736,10 +1501,7 @@ class McpServer {
   }
 
   /// Requests structured user input from the client using form mode.
-  Future<ElicitResult> elicitInput(
-    ElicitRequest params, [
-    RequestOptions? options,
-  ]) async {
+  Future<ElicitResult> elicitInput(ElicitRequest params, [RequestOptions? options]) async {
     return server.elicitInput(params, options);
   }
 }

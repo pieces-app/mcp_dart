@@ -7,19 +7,15 @@ import 'package:path/path.dart' as p;
 void main() {
   // Locate the TS server (compiled JS version)
   // Default: test/interop/ts/dist/server.js relative to project root
-  final defaultTsPath =
-      p.join(io.Directory.current.path, 'test/interop/ts/dist/server.js');
-  final tsServerScript =
-      io.Platform.environment['TS_INTEROP_SERVER_CMD'] ?? defaultTsPath;
+  final defaultTsPath = p.join(io.Directory.current.path, 'test/interop/ts/dist/server.js');
+  final tsServerScript = io.Platform.environment['TS_INTEROP_SERVER_CMD'] ?? defaultTsPath;
 
   // Check if we should skip
   final skipTests = !io.File(tsServerScript).existsSync();
 
   group('TS Interop', () {
     if (skipTests) {
-      print(
-        'Skipping TS Interop tests: TS server not found at $tsServerScript',
-      );
+      print('Skipping TS Interop tests: TS server not found at $tsServerScript');
       return;
     }
 
@@ -40,9 +36,7 @@ void main() {
         // 2. Create the Client instance, which will use this transport
         client = McpClient(
           const Implementation(name: 'dart-test', version: '1.0'),
-          options: const McpClientOptions(
-            capabilities: ClientCapabilities(),
-          ),
+          options: const McpClientOptions(capabilities: ClientCapabilities()),
         );
 
         // 3. Connect the Client to the transport (this internally calls transport.start())
@@ -58,41 +52,22 @@ void main() {
         final result = await client.listTools();
         expect(result.tools.map((t) => t.name), containsAll(['echo', 'add']));
 
-        final echo = await client.callTool(
-          const CallToolRequest(
-            name: 'echo',
-            arguments: {'message': 'hello'},
-          ),
-        );
+        final echo = await client.callTool(const CallToolRequest(name: 'echo', arguments: {'message': 'hello'}));
         expect((echo.content.first as TextContent).text, equals('hello'));
 
-        final add = await client.callTool(
-          const CallToolRequest(name: 'add', arguments: {'a': 10, 'b': 20}),
-        );
+        final add = await client.callTool(const CallToolRequest(name: 'add', arguments: {'a': 10, 'b': 20}));
         expect((add.content.first as TextContent).text, equals('30'));
       });
 
       test('resources', () async {
-        final result = await client.readResource(
-          ReadResourceRequest(
-            uri: Uri.parse('resource://test').toString(),
-          ),
-        );
-        expect(
-          (result.contents.first as TextResourceContents).text,
-          equals('This is a test resource'),
-        );
+        final result = await client.readResource(ReadResourceRequest(uri: Uri.parse('resource://test').toString()));
+        expect((result.contents.first as TextResourceContents).text, equals('This is a test resource'));
       });
 
       test('prompts', () async {
-        final result = await client.getPrompt(
-          const GetPromptRequest(name: 'test_prompt', arguments: {}),
-        );
+        final result = await client.getPrompt(const GetPromptRequest(name: 'test_prompt', arguments: {}));
         expect(result.messages.first.content, isA<TextContent>());
-        expect(
-          (result.messages.first.content as TextContent).text,
-          equals('Test Prompt'),
-        );
+        expect((result.messages.first.content as TextContent).text, equals('Test Prompt'));
       });
     });
 
@@ -104,26 +79,24 @@ void main() {
 
       setUp(() async {
         // 1. Manually spawn the external HTTP server
-        serverProcess = await io.Process.start(
-          'node',
-          [tsServerScript, '--transport', 'http', '--port', '$port'],
-          mode: io.ProcessStartMode.inheritStdio,
-        );
+        serverProcess = await io.Process.start('node', [
+          tsServerScript,
+          '--transport',
+          'http',
+          '--port',
+          '$port',
+        ], mode: io.ProcessStartMode.inheritStdio);
 
         // Give node server a moment to start
         await Future.delayed(const Duration(seconds: 2));
 
         // 2. Create the StreamableHttpClientTransport
-        transport = StreamableHttpClientTransport(
-          Uri.parse('http://localhost:$port/mcp'),
-        );
+        transport = StreamableHttpClientTransport(Uri.parse('http://localhost:$port/mcp'));
 
         // 3. Create the Client instance
         client = McpClient(
           const Implementation(name: 'dart-test', version: '1.0'),
-          options: const McpClientOptions(
-            capabilities: ClientCapabilities(),
-          ),
+          options: const McpClientOptions(capabilities: ClientCapabilities()),
         );
 
         // 4. Connect the Client to the transport
@@ -141,12 +114,7 @@ void main() {
         final result = await client.listTools();
         expect(result.tools.map((t) => t.name), containsAll(['echo', 'add']));
 
-        final echo = await client.callTool(
-          const CallToolRequest(
-            name: 'echo',
-            arguments: {'message': 'hello'},
-          ),
-        );
+        final echo = await client.callTool(const CallToolRequest(name: 'echo', arguments: {'message': 'hello'}));
         expect((echo.content.first as TextContent).text, equals('hello'));
       });
     });

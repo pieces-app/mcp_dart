@@ -49,10 +49,7 @@ class OAuth2Provider implements OAuthClientProvider {
   final OAuthConfig config;
   final TokenStorage storage;
 
-  OAuth2Provider({
-    required this.config,
-    required this.storage,
-  });
+  OAuth2Provider({required this.config, required this.storage});
 
   @override
   Future<OAuthTokens?> tokens() async {
@@ -79,10 +76,7 @@ class OAuth2Provider implements OAuthClientProvider {
   /// Uses a cryptographically secure random string
   String _generateCodeVerifier() {
     // Generate 32 random bytes (256 bits)
-    final bytes = List<int>.generate(
-      32,
-      (_) => DateTime.now().microsecondsSinceEpoch % 256,
-    );
+    final bytes = List<int>.generate(32, (_) => DateTime.now().microsecondsSinceEpoch % 256);
     // Base64url encode without padding
     return base64UrlEncode(bytes).replaceAll('=', '');
   }
@@ -126,8 +120,7 @@ class OAuth2Provider implements OAuthClientProvider {
         'scope': config.scopes.join(' '),
         'state': state,
         'code_challenge': codeChallenge, // PKCE parameter
-        'code_challenge_method':
-            'plain', // Using plain for demo (use S256 in production)
+        'code_challenge_method': 'plain', // Using plain for demo (use S256 in production)
       },
     );
 
@@ -164,10 +157,7 @@ class OAuth2Provider implements OAuthClientProvider {
 
       final response = await http.post(
         config.tokenEndpoint,
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
-        },
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'},
         body: body,
       );
 
@@ -176,9 +166,7 @@ class OAuth2Provider implements OAuthClientProvider {
         final tokens = StoredOAuthTokens(
           accessToken: data['access_token'],
           refreshToken: data['refresh_token'] ?? refreshToken,
-          expiresAt: DateTime.now().add(
-            Duration(seconds: data['expires_in'] ?? 3600),
-          ),
+          expiresAt: DateTime.now().add(Duration(seconds: data['expires_in'] ?? 3600)),
         );
         await storage.saveTokens(tokens);
         return tokens;
@@ -200,9 +188,7 @@ class OAuth2Provider implements OAuthClientProvider {
       // Retrieve stored code verifier
       final codeVerifier = await storage.getCodeVerifier();
       if (codeVerifier == null) {
-        throw Exception(
-          'Code verifier not found. Complete authorization flow first.',
-        );
+        throw Exception('Code verifier not found. Complete authorization flow first.');
       }
 
       final body = {
@@ -217,10 +203,7 @@ class OAuth2Provider implements OAuthClientProvider {
 
       final response = await http.post(
         config.tokenEndpoint,
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
-        },
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'},
         body: body,
       );
 
@@ -229,9 +212,7 @@ class OAuth2Provider implements OAuthClientProvider {
         final tokens = StoredOAuthTokens(
           accessToken: data['access_token'],
           refreshToken: data['refresh_token'],
-          expiresAt: DateTime.now().add(
-            Duration(seconds: data['expires_in'] ?? 3600),
-          ),
+          expiresAt: DateTime.now().add(Duration(seconds: data['expires_in'] ?? 3600)),
         );
         await storage.saveTokens(tokens);
 
@@ -258,11 +239,7 @@ class OAuth2Provider implements OAuthClientProvider {
 class StoredOAuthTokens extends OAuthTokens {
   final DateTime? expiresAt;
 
-  StoredOAuthTokens({
-    required super.accessToken,
-    super.refreshToken,
-    this.expiresAt,
-  });
+  StoredOAuthTokens({required super.accessToken, super.refreshToken, this.expiresAt});
 
   bool get isExpired {
     if (expiresAt == null) return false;
@@ -270,18 +247,16 @@ class StoredOAuthTokens extends OAuthTokens {
   }
 
   Map<String, dynamic> toJson() => {
-        'access_token': accessToken,
-        'refresh_token': refreshToken,
-        'expires_at': expiresAt?.toIso8601String(),
-      };
+    'access_token': accessToken,
+    'refresh_token': refreshToken,
+    'expires_at': expiresAt?.toIso8601String(),
+  };
 
   factory StoredOAuthTokens.fromJson(Map<String, dynamic> json) {
     return StoredOAuthTokens(
       accessToken: json['access_token'],
       refreshToken: json['refresh_token'],
-      expiresAt: json['expires_at'] != null
-          ? DateTime.parse(json['expires_at'])
-          : null,
+      expiresAt: json['expires_at'] != null ? DateTime.parse(json['expires_at']) : null,
     );
   }
 }
@@ -375,17 +350,13 @@ Future<void> main(List<String> args) async {
   final authProvider = OAuth2Provider(config: config, storage: storage);
 
   // Create MCP client
-  final client = McpClient(
-    const Implementation(name: 'oauth-example-client', version: '1.0.0'),
-  );
+  final client = McpClient(const Implementation(name: 'oauth-example-client', version: '1.0.0'));
 
   try {
     // Create transport with authentication
     final transport = StreamableHttpClientTransport(
       Uri.parse('https://api.example.com/mcp'),
-      opts: StreamableHttpClientTransportOptions(
-        authProvider: authProvider,
-      ),
+      opts: StreamableHttpClientTransportOptions(authProvider: authProvider),
     );
 
     print('Connecting to MCP server with OAuth authentication...\n');

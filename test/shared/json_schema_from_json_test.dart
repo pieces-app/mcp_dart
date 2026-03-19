@@ -184,10 +184,7 @@ void main() {
     });
 
     test('object round trip', () {
-      final original = JsonSchema.object(
-        properties: {'a': JsonSchema.string()},
-        required: ['a'],
-      );
+      final original = JsonSchema.object(properties: {'a': JsonSchema.string()}, required: ['a']);
       final json = original.toJson();
       final parsed = JsonSchema.fromJson(json);
       expect(parsed.toJson(), json);

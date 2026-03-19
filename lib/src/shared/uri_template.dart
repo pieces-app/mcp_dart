@@ -8,8 +8,7 @@ const int maxVariableLength = 1000000;
 const int maxTemplateExpressions = 10000;
 
 /// Type definition for variables used in template expansion.
-typedef TemplateVariables
-    = Map<String, Object? /* String | List<String> | Map<String, String> */ >;
+typedef TemplateVariables = Map<String, Object? /* String | List<String> | Map<String, String> */>;
 
 /// Base class for different parts parsed from a URI template string.
 sealed class _UriTemplatePart {
@@ -65,9 +64,7 @@ class UriTemplateExpander {
   /// Validates the length of a string against a maximum.
   static void _validateLength(String str, int max, String context) {
     if (str.length > max) {
-      throw ArgumentError(
-        '$context exceeds maximum length of $max characters (got ${str.length})',
-      );
+      throw ArgumentError('$context exceeds maximum length of $max characters (got ${str.length})');
     }
   }
 
@@ -99,16 +96,12 @@ class UriTemplateExpander {
         }
         final end = template.indexOf('}', i);
         if (end == -1) {
-          throw ArgumentError(
-            "Unclosed template expression starting at index $i",
-          );
+          throw ArgumentError("Unclosed template expression starting at index $i");
         }
 
         expressionCount++;
         if (expressionCount > maxTemplateExpressions) {
-          throw ArgumentError(
-            'Template contains too many expressions (max $maxTemplateExpressions)',
-          );
+          throw ArgumentError('Template contains too many expressions (max $maxTemplateExpressions)');
         }
 
         final expr = template.substring(i + 1, end);
@@ -120,11 +113,7 @@ class UriTemplateExpander {
         final varSpecs = _parseVarSpecs(expr.substring(operator.length));
 
         for (final spec in varSpecs) {
-          _validateLength(
-            spec.name,
-            maxVariableLength,
-            "Variable name '${spec.name}'",
-          );
+          _validateLength(spec.name, maxVariableLength, "Variable name '${spec.name}'");
         }
 
         parts.add(_ExpressionPart(operator, varSpecs));
@@ -169,8 +158,7 @@ class UriTemplateExpander {
         }
       }
 
-      if (spec.isEmpty ||
-          !RegExp(r'^[a-zA-Z0-9_]|(%[0-9A-Fa-f]{2})').hasMatch(spec[0])) {
+      if (spec.isEmpty || !RegExp(r'^[a-zA-Z0-9_]|(%[0-9A-Fa-f]{2})').hasMatch(spec[0])) {
         if (spec.isNotEmpty) {
           // Allow empty string from splitting trailing comma
         }
@@ -238,8 +226,7 @@ class UriTemplateExpander {
       _ => part.operator,
     };
     bool firstValue = true;
-    final bool useName =
-        part.operator == ';' || part.operator == '?' || part.operator == '&';
+    final bool useName = part.operator == ';' || part.operator == '?' || part.operator == '&';
 
     for (final spec in varSpecs) {
       final value = variables[spec.name];

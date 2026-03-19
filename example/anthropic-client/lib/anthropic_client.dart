@@ -31,13 +31,12 @@ class AnthropicMcpClient {
       await mcp.connect(transport!);
 
       final toolsResult = await mcp.listTools();
-      tools =
-          toolsResult.tools
-              .map((tool) {
-                return _toAnthropicTool(tool);
-              })
-              .cast<ToolDefinition>()
-              .toList();
+      tools = toolsResult.tools
+          .map((tool) {
+            return _toAnthropicTool(tool);
+          })
+          .cast<ToolDefinition>()
+          .toList();
 
       print("Connected to server with tools: ${toolsResult.tools.map((tool) => tool.name).toList()}");
     } catch (e) {
@@ -120,13 +119,12 @@ class AnthropicMcpClient {
       return jsonEncode(result.structuredContent);
     }
 
-    final parts =
-        result.content.map((content) {
-          return switch (content) {
-            mcp_dart.TextContent(:final text) => text,
-            _ => jsonEncode(content.toJson()),
-          };
-        }).toList();
+    final parts = result.content.map((content) {
+      return switch (content) {
+        mcp_dart.TextContent(:final text) => text,
+        _ => jsonEncode(content.toJson()),
+      };
+    }).toList();
 
     if (parts.isEmpty) {
       return jsonEncode(result.toJson());

@@ -49,10 +49,7 @@ class IOStreamTransport implements Transport {
   ///
   /// [stream] is the stream to read from.
   /// [sink] is the sink to write to.
-  IOStreamTransport({
-    required this.stream,
-    required this.sink,
-  });
+  IOStreamTransport({required this.stream, required this.sink});
 
   /// Starts the transport by setting up listeners on the input stream.
   ///
@@ -80,9 +77,7 @@ class IOStreamTransport implements Transport {
       return Future.value();
     } catch (error, stackTrace) {
       _started = false; // Reset state
-      final startError = StateError(
-        "Failed to start IOStreamTransport: $error\n$stackTrace",
-      );
+      final startError = StateError("Failed to start IOStreamTransport: $error\n$stackTrace");
       try {
         onerror?.call(startError);
       } catch (e) {
@@ -107,9 +102,7 @@ class IOStreamTransport implements Transport {
 
   /// Internal handler for errors on input stream
   void _onStreamError(dynamic error, StackTrace stackTrace) {
-    final Error streamError = (error is Error)
-        ? error
-        : StateError("Stream error: $error\n$stackTrace");
+    final Error streamError = (error is Error) ? error : StateError("Stream error: $error\n$stackTrace");
     try {
       onerror?.call(streamError);
     } catch (e) {
@@ -131,17 +124,13 @@ class IOStreamTransport implements Transport {
           onerror?.call(StateError("Error in onmessage handler: $e"));
         }
       } catch (error) {
-        final Error parseError = (error is Error)
-            ? error
-            : StateError("Message parsing error: $error");
+        final Error parseError = (error is Error) ? error : StateError("Message parsing error: $error");
         try {
           onerror?.call(parseError);
         } catch (e) {
           _logger.warn("Error in onerror handler: $e");
         }
-        _logger.warn(
-          "IOStreamTransport: Error processing read buffer: $parseError. Skipping data.",
-        );
+        _logger.warn("IOStreamTransport: Error processing read buffer: $parseError. Skipping data.");
         break; // Stop processing buffer on error
       }
     }
@@ -179,9 +168,7 @@ class IOStreamTransport implements Transport {
   @override
   Future<void> send(JsonRpcMessage message, {int? relatedRequestId}) async {
     if (!_started || _closed) {
-      throw StateError(
-        "Cannot send message: IOStreamTransport is not running or is closed.",
-      );
+      throw StateError("Cannot send message: IOStreamTransport is not running or is closed.");
     }
 
     try {
@@ -189,12 +176,8 @@ class IOStreamTransport implements Transport {
       sink.add(utf8.encode(jsonString));
       // No need to flush as StreamSink should handle this
     } catch (error, stackTrace) {
-      _logger.warn(
-        "IOStreamTransport: Error writing to output stream: $error",
-      );
-      final Error sendError = (error is Error)
-          ? error
-          : StateError("Output stream write error: $error\n$stackTrace");
+      _logger.warn("IOStreamTransport: Error writing to output stream: $error");
+      final Error sendError = (error is Error) ? error : StateError("Output stream write error: $error\n$stackTrace");
       try {
         onerror?.call(sendError);
       } catch (e) {

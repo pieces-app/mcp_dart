@@ -14,13 +14,8 @@ final runnerScriptBundle = MasonBundle.fromJson({
   'name': 'runner_script',
   'description': 'A brick to generate the MCP server runner script.',
   'version': '0.1.0',
-  'environment': {
-    'mason': '>=0.1.0-dev.1 <0.1.0',
-  },
+  'environment': {'mason': '>=0.1.0-dev.1 <0.1.0'},
   'vars': {
-    'packageName': {
-      'type': 'string',
-      'description': 'The name of the package.',
-    },
+    'packageName': {'type': 'string', 'description': 'The name of the package.'},
   },
 });

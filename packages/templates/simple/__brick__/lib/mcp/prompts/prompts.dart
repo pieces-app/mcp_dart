@@ -8,6 +8,4 @@ export 'base_prompt.dart';
 export 'hello_prompt.dart';
 
 /// Creates all available prompts.
-List<BasePrompt> createAllPrompts() => [
-      HelloPrompt(),
-    ];
+List<BasePrompt> createAllPrompts() => [HelloPrompt()];

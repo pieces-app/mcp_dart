@@ -44,17 +44,9 @@ extension ResourceRegistration on McpServer {
   void registerBaseResource(BaseResource resource) {
     ResourceMetadata? metadata;
     if (resource.description != null || resource.mimeType != null) {
-      metadata = (
-        description: resource.description,
-        mimeType: resource.mimeType,
-      );
+      metadata = (description: resource.description, mimeType: resource.mimeType);
     }
 
-    registerResource(
-      resource.name,
-      resource.uri.toString(),
-      metadata,
-      (uri, extra) => resource.read(uri, extra),
-    );
+    registerResource(resource.name, resource.uri.toString(), metadata, (uri, extra) => resource.read(uri, extra));
   }
 }

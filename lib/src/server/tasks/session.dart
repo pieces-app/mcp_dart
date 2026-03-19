@@ -26,40 +26,33 @@ class TaskSession {
     if (task != null) {
       server.server
           .notification(
-        JsonRpcTaskStatusNotification(
-          statusParams: TaskStatusNotification(
-            taskId: taskId,
-            status: task.status,
-            statusMessage: task.statusMessage,
-            ttl: task.ttl,
-            pollInterval: task.pollInterval,
-            createdAt: task.createdAt,
-            lastUpdatedAt: task.lastUpdatedAt,
-          ),
-        ),
-      )
+            JsonRpcTaskStatusNotification(
+              statusParams: TaskStatusNotification(
+                taskId: taskId,
+                status: task.status,
+                statusMessage: task.statusMessage,
+                ttl: task.ttl,
+                pollInterval: task.pollInterval,
+                createdAt: task.createdAt,
+                lastUpdatedAt: task.lastUpdatedAt,
+              ),
+            ),
+          )
           .catchError((e) {
-        // Ignore errors broadcasting
-      });
+            // Ignore errors broadcasting
+          });
     }
   }
 
   /// Requests input from the client (Elicitation).
-  Future<ElicitResult> elicit(
-    String message,
-    ElicitationInputSchema requestedSchema,
-  ) async {
+  Future<ElicitResult> elicit(String message, ElicitationInputSchema requestedSchema) async {
     await store.updateTaskStatus(taskId, TaskStatus.inputRequired);
     await _sendTaskStatusNotification();
 
     final requestId = _nextRequestId();
-    final params = ElicitRequest.form(
-      message: message,
-      requestedSchema: requestedSchema,
-    );
+    final params = ElicitRequest.form(message: message, requestedSchema: requestedSchema);
 
-    final jsonRpcRequest =
-        JsonRpcElicitRequest(id: requestId, elicitParams: params);
+    final jsonRpcRequest = JsonRpcElicitRequest(id: requestId, elicitParams: params);
 
     final completer = Completer<Map<String, dynamic>>();
 
@@ -88,21 +81,14 @@ class TaskSession {
   }
 
   /// Requests an LLM sampling message (Sampling).
-  Future<CreateMessageResult> createMessage(
-    List<SamplingMessage> messages,
-    int maxTokens,
-  ) async {
+  Future<CreateMessageResult> createMessage(List<SamplingMessage> messages, int maxTokens) async {
     await store.updateTaskStatus(taskId, TaskStatus.inputRequired);
     await _sendTaskStatusNotification();
 
     final requestId = _nextRequestId();
-    final params = CreateMessageRequest(
-      messages: messages,
-      maxTokens: maxTokens,
-    );
+    final params = CreateMessageRequest(messages: messages, maxTokens: maxTokens);
 
-    final jsonRpcRequest =
-        JsonRpcCreateMessageRequest(id: requestId, createParams: params);
+    final jsonRpcRequest = JsonRpcCreateMessageRequest(id: requestId, createParams: params);
 
     final completer = Completer<Map<String, dynamic>>();
 

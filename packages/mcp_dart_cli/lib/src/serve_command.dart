@@ -25,22 +25,9 @@ class ServeCommand extends Command<int> {
       defaultsTo: 'stdio',
       help: 'Transport type to use.',
     );
-    argParser.addOption(
-      'host',
-      defaultsTo: '0.0.0.0',
-      help: 'Host for HTTP transport.',
-    );
-    argParser.addOption(
-      'port',
-      abbr: 'p',
-      defaultsTo: '3000',
-      help: 'Port for HTTP transport.',
-    );
-    argParser.addFlag(
-      'watch',
-      defaultsTo: false,
-      help: 'Restart the server on file changes.',
-    );
+    argParser.addOption('host', defaultsTo: '0.0.0.0', help: 'Host for HTTP transport.');
+    argParser.addOption('port', abbr: 'p', defaultsTo: '3000', help: 'Port for HTTP transport.');
+    argParser.addFlag('watch', defaultsTo: false, help: 'Restart the server on file changes.');
   }
 
   final Logger _logger;
@@ -66,8 +53,7 @@ class ServeCommand extends Command<int> {
     final mcpFile = File(p.join('lib', 'mcp', 'mcp.dart'));
     if (!mcpFile.existsSync()) {
       _logger.err('Error: lib/mcp/mcp.dart not found.');
-      _logger.err(
-          'Ensure your project follows the MCP server structure and exports createMcpServer().');
+      _logger.err('Ensure your project follows the MCP server structure and exports createMcpServer().');
       return ExitCode.config.code;
     }
 
@@ -82,8 +68,7 @@ class ServeCommand extends Command<int> {
 
     final watch = argResults!['watch'] as bool;
     final transport = argResults!['transport'] as String;
-    final args =
-        argResults!.arguments.where((arg) => arg != '--watch').toList();
+    final args = argResults!.arguments.where((arg) => arg != '--watch').toList();
 
     Process? process;
     bool isRestarting = false;
@@ -97,13 +82,11 @@ class ServeCommand extends Command<int> {
         _logger.info('Starting MCP server ($packageName)...');
       }
 
-      process = await Process.start(
-        'dart',
-        ['run', runnerFile.path, ...args],
-        mode: transport == 'stdio'
-            ? ProcessStartMode.inheritStdio
-            : ProcessStartMode.normal,
-      );
+      process = await Process.start('dart', [
+        'run',
+        runnerFile.path,
+        ...args,
+      ], mode: transport == 'stdio' ? ProcessStartMode.inheritStdio : ProcessStartMode.normal);
       if (transport == 'http') {
         process!.stdout.transform(utf8.decoder).listen(stdout.write);
         process!.stderr.transform(utf8.decoder).listen(stderr.write);
@@ -125,9 +108,7 @@ class ServeCommand extends Command<int> {
       final watcher = DirectoryWatcher(p.join(Directory.current.path, 'lib'));
       _logger.info('Watching for changes in lib/...');
 
-      watcher.events
-          .debounce(Duration(milliseconds: 500))
-          .listen((event) async {
+      watcher.events.debounce(Duration(milliseconds: 500)).listen((event) async {
         isRestarting = true;
         await startServer();
         isRestarting = false;

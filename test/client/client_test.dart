@@ -21,23 +21,18 @@ void main() {
       mockServerCapabilities = const ServerCapabilities(
         logging: {'supported': true},
         prompts: ServerCapabilitiesPrompts(listChanged: true),
-        resources: ServerCapabilitiesResources(
-          subscribe: true,
-          listChanged: true,
-        ),
+        resources: ServerCapabilitiesResources(subscribe: true, listChanged: true),
         tools: ServerCapabilitiesTools(listChanged: true),
       );
     });
 
-    test('constructor initializes with client info and default capabilities',
-        () {
+    test('constructor initializes with client info and default capabilities', () {
       expect(client.getServerCapabilities(), isNull);
       expect(client.getServerVersion(), isNull);
       expect(client.getInstructions(), isNull);
     });
 
-    test('registerCapabilities throws StateError if transport is connected',
-        () async {
+    test('registerCapabilities throws StateError if transport is connected', () async {
       // Connect the client to the transport first
       transport.mockInitializeResponse = InitializeResult(
         protocolVersion: latestProtocolVersion,
@@ -48,19 +43,12 @@ void main() {
       await client.connect(transport);
 
       // Now test that registerCapabilities throws an exception after connection
-      expect(
-        () => client.registerCapabilities(const ClientCapabilities()),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => client.registerCapabilities(const ClientCapabilities()), throwsA(isA<StateError>()));
     });
 
     test('registerCapabilities merges capabilities', () {
-      final initialCapabilities =
-          const ClientCapabilities(experimental: {'feature1': true});
-      client = Client(
-        clientInfo,
-        options: McpClientOptions(capabilities: initialCapabilities),
-      );
+      final initialCapabilities = const ClientCapabilities(experimental: {'feature1': true});
+      client = Client(clientInfo, options: McpClientOptions(capabilities: initialCapabilities));
 
       final additionalCapabilities = const ClientCapabilities(
         experimental: {'feature2': true},
@@ -86,46 +74,26 @@ void main() {
 
       final serverCaps = client.getServerCapabilities();
       expect(serverCaps?.logging != null, isTrue);
-      expect(
-        serverCaps?.prompts?.listChanged,
-        equals(mockServerCapabilities.prompts?.listChanged),
-      );
-      expect(
-        serverCaps?.resources?.subscribe,
-        equals(mockServerCapabilities.resources?.subscribe),
-      );
-      expect(
-        serverCaps?.resources?.listChanged,
-        equals(mockServerCapabilities.resources?.listChanged),
-      );
-      expect(
-        serverCaps?.tools?.listChanged,
-        equals(mockServerCapabilities.tools?.listChanged),
-      );
+      expect(serverCaps?.prompts?.listChanged, equals(mockServerCapabilities.prompts?.listChanged));
+      expect(serverCaps?.resources?.subscribe, equals(mockServerCapabilities.resources?.subscribe));
+      expect(serverCaps?.resources?.listChanged, equals(mockServerCapabilities.resources?.listChanged));
+      expect(serverCaps?.tools?.listChanged, equals(mockServerCapabilities.tools?.listChanged));
       expect(client.getServerVersion()?.name, equals('TestServer'));
       expect(client.getServerVersion()?.version, equals('2.0.0'));
       expect(client.getInstructions(), equals('Test instructions'));
 
       expect(transport.sentMessages.length, greaterThan(0));
       expect(transport.sentMessages.first is JsonRpcRequest, isTrue);
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('initialize'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('initialize'));
 
       // Verify that an initialized notification was sent
       final List<JsonRpcMessage> notifications = transport.sentMessages
-          .where(
-            (m) =>
-                m is JsonRpcNotification &&
-                m.method == 'notifications/initialized',
-          )
+          .where((m) => m is JsonRpcNotification && m.method == 'notifications/initialized')
           .toList();
       expect(notifications.length, equals(1));
     });
 
-    test('connect throws if server returns unsupported protocol version',
-        () async {
+    test('connect throws if server returns unsupported protocol version', () async {
       transport.mockInitializeResponse = InitializeResult(
         protocolVersion: '1999-01-01', // Unsupported version
         capabilities: mockServerCapabilities,
@@ -140,8 +108,7 @@ void main() {
       expect(() => client.connect(transport), throwsException);
     });
 
-    test('assertCapabilityForMethod checks for required server capabilities',
-        () async {
+    test('assertCapabilityForMethod checks for required server capabilities', () async {
       // Setup connected client with capabilities
       transport.mockInitializeResponse = InitializeResult(
         protocolVersion: latestProtocolVersion,
@@ -151,22 +118,10 @@ void main() {
       await client.connect(transport);
 
       // Should not throw for supported capabilities
-      expect(
-        () => client.assertCapabilityForMethod("logging/setLevel"),
-        returnsNormally,
-      );
-      expect(
-        () => client.assertCapabilityForMethod("prompts/list"),
-        returnsNormally,
-      );
-      expect(
-        () => client.assertCapabilityForMethod("resources/subscribe"),
-        returnsNormally,
-      );
-      expect(
-        () => client.assertCapabilityForMethod("tools/call"),
-        returnsNormally,
-      );
+      expect(() => client.assertCapabilityForMethod("logging/setLevel"), returnsNormally);
+      expect(() => client.assertCapabilityForMethod("prompts/list"), returnsNormally);
+      expect(() => client.assertCapabilityForMethod("resources/subscribe"), returnsNormally);
+      expect(() => client.assertCapabilityForMethod("tools/call"), returnsNormally);
 
       // Create a client with limited capabilities
       final limitedClient = Client(clientInfo);
@@ -179,75 +134,43 @@ void main() {
       await limitedClient.connect(transport);
 
       // Should throw for unsupported capabilities
-      expect(
-        () => limitedClient.assertCapabilityForMethod("logging/setLevel"),
-        throwsA(isA<McpError>()),
-      );
-      expect(
-        () => limitedClient.assertCapabilityForMethod("prompts/list"),
-        throwsA(isA<McpError>()),
-      );
+      expect(() => limitedClient.assertCapabilityForMethod("logging/setLevel"), throwsA(isA<McpError>()));
+      expect(() => limitedClient.assertCapabilityForMethod("prompts/list"), throwsA(isA<McpError>()));
     });
 
     test('assertCapabilityForMethod throws if client not initialized', () {
-      expect(
-        () => client.assertCapabilityForMethod("logging/setLevel"),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => client.assertCapabilityForMethod("logging/setLevel"), throwsA(isA<StateError>()));
     });
 
     test('assertNotificationCapability checks client capabilities', () {
       final capableClient = Client(
         clientInfo,
         options: const McpClientOptions(
-          capabilities: ClientCapabilities(
-            roots: ClientCapabilitiesRoots(listChanged: true),
-          ),
+          capabilities: ClientCapabilities(roots: ClientCapabilitiesRoots(listChanged: true)),
         ),
       );
 
       // Should not throw for supported capabilities
-      expect(
-        () => capableClient
-            .assertNotificationCapability("notifications/roots/list_changed"),
-        returnsNormally,
-      );
+      expect(() => capableClient.assertNotificationCapability("notifications/roots/list_changed"), returnsNormally);
 
       // Should throw for unsupported capabilities
-      expect(
-        () => client
-            .assertNotificationCapability("notifications/roots/list_changed"),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => client.assertNotificationCapability("notifications/roots/list_changed"), throwsA(isA<StateError>()));
     });
 
     test('assertRequestHandlerCapability checks client capabilities', () {
       final capableClient = Client(
         clientInfo,
         options: const McpClientOptions(
-          capabilities: ClientCapabilities(
-            sampling: ClientCapabilitiesSampling(),
-            roots: ClientCapabilitiesRoots(),
-          ),
+          capabilities: ClientCapabilities(sampling: ClientCapabilitiesSampling(), roots: ClientCapabilitiesRoots()),
         ),
       );
 
       // Should not throw for supported capabilities
-      expect(
-        () => capableClient
-            .assertRequestHandlerCapability("sampling/createMessage"),
-        returnsNormally,
-      );
-      expect(
-        () => capableClient.assertRequestHandlerCapability("roots/list"),
-        returnsNormally,
-      );
+      expect(() => capableClient.assertRequestHandlerCapability("sampling/createMessage"), returnsNormally);
+      expect(() => capableClient.assertRequestHandlerCapability("roots/list"), returnsNormally);
 
       // Should throw for unsupported capabilities
-      expect(
-        () => client.assertRequestHandlerCapability("sampling/createMessage"),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => client.assertRequestHandlerCapability("sampling/createMessage"), throwsA(isA<StateError>()));
     });
 
     test('ping sends a ping request and returns EmptyResult', () async {
@@ -264,10 +187,7 @@ void main() {
 
       // Verify a ping request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('ping'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('ping'));
     });
 
     test('complete sends completion request', () async {
@@ -289,10 +209,7 @@ void main() {
 
       // Verify a complete request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('completion/complete'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('completion/complete'));
     });
 
     test('setLoggingLevel sends logging level request', () async {
@@ -309,10 +226,7 @@ void main() {
 
       // Verify a setLevel request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('logging/setLevel'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('logging/setLevel'));
     });
 
     test('getPrompt sends prompt request', () async {
@@ -330,10 +244,7 @@ void main() {
 
       // Verify a getPrompt request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('prompts/get'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('prompts/get'));
     });
 
     test('listPrompts sends list prompts request', () async {
@@ -350,10 +261,7 @@ void main() {
 
       // Verify a listPrompts request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('prompts/list'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('prompts/list'));
     });
 
     test('listResources sends list resources request', () async {
@@ -370,14 +278,10 @@ void main() {
 
       // Verify a listResources request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('resources/list'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('resources/list'));
     });
 
-    test('listResourceTemplates sends list resource templates request',
-        () async {
+    test('listResourceTemplates sends list resource templates request', () async {
       transport.mockInitializeResponse = InitializeResult(
         protocolVersion: latestProtocolVersion,
         capabilities: mockServerCapabilities,
@@ -391,10 +295,7 @@ void main() {
 
       // Verify a listResourceTemplates request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('resources/templates/list'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('resources/templates/list'));
     });
 
     test('readResource sends resource read request', () async {
@@ -412,10 +313,7 @@ void main() {
 
       // Verify a readResource request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('resources/read'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('resources/read'));
     });
 
     test('subscribeResource sends resource subscribe request', () async {
@@ -433,10 +331,7 @@ void main() {
 
       // Verify a subscribeResource request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('resources/subscribe'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('resources/subscribe'));
     });
 
     test('unsubscribeResource sends resource unsubscribe request', () async {
@@ -454,10 +349,7 @@ void main() {
 
       // Verify an unsubscribeResource request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('resources/unsubscribe'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('resources/unsubscribe'));
     });
 
     test('callTool sends tool call request', () async {
@@ -475,10 +367,7 @@ void main() {
 
       // Verify a callTool request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('tools/call'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('tools/call'));
     });
 
     test('callTool sends tool call request with structured output', () async {
@@ -496,10 +385,7 @@ void main() {
 
       // Verify a callTool request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('tools/call'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('tools/call'));
 
       // Verify the result contains structured output
       expect(result.structuredContent, isNotNull);
@@ -519,14 +405,10 @@ void main() {
 
       // Verify a listTools request was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcRequest).method,
-        equals('tools/list'),
-      );
+      expect((transport.sentMessages.first as JsonRpcRequest).method, equals('tools/list'));
     });
 
-    test('sendRootsListChanged sends roots list changed notification',
-        () async {
+    test('sendRootsListChanged sends roots list changed notification', () async {
       transport.mockInitializeResponse = InitializeResult(
         protocolVersion: latestProtocolVersion,
         capabilities: mockServerCapabilities,
@@ -540,10 +422,7 @@ void main() {
 
       // Verify a roots list changed notification was sent
       expect(transport.sentMessages.length, equals(1));
-      expect(
-        (transport.sentMessages.first as JsonRpcNotification).method,
-        equals('notifications/roots/list_changed'),
-      );
+      expect((transport.sentMessages.first as JsonRpcNotification).method, equals('notifications/roots/list_changed'));
     });
   });
 
@@ -572,22 +451,13 @@ class MockTransport extends Transport {
     sentMessages.add(message);
 
     // If it's an initialize request, respond with the mock response
-    if (message is JsonRpcRequest &&
-        message.method == 'initialize' &&
-        mockInitializeResponse != null) {
+    if (message is JsonRpcRequest && message.method == 'initialize' && mockInitializeResponse != null) {
       if (onmessage != null) {
-        onmessage!(
-          JsonRpcResponse(
-            id: message.id,
-            result: mockInitializeResponse!.toJson(),
-          ),
-        );
+        onmessage!(JsonRpcResponse(id: message.id, result: mockInitializeResponse!.toJson()));
       }
-    } else if (message is JsonRpcRequest &&
-        message.method == 'completion/complete') {
+    } else if (message is JsonRpcRequest && message.method == 'completion/complete') {
       if (onmessage != null) {
-        final completion =
-            CompletionResultData(values: ['suggestion1', 'suggestion2']);
+        final completion = CompletionResultData(values: ['suggestion1', 'suggestion2']);
         onmessage!(
           JsonRpcResponse(
             id: message.id,
@@ -597,15 +467,11 @@ class MockTransport extends Transport {
       }
     } else if (message is JsonRpcRequest && message.method == 'tools/call') {
       if (onmessage != null) {
-        if (message.params is Map &&
-            message.params!['name'] == 'test-tool-structured') {
+        if (message.params is Map && message.params!['name'] == 'test-tool-structured') {
           onmessage!(
             JsonRpcResponse(
               id: message.id,
-              result: const CallToolResult(
-                content: [],
-                structuredContent: {'output': 'some value'},
-              ).toJson(),
+              result: const CallToolResult(content: [], structuredContent: {'output': 'some value'}).toJson(),
             ),
           );
         } else {
@@ -643,12 +509,9 @@ class MockTransport extends Transport {
           ),
         );
       }
-    } else if (message is JsonRpcRequest &&
-        message.method == 'resources/list') {
+    } else if (message is JsonRpcRequest && message.method == 'resources/list') {
       if (onmessage != null) {
-        final resources = [
-          const Resource(uri: "test://resource", name: "test-resource"),
-        ];
+        final resources = [const Resource(uri: "test://resource", name: "test-resource")];
         onmessage!(
           JsonRpcResponse(
             id: message.id,
@@ -656,32 +519,19 @@ class MockTransport extends Transport {
           ),
         );
       }
-    } else if (message is JsonRpcRequest &&
-        message.method == 'resources/templates/list') {
+    } else if (message is JsonRpcRequest && message.method == 'resources/templates/list') {
       if (onmessage != null) {
-        final templates = [
-          const ResourceTemplate(
-            uriTemplate: "test://{template}",
-            name: "test-template",
-          ),
-        ];
+        final templates = [const ResourceTemplate(uriTemplate: "test://{template}", name: "test-template")];
         onmessage!(
           JsonRpcResponse(
             id: message.id,
-            result: ListResourceTemplatesResult(resourceTemplates: templates)
-                .toJson(),
+            result: ListResourceTemplatesResult(resourceTemplates: templates).toJson(),
           ),
         );
       }
-    } else if (message is JsonRpcRequest &&
-        message.method == 'resources/read') {
+    } else if (message is JsonRpcRequest && message.method == 'resources/read') {
       if (onmessage != null) {
-        final contents = [
-          const TextResourceContents(
-            uri: "test://resource",
-            text: "Resource content",
-          ),
-        ];
+        final contents = [const TextResourceContents(uri: "test://resource", text: "Resource content")];
         onmessage!(
           JsonRpcResponse(
             id: message.id,
@@ -696,8 +546,7 @@ class MockTransport extends Transport {
           Tool(
             name: "test-tool-structured",
             inputSchema: const JsonObject(),
-            outputSchema:
-                JsonObject(properties: {'output': JsonSchema.string()}),
+            outputSchema: JsonObject(properties: {'output': JsonSchema.string()}),
           ),
         ];
         onmessage!(
@@ -710,12 +559,7 @@ class MockTransport extends Transport {
     } else if (message is JsonRpcRequest) {
       // For any other request, respond with an empty result
       if (onmessage != null) {
-        onmessage!(
-          JsonRpcResponse(
-            id: message.id,
-            result: const EmptyResult().toJson(),
-          ),
-        );
+        onmessage!(JsonRpcResponse(id: message.id, result: const EmptyResult().toJson()));
       }
     }
   }
@@ -773,11 +617,7 @@ void _addCriticalPathTests() {
       // Create client WITH elicitation capability
       client = Client(
         const Implementation(name: 'TestClient', version: '1.0.0'),
-        options: const McpClientOptions(
-          capabilities: ClientCapabilities(
-            elicitation: ClientElicitation.formOnly(),
-          ),
-        ),
+        options: const McpClientOptions(capabilities: ClientCapabilities(elicitation: ClientElicitation.formOnly())),
       );
       transport = MockTransport();
     });
@@ -796,10 +636,7 @@ void _addCriticalPathTests() {
       // Simulate server sending elicitation request
       final elicitRequest = JsonRpcElicitRequest(
         id: 100,
-        elicitParams: ElicitRequest(
-          message: 'Please provide input',
-          requestedSchema: JsonSchema.string(),
-        ),
+        elicitParams: ElicitRequest(message: 'Please provide input', requestedSchema: JsonSchema.string()),
       );
 
       // Trigger the request handler
@@ -823,10 +660,7 @@ void _addCriticalPathTests() {
       client.onElicitRequest = (params) async {
         handlerCalled = true;
         receivedParams = params;
-        return const ElicitResult(
-          action: 'accept',
-          content: {'response': 'user input'},
-        );
+        return const ElicitResult(action: 'accept', content: {'response': 'user input'});
       };
 
       transport.mockInitializeResponse = const InitializeResult(
@@ -840,11 +674,7 @@ void _addCriticalPathTests() {
         id: 101,
         elicitParams: ElicitRequestParams(
           message: 'Enter your name',
-          requestedSchema: JsonObject(
-            properties: {
-              'name': JsonSchema.string(),
-            },
-          ),
+          requestedSchema: JsonObject(properties: {'name': JsonSchema.string()}),
         ),
       );
 
@@ -857,10 +687,7 @@ void _addCriticalPathTests() {
 
     test('elicitation request with metadata is handled correctly', () async {
       client.onElicitRequest = (params) async {
-        return const ElicitResult(
-          action: 'accept',
-          content: {'data': 'test'},
-        );
+        return const ElicitResult(action: 'accept', content: {'data': 'test'});
       };
 
       transport.mockInitializeResponse = const InitializeResult(
@@ -881,8 +708,7 @@ void _addCriticalPathTests() {
     late MockTransport transport;
 
     setUp(() {
-      client =
-          Client(const Implementation(name: 'TestClient', version: '1.0.0'));
+      client = Client(const Implementation(name: 'TestClient', version: '1.0.0'));
       transport = MockTransport();
     });
 
@@ -897,10 +723,7 @@ void _addCriticalPathTests() {
 
       expect(
         () => client.assertCapabilityForMethod('resources/read'),
-        throwsA(
-          isA<McpError>()
-              .having((e) => e.message, 'message', contains('resources')),
-        ),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('resources'))),
       );
     });
 
@@ -914,10 +737,7 @@ void _addCriticalPathTests() {
 
       expect(
         () => client.assertCapabilityForMethod('resources/list'),
-        throwsA(
-          isA<McpError>()
-              .having((e) => e.message, 'message', contains('resources')),
-        ),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('resources'))),
       );
     });
 
@@ -931,10 +751,7 @@ void _addCriticalPathTests() {
 
       expect(
         () => client.assertCapabilityForMethod('resources/templates/list'),
-        throwsA(
-          isA<McpError>()
-              .having((e) => e.message, 'message', contains('resources')),
-        ),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('resources'))),
       );
     });
 
@@ -951,35 +768,21 @@ void _addCriticalPathTests() {
 
       expect(
         () => client.assertCapabilityForMethod('resources/subscribe'),
-        throwsA(
-          isA<McpError>().having(
-            (e) => e.message,
-            'message',
-            contains('resources.subscribe'),
-          ),
-        ),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('resources.subscribe'))),
       );
     });
 
     test('resources/unsubscribe requires subscribe capability', () async {
       transport.mockInitializeResponse = const InitializeResult(
         protocolVersion: latestProtocolVersion,
-        capabilities: ServerCapabilities(
-          resources: ServerCapabilitiesResources(),
-        ),
+        capabilities: ServerCapabilities(resources: ServerCapabilitiesResources()),
         serverInfo: Implementation(name: 'TestServer', version: '2.0.0'),
       );
       await client.connect(transport);
 
       expect(
         () => client.assertCapabilityForMethod('resources/unsubscribe'),
-        throwsA(
-          isA<McpError>().having(
-            (e) => e.message,
-            'message',
-            contains('resources.subscribe'),
-          ),
-        ),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('resources.subscribe'))),
       );
     });
 
@@ -993,10 +796,7 @@ void _addCriticalPathTests() {
 
       expect(
         () => client.assertCapabilityForMethod('tools/call'),
-        throwsA(
-          isA<McpError>()
-              .having((e) => e.message, 'message', contains('tools')),
-        ),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('tools'))),
       );
     });
 
@@ -1010,10 +810,7 @@ void _addCriticalPathTests() {
 
       expect(
         () => client.assertCapabilityForMethod('tools/list'),
-        throwsA(
-          isA<McpError>()
-              .having((e) => e.message, 'message', contains('tools')),
-        ),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('tools'))),
       );
     });
 
@@ -1027,10 +824,7 @@ void _addCriticalPathTests() {
 
       expect(
         () => client.assertCapabilityForMethod('completion/complete'),
-        throwsA(
-          isA<McpError>()
-              .having((e) => e.message, 'message', contains('completions')),
-        ),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('completions'))),
       );
     });
 
@@ -1043,10 +837,7 @@ void _addCriticalPathTests() {
       await client.connect(transport);
 
       // Should not throw for custom methods
-      expect(
-        () => client.assertCapabilityForMethod('custom/method'),
-        returnsNormally,
-      );
+      expect(() => client.assertCapabilityForMethod('custom/method'), returnsNormally);
     });
   });
 
@@ -1067,10 +858,7 @@ void _addCriticalPathTests() {
             if (meta != null) '_meta': meta,
           }),
         ),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('roots')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('roots'))),
       );
     });
 
@@ -1088,16 +876,10 @@ void _addCriticalPathTests() {
             role: SamplingMessageRole.assistant,
             content: SamplingTextContent(text: 'response'),
           ),
-          (id, params, meta) => JsonRpcCreateMessageRequest.fromJson({
-            'id': id,
-            'params': params ?? {},
-            if (meta != null) '_meta': meta,
-          }),
+          (id, params, meta) =>
+              JsonRpcCreateMessageRequest.fromJson({'id': id, 'params': params ?? {}, if (meta != null) '_meta': meta}),
         ),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('sampling')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('sampling'))),
       );
     });
 
@@ -1110,27 +892,16 @@ void _addCriticalPathTests() {
       expect(
         () => client.setRequestHandler<JsonRpcElicitRequest>(
           'elicitation/create',
-          (request, extra) async => const ElicitResult(
-            action: 'accept',
-            content: {},
-          ),
-          (id, params, meta) => JsonRpcElicitRequest.fromJson({
-            'id': id,
-            'params': params ?? {},
-            if (meta != null) '_meta': meta,
-          }),
+          (request, extra) async => const ElicitResult(action: 'accept', content: {}),
+          (id, params, meta) =>
+              JsonRpcElicitRequest.fromJson({'id': id, 'params': params ?? {}, if (meta != null) '_meta': meta}),
         ),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('elicitation')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('elicitation'))),
       );
     });
 
     test('custom request handler logs info but does not throw', () {
-      final client = Client(
-        const Implementation(name: 'TestClient', version: '1.0.0'),
-      );
+      final client = Client(const Implementation(name: 'TestClient', version: '1.0.0'));
 
       // Should not throw for custom methods
       expect(
@@ -1149,8 +920,7 @@ void _addCriticalPathTests() {
     late MockTransport transport;
 
     setUp(() {
-      client =
-          Client(const Implementation(name: 'TestClient', version: '1.0.0'));
+      client = Client(const Implementation(name: 'TestClient', version: '1.0.0'));
       transport = MockTransport();
     });
 
@@ -1163,10 +933,7 @@ void _addCriticalPathTests() {
       await client.connect(transport);
 
       // Should not throw for custom notifications
-      expect(
-        () => client.assertNotificationCapability('notifications/custom'),
-        returnsNormally,
-      );
+      expect(() => client.assertNotificationCapability('notifications/custom'), returnsNormally);
     });
   });
 }

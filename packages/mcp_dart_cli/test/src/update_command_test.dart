@@ -27,10 +27,10 @@ void main() {
       command = UpdateCommand(logger: logger, pubUpdater: pubUpdater);
 
       when(() => logger.progress(any())).thenReturn(progress);
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => packageVersion);
-      when(() => pubUpdater.update(packageName: any(named: 'packageName')))
-          .thenAnswer((_) async => ProcessResult(0, 0, '', ''));
+      when(() => pubUpdater.getLatestVersion(any())).thenAnswer((_) async => packageVersion);
+      when(
+        () => pubUpdater.update(packageName: any(named: 'packageName')),
+      ).thenAnswer((_) async => ProcessResult(0, 0, '', ''));
     });
 
     test('can be instantiated', () {
@@ -38,8 +38,7 @@ void main() {
     });
 
     test('handles software error when checking for updates fails', () async {
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenThrow(Exception('oops'));
+      when(() => pubUpdater.getLatestVersion(any())).thenThrow(Exception('oops'));
 
       final result = await command.run();
 
@@ -49,10 +48,8 @@ void main() {
     });
 
     test('handles software error when update fails', () async {
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => '9.9.9');
-      when(() => pubUpdater.update(packageName: any(named: 'packageName')))
-          .thenThrow(Exception('oops'));
+      when(() => pubUpdater.getLatestVersion(any())).thenAnswer((_) async => '9.9.9');
+      when(() => pubUpdater.update(packageName: any(named: 'packageName'))).thenThrow(Exception('oops'));
 
       final result = await command.run();
 
@@ -62,27 +59,26 @@ void main() {
     });
 
     test('logs message when already at latest version', () async {
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => packageVersion);
+      when(() => pubUpdater.getLatestVersion(any())).thenAnswer((_) async => packageVersion);
 
       final result = await command.run();
 
       expect(result, equals(ExitCode.success.code));
-      verify(() => logger.info('CLI is already at the latest version.'))
-          .called(1);
-      verifyNever(
-          () => pubUpdater.update(packageName: any(named: 'packageName')));
+      verify(() => logger.info('CLI is already at the latest version.')).called(1);
+      verifyNever(() => pubUpdater.update(packageName: any(named: 'packageName')));
     });
 
     test('updates to latest version', () async {
-      when(() => pubUpdater.isUpToDate(
-            packageName: any(named: 'packageName'),
-            currentVersion: any(named: 'currentVersion'),
-          )).thenAnswer((_) async => false);
-      when(() => pubUpdater.getLatestVersion(any()))
-          .thenAnswer((_) async => '9.9.9');
-      when(() => pubUpdater.update(packageName: any(named: 'packageName')))
-          .thenAnswer((_) async => ProcessResult(0, 0, '', ''));
+      when(
+        () => pubUpdater.isUpToDate(
+          packageName: any(named: 'packageName'),
+          currentVersion: any(named: 'currentVersion'),
+        ),
+      ).thenAnswer((_) async => false);
+      when(() => pubUpdater.getLatestVersion(any())).thenAnswer((_) async => '9.9.9');
+      when(
+        () => pubUpdater.update(packageName: any(named: 'packageName')),
+      ).thenAnswer((_) async => ProcessResult(0, 0, '', ''));
 
       final result = await command.run();
 

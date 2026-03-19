@@ -29,15 +29,9 @@ void main() {
       serverToClientController = StreamController<List<int>>.broadcast();
 
       // Set up transports
-      clientTransport = IOStreamTransport(
-        stream: serverToClientController.stream,
-        sink: clientToServerController.sink,
-      );
+      clientTransport = IOStreamTransport(stream: serverToClientController.stream, sink: clientToServerController.sink);
 
-      serverTransport = IOStreamTransport(
-        stream: clientToServerController.stream,
-        sink: serverToClientController.sink,
-      );
+      serverTransport = IOStreamTransport(stream: clientToServerController.stream, sink: serverToClientController.sink);
 
       // Reset state tracking
       serverCloseCompleter = Completer<void>();
@@ -90,10 +84,7 @@ void main() {
     });
 
     // Helper to send a properly formatted message directly to a stream controller
-    void sendRawJsonMessage(
-      StreamController<List<int>> controller,
-      JsonRpcMessage message,
-    ) {
+    void sendRawJsonMessage(StreamController<List<int>> controller, JsonRpcMessage message) {
       final jsonString = "${jsonEncode(message.toJson())}\n";
       controller.add(utf8.encode(jsonString));
     }
@@ -190,22 +181,14 @@ void main() {
       };
 
       // Send client -> server
-      sendRawJsonMessage(
-        clientToServerController,
-        const JsonRpcPingRequest(id: 3),
-      );
+      sendRawJsonMessage(clientToServerController, const JsonRpcPingRequest(id: 3));
 
       // Send server -> client
-      sendRawJsonMessage(
-        serverToClientController,
-        const JsonRpcPingRequest(id: 4),
-      );
+      sendRawJsonMessage(serverToClientController, const JsonRpcPingRequest(id: 4));
 
       // Wait for both messages to be received
-      final serverMsg =
-          await serverReceived.future.timeout(const Duration(seconds: 2));
-      final clientMsg =
-          await clientReceived.future.timeout(const Duration(seconds: 2));
+      final serverMsg = await serverReceived.future.timeout(const Duration(seconds: 2));
+      final clientMsg = await clientReceived.future.timeout(const Duration(seconds: 2));
 
       // Verify both messages
       expect(serverMsg, isA<JsonRpcPingRequest>());
@@ -246,8 +229,7 @@ void main() {
       expect(receivedMessages.length, expectedMessageCount);
 
       // Check all expected IDs are present
-      final receivedIds =
-          receivedMessages.map((msg) => (msg as JsonRpcPingRequest).id).toSet();
+      final receivedIds = receivedMessages.map((msg) => (msg as JsonRpcPingRequest).id).toSet();
 
       for (int i = 0; i < expectedMessageCount; i++) {
         expect(receivedIds, contains(i));
@@ -292,16 +274,12 @@ void main() {
       };
 
       // Send a valid message
-      sendRawJsonMessage(
-        clientToServerController,
-        const JsonRpcPingRequest(id: 7),
-      );
+      sendRawJsonMessage(clientToServerController, const JsonRpcPingRequest(id: 7));
 
       // Wait for valid message to be received
       final validMessage = await validMessageReceived.future.timeout(
         const Duration(seconds: 2),
-        onTimeout: () =>
-            throw TimeoutException('Valid message not received after error'),
+        onTimeout: () => throw TimeoutException('Valid message not received after error'),
       );
 
       // Verify message received correctly
@@ -321,10 +299,7 @@ void main() {
       await serverTransport.close();
 
       // Attempt to send message from closed transport should throw
-      expect(
-        () => serverTransport.send(const JsonRpcPingRequest(id: 8)),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => serverTransport.send(const JsonRpcPingRequest(id: 8)), throwsA(isA<StateError>()));
     });
 
     test('Partial JSON messages are buffered until complete', () async {
@@ -357,8 +332,7 @@ void main() {
       clientToServerController.add(partTwo);
       final receivedMessage = await messageReceived.future.timeout(
         const Duration(seconds: 2),
-        onTimeout: () =>
-            throw TimeoutException('Complete message not received'),
+        onTimeout: () => throw TimeoutException('Complete message not received'),
       );
 
       // Verify message was received correctly
@@ -385,10 +359,7 @@ void main() {
       };
 
       // Send a message to trigger the error
-      sendRawJsonMessage(
-        clientToServerController,
-        const JsonRpcPingRequest(id: 10),
-      );
+      sendRawJsonMessage(clientToServerController, const JsonRpcPingRequest(id: 10));
 
       // Wait for the error to be reported
       final reportedError = await errorReported.future.timeout(
@@ -431,16 +402,12 @@ void main() {
       };
 
       // Send a valid message
-      sendRawJsonMessage(
-        clientToServerController,
-        const JsonRpcPingRequest(id: 11),
-      );
+      sendRawJsonMessage(clientToServerController, const JsonRpcPingRequest(id: 11));
 
       // Wait for valid message to be received, showing transport still works
       final validMessage = await validMessageReceived.future.timeout(
         const Duration(seconds: 2),
-        onTimeout: () =>
-            throw TimeoutException('Valid message not received after error'),
+        onTimeout: () => throw TimeoutException('Valid message not received after error'),
       );
 
       // Verify message received correctly

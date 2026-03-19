@@ -81,10 +81,7 @@ class _AppState extends State<App> {
       }.toJS,
     );
 
-    _scrollObserver!.observe(
-      console,
-      web.MutationObserverInit(childList: true, subtree: true),
-    );
+    _scrollObserver!.observe(console, web.MutationObserverInit(childList: true, subtree: true));
   }
 
   void _setupEventListener() {
@@ -115,9 +112,7 @@ class _AppState extends State<App> {
         case PromptGetEvent(:final result):
           _promptResult = result;
         case LogEvent(:final level, :final message, :final timestamp):
-          _logs.add(
-            LogEntry(level: level, message: message, timestamp: timestamp),
-          );
+          _logs.add(LogEntry(level: level, message: message, timestamp: timestamp));
         case TaskCreatedEvent(:final task):
           _addLog(McpLogLevel.info, 'Task created: ${task.taskId}');
           _listTasks(); // Refresh tasks
@@ -145,9 +140,7 @@ class _AppState extends State<App> {
   }
 
   void _addLog(McpLogLevel level, String message) {
-    _logs.add(
-      LogEntry(level: level, message: message, timestamp: DateTime.now()),
-    );
+    _logs.add(LogEntry(level: level, message: message, timestamp: DateTime.now()));
     // Keep only last 100 logs
     if (_logs.length > 100) {
       _logs.removeAt(0);
@@ -265,9 +258,7 @@ class _AppState extends State<App> {
     final pending = _pendingElicitation;
     if (pending == null) return;
 
-    pending.completer.complete(
-      ElicitResult(action: 'accept', content: {'confirm': confirmed}),
-    );
+    pending.completer.complete(ElicitResult(action: 'accept', content: {'confirm': confirmed}));
 
     setState(() {
       _pendingElicitation = null;
@@ -337,11 +328,7 @@ class _AppState extends State<App> {
           h1([Component.text('MCP Jaspr Client')]),
           div(classes: 'header-actions', [
             if (_connectionState == McpConnectionState.connected)
-              button(
-                classes: 'btn btn-small btn-secondary',
-                onClick: _ping,
-                [Component.text('Ping')],
-              ),
+              button(classes: 'btn btn-small btn-secondary', onClick: _ping, [Component.text('Ping')]),
             _buildConnectionStatus(),
           ]),
         ]),
@@ -384,16 +371,8 @@ class _AppState extends State<App> {
               readingResourceUri: _readingResourceUri?.toString(),
               resourceContent: _resourceContent,
             ),
-            AppTab.prompts => PromptsPanel(
-              prompts: _prompts,
-              onGetPrompt: _getPrompt,
-              promptResult: _promptResult,
-            ),
-            AppTab.tasks => TasksPanel(
-              tasks: _tasks,
-              onCancelTask: _cancelTask,
-              onRefresh: _listTasks,
-            ),
+            AppTab.prompts => PromptsPanel(prompts: _prompts, onGetPrompt: _getPrompt, promptResult: _promptResult),
+            AppTab.tasks => TasksPanel(tasks: _tasks, onCancelTask: _cancelTask, onRefresh: _listTasks),
           },
         ]),
       ]),
@@ -496,11 +475,7 @@ class LogEntry {
   final String message;
   final DateTime timestamp;
 
-  const LogEntry({
-    required this.level,
-    required this.message,
-    required this.timestamp,
-  });
+  const LogEntry({required this.level, required this.message, required this.timestamp});
 
   String get formattedTime {
     return '${timestamp.hour.toString().padLeft(2, '0')}:'

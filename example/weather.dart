@@ -17,10 +17,7 @@ Future<Map<String, dynamic>?> makeNWSRequest(String url) async {
 
     final response = await request.close();
     if (response.statusCode != 200) {
-      throw HttpException(
-        "HTTP error! status: ${response.statusCode}",
-        uri: Uri.parse(url),
-      );
+      throw HttpException("HTTP error! status: ${response.statusCode}", uri: Uri.parse(url));
     }
 
     final responseBody = await response.transform(utf8.decoder).join();
@@ -47,53 +44,38 @@ String formatAlert(Map<String, dynamic> feature) {
 }
 
 void main() async {
-  final server =
-      McpServer(const Implementation(name: "weather", version: "1.0.0"));
+  final server = McpServer(const Implementation(name: "weather", version: "1.0.0"));
 
   // Register "get-alerts" tool
   server.registerTool(
     "get-alerts",
     description: "Get weather alerts for a state",
     inputSchema: JsonSchema.object(
-      properties: {
-        "state": JsonSchema.string(
-          description: "Two-letter state code (e.g. CA, NY)",
-        ),
-      },
+      properties: {"state": JsonSchema.string(description: "Two-letter state code (e.g. CA, NY)")},
       required: ["state"],
     ),
     callback: (args, extra) async {
       final state = (args['state'] as String?)?.toUpperCase();
       if (state == null || state.length != 2) {
-        return const CallToolResult(
-          content: [TextContent(text: "Invalid state code provided.")],
-          isError: true,
-        );
+        return const CallToolResult(content: [TextContent(text: "Invalid state code provided.")], isError: true);
       }
 
       final alertsUrl = "$nwsApiBase/alerts?area=$state";
       final alertsData = await makeNWSRequest(alertsUrl);
 
       if (alertsData == null) {
-        return CallToolResult.fromContent(
-          [const TextContent(text: "Failed to retrieve alerts data.")],
-        );
+        return CallToolResult.fromContent([const TextContent(text: "Failed to retrieve alerts data.")]);
       }
 
       final features = alertsData['features'] as List<dynamic>? ?? [];
       if (features.isEmpty) {
-        return CallToolResult.fromContent(
-          [TextContent(text: "No active alerts for $state.")],
-        );
+        return CallToolResult.fromContent([TextContent(text: "No active alerts for $state.")]);
       }
 
-      final formattedAlerts =
-          features.map((feature) => formatAlert(feature)).join("\n");
+      final formattedAlerts = features.map((feature) => formatAlert(feature)).join("\n");
       final alertsText = "Active alerts for $state:\n\n$formattedAlerts";
 
-      return CallToolResult.fromContent(
-        [TextContent(text: alertsText)],
-      );
+      return CallToolResult.fromContent([TextContent(text: alertsText)]);
     },
   );
 
@@ -103,12 +85,8 @@ void main() async {
     description: "Get weather forecast for a location",
     inputSchema: JsonSchema.object(
       properties: {
-        "latitude": JsonSchema.number(
-          description: "Latitude of the location",
-        ),
-        "longitude": JsonSchema.number(
-          description: "Longitude of the location",
-        ),
+        "latitude": JsonSchema.number(description: "Latitude of the location"),
+        "longitude": JsonSchema.number(description: "Longitude of the location"),
       },
       required: ["latitude", "longitude"],
     ),
@@ -117,72 +95,54 @@ void main() async {
       final longitude = args['longitude'] as num?;
 
       if (latitude == null || longitude == null) {
-        return const CallToolResult(
-          content: [TextContent(text: "Invalid latitude or longitude.")],
-          isError: true,
-        );
+        return const CallToolResult(content: [TextContent(text: "Invalid latitude or longitude.")], isError: true);
       }
 
-      final pointsUrl =
-          "$nwsApiBase/points/${latitude.toStringAsFixed(4)},${longitude.toStringAsFixed(4)}";
+      final pointsUrl = "$nwsApiBase/points/${latitude.toStringAsFixed(4)},${longitude.toStringAsFixed(4)}";
       final pointsData = await makeNWSRequest(pointsUrl);
 
       if (pointsData == null) {
-        return CallToolResult.fromContent(
-          [
-            TextContent(
-              text:
-                  "Failed to retrieve grid point data for coordinates: $latitude, $longitude. This location may not be supported by the NWS API (only US locations are supported).",
-            ),
-          ],
-        );
+        return CallToolResult.fromContent([
+          TextContent(
+            text:
+                "Failed to retrieve grid point data for coordinates: $latitude, $longitude. This location may not be supported by the NWS API (only US locations are supported).",
+          ),
+        ]);
       }
 
       final forecastUrl = pointsData['properties']?['forecast'] as String?;
       if (forecastUrl == null) {
-        return CallToolResult.fromContent(
-          [
-            const TextContent(
-              text: "Failed to get forecast URL from grid point data.",
-            ),
-          ],
-        );
+        return CallToolResult.fromContent([
+          const TextContent(text: "Failed to get forecast URL from grid point data."),
+        ]);
       }
 
       final forecastData = await makeNWSRequest(forecastUrl);
       if (forecastData == null) {
-        return CallToolResult.fromContent(
-          [
-            const TextContent(text: "Failed to retrieve forecast data."),
-          ],
-        );
+        return CallToolResult.fromContent([const TextContent(text: "Failed to retrieve forecast data.")]);
       }
 
-      final periods =
-          forecastData['properties']?['periods'] as List<dynamic>? ?? [];
+      final periods = forecastData['properties']?['periods'] as List<dynamic>? ?? [];
       if (periods.isEmpty) {
-        return CallToolResult.fromContent(
-          [const TextContent(text: "No forecast periods available.")],
-        );
+        return CallToolResult.fromContent([const TextContent(text: "No forecast periods available.")]);
       }
 
-      final formattedForecast = periods.map((period) {
-        final periodMap = period as Map<String, dynamic>;
-        return [
-          "${periodMap['name'] ?? 'Unknown'}:",
-          "Temperature: ${periodMap['temperature'] ?? 'Unknown'}°${periodMap['temperatureUnit'] ?? 'F'}",
-          "Wind: ${periodMap['windSpeed'] ?? 'Unknown'} ${periodMap['windDirection'] ?? ''}",
-          "${periodMap['shortForecast'] ?? 'No forecast available'}",
-          "---",
-        ].join("\n");
-      }).join("\n");
+      final formattedForecast = periods
+          .map((period) {
+            final periodMap = period as Map<String, dynamic>;
+            return [
+              "${periodMap['name'] ?? 'Unknown'}:",
+              "Temperature: ${periodMap['temperature'] ?? 'Unknown'}°${periodMap['temperatureUnit'] ?? 'F'}",
+              "Wind: ${periodMap['windSpeed'] ?? 'Unknown'} ${periodMap['windDirection'] ?? ''}",
+              "${periodMap['shortForecast'] ?? 'No forecast available'}",
+              "---",
+            ].join("\n");
+          })
+          .join("\n");
 
-      final forecastText =
-          "Forecast for $latitude, $longitude:\n\n$formattedForecast";
+      final forecastText = "Forecast for $latitude, $longitude:\n\n$formattedForecast";
 
-      return CallToolResult.fromContent(
-        [TextContent(text: forecastText)],
-      );
+      return CallToolResult.fromContent([TextContent(text: forecastText)]);
     },
   );
 

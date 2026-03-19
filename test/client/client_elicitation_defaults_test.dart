@@ -23,11 +23,7 @@ class MockTransport extends Transport {
           id: message.id,
           result: const InitializeResult(
             protocolVersion: latestProtocolVersion,
-            capabilities: ServerCapabilities(
-              elicitation: ServerCapabilitiesElicitation(
-                form: ServerElicitationForm(),
-              ),
-            ),
+            capabilities: ServerCapabilities(elicitation: ServerCapabilitiesElicitation(form: ServerElicitationForm())),
             serverInfo: Implementation(name: 'MockServer', version: '1.0.0'),
           ).toJson(),
         ),
@@ -56,9 +52,7 @@ void main() {
         const Implementation(name: 'TestClient', version: '1.0.0'),
         options: const ClientOptions(
           capabilities: ClientCapabilities(
-            elicitation: ClientElicitation(
-              form: ClientElicitationForm(applyDefaults: true),
-            ),
+            elicitation: ClientElicitation(form: ClientElicitationForm(applyDefaults: true)),
           ),
         ),
       );
@@ -74,10 +68,7 @@ void main() {
 
         // Simulate user accepting with empty content, expecting defaults to be applied
         receivedContent = {};
-        return ElicitResult(
-          action: 'accept',
-          content: receivedContent!,
-        );
+        return ElicitResult(action: 'accept', content: receivedContent!);
       };
 
       // Simulate server sending an elicitation request with a schema and defaults
@@ -91,9 +82,7 @@ void main() {
               'age': JsonSchema.integer(defaultValue: 30),
               'address': JsonSchema.object(
                 defaultValue: const <String, dynamic>{},
-                properties: {
-                  'street': JsonSchema.string(defaultValue: 'Main St'),
-                },
+                properties: {'street': JsonSchema.string(defaultValue: 'Main St')},
               ),
             },
           ),
@@ -101,9 +90,7 @@ void main() {
       );
 
       transport.onmessage?.call(elicitRequest);
-      await Future.delayed(
-        const Duration(milliseconds: 10),
-      ); // Allow microtasks to run
+      await Future.delayed(const Duration(milliseconds: 10)); // Allow microtasks to run
 
       // Verify that defaults were applied to the `receivedContent`
       expect(receivedContent, isNotNull);
@@ -119,10 +106,7 @@ void main() {
       Map<String, dynamic>? receivedContent;
       client.onElicitRequest = (params) async {
         receivedContent = {'name': 'Jane Smith'};
-        return ElicitResult(
-          action: 'accept',
-          content: receivedContent!,
-        );
+        return ElicitResult(action: 'accept', content: receivedContent!);
       };
 
       final elicitRequest = JsonRpcElicitRequest(
@@ -142,10 +126,7 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 10));
 
       expect(receivedContent, isNotNull);
-      expect(
-        receivedContent!['name'],
-        equals('Jane Smith'),
-      ); // Should retain existing
+      expect(receivedContent!['name'], equals('Jane Smith')); // Should retain existing
       expect(receivedContent!['age'], equals(30)); // Default should be applied
     });
 
@@ -155,9 +136,7 @@ void main() {
         const Implementation(name: 'TestClient', version: '1.0.0'),
         options: const ClientOptions(
           capabilities: ClientCapabilities(
-            elicitation: ClientElicitation(
-              form: ClientElicitationForm(applyDefaults: false),
-            ),
+            elicitation: ClientElicitation(form: ClientElicitationForm(applyDefaults: false)),
           ),
         ),
       );
@@ -166,21 +145,14 @@ void main() {
       Map<String, dynamic>? receivedContent;
       client.onElicitRequest = (params) async {
         receivedContent = {};
-        return ElicitResult(
-          action: 'accept',
-          content: receivedContent!,
-        );
+        return ElicitResult(action: 'accept', content: receivedContent!);
       };
 
       final elicitRequest = JsonRpcElicitRequest(
         id: 1,
         elicitParams: ElicitRequestParams.form(
           message: 'Please provide details',
-          requestedSchema: JsonSchema.object(
-            properties: {
-              'name': JsonSchema.string(defaultValue: 'John Doe'),
-            },
-          ),
+          requestedSchema: JsonSchema.object(properties: {'name': JsonSchema.string(defaultValue: 'John Doe')}),
         ),
       );
 
@@ -188,10 +160,7 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 10));
 
       expect(receivedContent, isNotNull);
-      expect(
-        receivedContent!.containsKey('name'),
-        isFalse,
-      ); // Default should NOT be applied
+      expect(receivedContent!.containsKey('name'), isFalse); // Default should NOT be applied
     });
 
     test('does not apply defaults for url elicitation', () async {
@@ -200,11 +169,7 @@ void main() {
       Map<String, dynamic>? receivedContent;
       client.onElicitRequest = (params) async {
         receivedContent = {}; // No content for URL elicitation typically
-        return const ElicitResult(
-          action: 'accept',
-          url: 'http://example.com/form',
-          elicitationId: '123',
-        );
+        return const ElicitResult(action: 'accept', url: 'http://example.com/form', elicitationId: '123');
       };
 
       final elicitRequest = JsonRpcElicitRequest(

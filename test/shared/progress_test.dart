@@ -8,8 +8,7 @@ import 'package:test/test.dart';
 /// A mock transport implementation for testing the protocol layer
 class MockTransport implements Transport {
   final List<JsonRpcMessage> sentMessages = [];
-  final StreamController<JsonRpcMessage> _incomingMessages =
-      StreamController<JsonRpcMessage>.broadcast();
+  final StreamController<JsonRpcMessage> _incomingMessages = StreamController<JsonRpcMessage>.broadcast();
   bool _started = false;
   bool _closed = false;
   String? _sessionId;
@@ -91,8 +90,7 @@ class MockTransport implements Transport {
 
 /// A concrete implementation of Protocol for testing
 class TestProtocol extends Protocol {
-  TestProtocol([ProtocolOptions? options])
-      : super(options ?? const ProtocolOptions());
+  TestProtocol([ProtocolOptions? options]) : super(options ?? const ProtocolOptions());
 
   @override
   void assertCapabilityForMethod(String method) {}
@@ -193,9 +191,7 @@ void main() {
       await Future.delayed(Duration.zero);
 
       // 3. Simulate final response
-      transport.receiveMessage(
-        JsonRpcResponse(id: requestId, result: {'value': 'done'}),
-      );
+      transport.receiveMessage(JsonRpcResponse(id: requestId, result: {'value': 'done'}));
 
       final result = await requestFuture;
       expect(result.value, 'done');
@@ -210,33 +206,19 @@ void main() {
       expect(receivedProgress[1].message, 'Done');
     });
 
-    test('Server sends progress using RequestHandlerExtra.sendProgress',
-        () async {
+    test('Server sends progress using RequestHandlerExtra.sendProgress', () async {
       // 1. Setup server handler
-      protocol.setRequestHandler<JsonRpcRequest>(
-        'test/long-task',
-        (request, extra) async {
-          // Simulate work and send progress
-          await extra.sendProgress(10, total: 100, message: 'Starting');
-          await extra.sendProgress(100, total: 100, message: 'Finished');
-          return TestResult(value: 'success');
-        },
-        (id, params, meta) => JsonRpcRequest(
-          id: id,
-          method: 'test/long-task',
-          params: params,
-          meta: meta,
-        ),
-      );
+      protocol.setRequestHandler<JsonRpcRequest>('test/long-task', (request, extra) async {
+        // Simulate work and send progress
+        await extra.sendProgress(10, total: 100, message: 'Starting');
+        await extra.sendProgress(100, total: 100, message: 'Finished');
+        return TestResult(value: 'success');
+      }, (id, params, meta) => JsonRpcRequest(id: id, method: 'test/long-task', params: params, meta: meta));
 
       // 2. Simulate client sending a request with a progress token
       final progressToken = 12345;
       transport.receiveMessage(
-        JsonRpcRequest(
-          id: 99,
-          method: 'test/long-task',
-          meta: {'progressToken': progressToken},
-        ),
+        JsonRpcRequest(id: 99, method: 'test/long-task', meta: {'progressToken': progressToken}),
       );
 
       // Wait for async operations to complete (microtasks)
@@ -266,25 +248,14 @@ void main() {
 
     test('Server ignores sendProgress if no token provided', () async {
       // 1. Setup server handler
-      protocol.setRequestHandler<JsonRpcRequest>(
-        'test/no-token',
-        (request, extra) async {
-          // Should not crash, just do nothing or log warning
-          await extra.sendProgress(50);
-          return TestResult(value: 'ok');
-        },
-        (id, params, meta) => JsonRpcRequest(
-          id: id,
-          method: 'test/no-token',
-          params: params,
-          meta: meta,
-        ),
-      );
+      protocol.setRequestHandler<JsonRpcRequest>('test/no-token', (request, extra) async {
+        // Should not crash, just do nothing or log warning
+        await extra.sendProgress(50);
+        return TestResult(value: 'ok');
+      }, (id, params, meta) => JsonRpcRequest(id: id, method: 'test/no-token', params: params, meta: meta));
 
       // 2. Simulate client sending a request WITHOUT progress token
-      transport.receiveMessage(
-        const JsonRpcRequest(id: 100, method: 'test/no-token'),
-      );
+      transport.receiveMessage(const JsonRpcRequest(id: 100, method: 'test/no-token'));
 
       await Future.delayed(const Duration(milliseconds: 50));
 

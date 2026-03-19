@@ -32,8 +32,7 @@ abstract class BasePrompt {
   ///
   /// [args] contains the argument values provided by the client.
   /// Returns a [GetPromptResult] with the prompt messages.
-  FutureOr<GetPromptResult> getPrompt(
-      Map<String, dynamic>? args, RequestHandlerExtra? extra);
+  FutureOr<GetPromptResult> getPrompt(Map<String, dynamic>? args, RequestHandlerExtra? extra);
 }
 
 /// Extension to register prompts with an MCP server.

@@ -23,15 +23,12 @@ class MockTransport extends Transport {
           id: message.id,
           result: const InitializeResult(
             protocolVersion: latestProtocolVersion,
-            capabilities: ServerCapabilities(
-              tools: ServerCapabilitiesTools(),
-            ),
+            capabilities: ServerCapabilities(tools: ServerCapabilitiesTools()),
             serverInfo: Implementation(name: 'MockServer', version: '1.0.0'),
           ).toJson(),
         ),
       );
-    } else if (message is JsonRpcRequest &&
-        message.method == Method.toolsList) {
+    } else if (message is JsonRpcRequest && message.method == Method.toolsList) {
       _respond(
         JsonRpcResponse(
           id: message.id,
@@ -40,22 +37,12 @@ class MockTransport extends Transport {
               Tool(
                 name: 'validated_tool',
                 inputSchema: JsonSchema.object(properties: {}),
-                outputSchema: ToolOutputSchema(
-                  properties: {
-                    'result': JsonSchema.string(),
-                  },
-                  required: ['result'],
-                ),
+                outputSchema: ToolOutputSchema(properties: {'result': JsonSchema.string()}, required: ['result']),
               ),
               Tool(
                 name: 'broken_tool', // Tool that returns invalid data
                 inputSchema: const ToolInputSchema(),
-                outputSchema: ToolOutputSchema(
-                  properties: {
-                    'result': JsonSchema.string(),
-                  },
-                  required: ['result'],
-                ),
+                outputSchema: ToolOutputSchema(properties: {'result': JsonSchema.string()}, required: ['result']),
               ),
               const Tool(
                 name: 'task_required_tool',
@@ -66,25 +53,16 @@ class MockTransport extends Transport {
           ).toJson(),
         ),
       );
-    } else if (message is JsonRpcRequest &&
-        message.method == Method.toolsCall) {
+    } else if (message is JsonRpcRequest && message.method == Method.toolsCall) {
       final name = message.params?['name'];
       if (name == 'validated_tool') {
         _respond(
-          JsonRpcResponse(
-            id: message.id,
-            result: CallToolResult.fromStructuredContent({'result': 'success'})
-                .toJson(),
-          ),
+          JsonRpcResponse(id: message.id, result: CallToolResult.fromStructuredContent({'result': 'success'}).toJson()),
         );
       } else if (name == 'broken_tool') {
         // Returns data that violates the schema (missing 'result')
         _respond(
-          JsonRpcResponse(
-            id: message.id,
-            result: CallToolResult.fromStructuredContent({'wrong': 'field'})
-                .toJson(),
-          ),
+          JsonRpcResponse(id: message.id, result: CallToolResult.fromStructuredContent({'wrong': 'field'}).toJson()),
         );
       }
     }
@@ -107,18 +85,14 @@ void main() {
 
     setUp(() {
       transport = MockTransport();
-      client = Client(
-        const Implementation(name: 'TestClient', version: '1.0.0'),
-      );
+      client = Client(const Implementation(name: 'TestClient', version: '1.0.0'));
     });
 
     test('validates tool output schema successfully', () async {
       await client.connect(transport);
       await client.listTools();
 
-      final result = await client.callTool(
-        const CallToolRequest(name: 'validated_tool'),
-      );
+      final result = await client.callTool(const CallToolRequest(name: 'validated_tool'));
 
       expect(result.structuredContent?['result'], equals('success'));
     });
@@ -128,16 +102,8 @@ void main() {
       await client.listTools();
 
       expect(
-        () => client.callTool(
-          const CallToolRequest(name: 'broken_tool'),
-        ),
-        throwsA(
-          isA<McpError>().having(
-            (e) => e.message,
-            'message',
-            contains('Structured content does not match'),
-          ),
-        ),
+        () => client.callTool(const CallToolRequest(name: 'broken_tool')),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('Structured content does not match'))),
       );
     });
 
@@ -146,16 +112,8 @@ void main() {
       await client.listTools();
 
       expect(
-        () => client.callTool(
-          const CallToolRequest(name: 'task_required_tool'),
-        ),
-        throwsA(
-          isA<McpError>().having(
-            (e) => e.message,
-            'message',
-            contains('requires task-based execution'),
-          ),
-        ),
+        () => client.callTool(const CallToolRequest(name: 'task_required_tool')),
+        throwsA(isA<McpError>().having((e) => e.message, 'message', contains('requires task-based execution'))),
       );
     });
   });

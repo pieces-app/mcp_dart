@@ -29,12 +29,7 @@ class InMemoryTaskMessageQueue implements TaskMessageQueue {
   final Map<String, List<Completer<void>>> _waitResolvers = {};
 
   @override
-  Future<void> enqueue(
-    String taskId,
-    QueuedMessage message,
-    String? sessionId, [
-    int? maxSize,
-  ]) async {
+  Future<void> enqueue(String taskId, QueuedMessage message, String? sessionId, [int? maxSize]) async {
     final queue = _queues.putIfAbsent(taskId, () => []);
     queue.add(message);
     if (maxSize != null && queue.length > maxSize) {
@@ -51,10 +46,7 @@ class InMemoryTaskMessageQueue implements TaskMessageQueue {
   }
 
   @override
-  Future<List<QueuedMessage>> dequeueAll(
-    String taskId, [
-    String? sessionId,
-  ]) async {
+  Future<List<QueuedMessage>> dequeueAll(String taskId, [String? sessionId]) async {
     final queue = _queues.remove(taskId);
     return queue ?? [];
   }

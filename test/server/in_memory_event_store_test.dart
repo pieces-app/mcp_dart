@@ -46,10 +46,7 @@ void main() {
     });
 
     test('replayEventsAfter throws if event ID not found', () async {
-      expect(
-        () => store.replayEventsAfter('non-existent', send: (_, __) async {}),
-        throwsStateError,
-      );
+      expect(() => store.replayEventsAfter('non-existent', send: (_, __) async {}), throwsStateError);
     });
 
     test('replayEventsAfter handles multiple streams', () async {

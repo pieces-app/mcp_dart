@@ -9,10 +9,7 @@ void main() {
     test('throws StateError when process fails to start', () async {
       // Use a command that doesn't exist
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'nonexistent_command_that_does_not_exist_12345',
-          args: ['arg1'],
-        ),
+        const StdioServerParameters(command: 'nonexistent_command_that_does_not_exist_12345', args: ['arg1']),
       );
 
       expect(() => transport.start(), throwsA(isA<StateError>()));
@@ -20,11 +17,7 @@ void main() {
 
     test('throws StateError when started twice', () async {
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'sleep',
-          args: ['5'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'sleep', args: ['5'], stderrMode: io.ProcessStartMode.normal),
       );
 
       await transport.start();
@@ -36,48 +29,26 @@ void main() {
 
     test('send throws StateError when not started', () async {
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'echo',
-          args: ['test'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'echo', args: ['test'], stderrMode: io.ProcessStartMode.normal),
       );
 
-      expect(
-        () => transport.send(
-          const JsonRpcNotification(method: 'test', params: {}),
-        ),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => transport.send(const JsonRpcNotification(method: 'test', params: {})), throwsA(isA<StateError>()));
     });
 
     test('send throws StateError after close', () async {
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'sleep',
-          args: ['5'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'sleep', args: ['5'], stderrMode: io.ProcessStartMode.normal),
       );
 
       await transport.start();
       await transport.close();
 
-      expect(
-        () => transport.send(
-          const JsonRpcNotification(method: 'test', params: {}),
-        ),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => transport.send(const JsonRpcNotification(method: 'test', params: {})), throwsA(isA<StateError>()));
     });
 
     test('onclose callback is called when closing', () async {
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'sleep',
-          args: ['5'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'sleep', args: ['5'], stderrMode: io.ProcessStartMode.normal),
       );
 
       bool oncloseCalled = false;
@@ -93,11 +64,7 @@ void main() {
 
     test('sessionId is always null for stdio transport', () async {
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'sleep',
-          args: ['5'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'sleep', args: ['5'], stderrMode: io.ProcessStartMode.normal),
       );
 
       expect(transport.sessionId, isNull);
@@ -110,11 +77,7 @@ void main() {
 
     test('close does nothing if not started', () async {
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'echo',
-          args: ['test'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'echo', args: ['test'], stderrMode: io.ProcessStartMode.normal),
       );
 
       // Should not throw
@@ -123,11 +86,7 @@ void main() {
 
     test('stderr is accessible when stderrMode is normal', () async {
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'sleep',
-          args: ['5'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'sleep', args: ['5'], stderrMode: io.ProcessStartMode.normal),
       );
 
       await transport.start();
@@ -139,11 +98,7 @@ void main() {
 
     test('multiple close calls are safe', () async {
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'sleep',
-          args: ['5'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'sleep', args: ['5'], stderrMode: io.ProcessStartMode.normal),
       );
 
       await transport.start();
@@ -157,19 +112,13 @@ void main() {
     test('send writes message to process stdin', () async {
       // Use cat which echoes stdin to stdout
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'cat',
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'cat', stderrMode: io.ProcessStartMode.normal),
       );
 
       await transport.start();
 
       // Send a message - this tests that send doesn't throw
-      final notification = const JsonRpcNotification(
-        method: 'test',
-        params: {'data': 'hello'},
-      );
+      final notification = const JsonRpcNotification(method: 'test', params: {'data': 'hello'});
 
       // Should not throw
       await transport.send(notification);
@@ -179,11 +128,7 @@ void main() {
 
     test('onerror callback can be set', () async {
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'sleep',
-          args: ['5'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'sleep', args: ['5'], stderrMode: io.ProcessStartMode.normal),
       );
 
       transport.onerror = (error) {};
@@ -197,11 +142,7 @@ void main() {
 
     test('onmessage callback can be set', () async {
       final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'sleep',
-          args: ['5'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
+        const StdioServerParameters(command: 'sleep', args: ['5'], stderrMode: io.ProcessStartMode.normal),
       );
 
       transport.onmessage = (msg) {

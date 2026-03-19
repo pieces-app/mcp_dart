@@ -28,9 +28,7 @@ class ResourcesPanel extends StatelessComponent {
           p([Component.text('No resources available.')]),
         ])
       else
-        div(classes: 'resources-list', [
-          for (final resource in resources) _buildResourceItem(resource),
-        ]),
+        div(classes: 'resources-list', [for (final resource in resources) _buildResourceItem(resource)]),
       if (resourceContent != null)
         div(
           classes: 'output-panel',

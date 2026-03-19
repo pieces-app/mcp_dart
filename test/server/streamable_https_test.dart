@@ -163,9 +163,7 @@ void main() {
     test('initialization with stateful session management', () async {
       // Create a new transport with session management
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => "test-session-id",
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
       transports['/mcp'] = transport;
@@ -182,9 +180,7 @@ void main() {
     test('GET request establishes SSE stream', () async {
       // Create a transport with fixed session ID
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => "test-session-id",
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
       transports['/mcp'] = transport;
@@ -193,10 +189,7 @@ void main() {
       transport.sessionId = "test-session-id";
 
       // Create a notification to send via the SSE stream
-      final notification = const JsonRpcNotification(
-        method: 'test/notification',
-        params: {'message': 'hello'},
-      );
+      final notification = const JsonRpcNotification(method: 'test/notification', params: {'message': 'hello'});
 
       // Verify the transport can send messages without exceptions
       try {
@@ -208,55 +201,44 @@ void main() {
       await transport.close();
     });
 
-    test(
-      'POST request with JSON-RPC request triggers onmessage',
-      () async {
-        // Create a transport with session management
-        final transport = StreamableHTTPServerTransport(
-          options: StreamableHTTPServerTransportOptions(
-            sessionIdGenerator: () => "test-session-id",
-          ),
-        );
-        await transport.start();
-        transports['/mcp'] = transport;
+    test('POST request with JSON-RPC request triggers onmessage', () async {
+      // Create a transport with session management
+      final transport = StreamableHTTPServerTransport(
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
+      );
+      await transport.start();
+      transports['/mcp'] = transport;
 
-        transport.sessionId = "test-session-id";
+      transport.sessionId = "test-session-id";
 
-        // Set up message handler with completion tracker
-        final messageCompleter = Completer<JsonRpcMessage>();
-        transport.onmessage = (message) {
-          if (!messageCompleter.isCompleted) {
-            messageCompleter.complete(message);
-          }
-        };
+      // Set up message handler with completion tracker
+      final messageCompleter = Completer<JsonRpcMessage>();
+      transport.onmessage = (message) {
+        if (!messageCompleter.isCompleted) {
+          messageCompleter.complete(message);
+        }
+      };
 
-        // Create a test JSON-RPC request
-        final request = const JsonRpcRequest(
-          id: 123,
-          method: 'test/method',
-          params: {'data': 'test-data'},
-        );
+      // Create a test JSON-RPC request
+      final request = const JsonRpcRequest(id: 123, method: 'test/method', params: {'data': 'test-data'});
 
-        // Simulate message receipt
-        transport.onmessage?.call(request);
+      // Simulate message receipt
+      transport.onmessage?.call(request);
 
-        // Wait for message processing with timeout
-        final receivedMessage = await messageCompleter.future.timeout(
-          const Duration(seconds: 3),
-          onTimeout: () =>
-              throw TimeoutException('No message received within timeout'),
-        );
+      // Wait for message processing with timeout
+      final receivedMessage = await messageCompleter.future.timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => throw TimeoutException('No message received within timeout'),
+      );
 
-        // Verify message content
-        expect(receivedMessage, isA<JsonRpcRequest>());
-        expect((receivedMessage as JsonRpcRequest).id, equals(123));
-        expect(receivedMessage.method, equals('test/method'));
-        expect(receivedMessage.params?['data'], equals('test-data'));
+      // Verify message content
+      expect(receivedMessage, isA<JsonRpcRequest>());
+      expect((receivedMessage as JsonRpcRequest).id, equals(123));
+      expect(receivedMessage.method, equals('test/method'));
+      expect(receivedMessage.params?['data'], equals('test-data'));
 
-        await transport.close();
-      },
-      timeout: const Timeout(Duration(seconds: 5)),
-    );
+      await transport.close();
+    }, timeout: const Timeout(Duration(seconds: 5)));
 
     test('enableJsonResponse option is accepted', () async {
       // Create a transport with JSON response enabled
@@ -274,11 +256,7 @@ void main() {
       await transport.close();
 
       // If we reach here without exceptions, the test passes
-      expect(
-        true,
-        isTrue,
-        reason: "Transport successfully created with enableJsonResponse=true",
-      );
+      expect(true, isTrue, reason: "Transport successfully created with enableJsonResponse=true");
     });
 
     test('dns rebinding protection options are accepted', () async {
@@ -303,9 +281,7 @@ void main() {
     test('session validation works correctly', () async {
       // Create a transport with session management
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => "correct-session-id",
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "correct-session-id"),
       );
       await transport.start();
       transports['/mcp'] = transport;
@@ -322,11 +298,7 @@ void main() {
       };
 
       // Create test message and headers
-      final validRequest = const JsonRpcRequest(
-        id: 1,
-        method: 'test/method',
-        params: {'data': 'test-data'},
-      );
+      final validRequest = const JsonRpcRequest(id: 1, method: 'test/method', params: {'data': 'test-data'});
 
       final validHeaders = {
         'mcp-session-id': ['correct-session-id'],
@@ -349,8 +321,7 @@ void main() {
           fail("Invalid session ID check passed when it should fail");
         } else {
           // Expected behavior: session ID mismatch prevents processing
-          invalidMessageCompleter
-              .complete("Invalid session rejected correctly");
+          invalidMessageCompleter.complete("Invalid session rejected correctly");
         }
       }
 
@@ -364,8 +335,7 @@ void main() {
 
       final invalidResult = await invalidMessageCompleter.future.timeout(
         const Duration(seconds: 3),
-        onTimeout: () =>
-            throw TimeoutException('Invalid message test timed out'),
+        onTimeout: () => throw TimeoutException('Invalid message test timed out'),
       );
 
       // Verify message properties
@@ -427,16 +397,12 @@ void main() {
       // Store the messages in the event store
       final storedEventIds = <String>[];
       for (final message in messages) {
-        final eventId =
-            await eventStore.storeEvent(transport.sessionId!, message);
+        final eventId = await eventStore.storeEvent(transport.sessionId!, message);
         storedEventIds.add(eventId);
       }
 
       // Verify storage was successful
-      expect(
-        eventStore.events[transport.sessionId!]!.length,
-        equals(messages.length),
-      );
+      expect(eventStore.events[transport.sessionId!]!.length, equals(messages.length));
 
       // Resume from the first event
       final lastEventId = storedEventIds.first;
@@ -452,10 +418,7 @@ void main() {
       }
 
       // Perform event replay
-      final streamId = await eventStore.replayEventsAfter(
-        lastEventId,
-        send: sendFunction,
-      );
+      final streamId = await eventStore.replayEventsAfter(lastEventId, send: sendFunction);
 
       // Verify the session ID matches
       expect(streamId, equals(transport.sessionId));
@@ -475,15 +438,9 @@ void main() {
         final originalMessage = messages[i + 1]; // Skip the first message
 
         expect(replayedMessage, isA<JsonRpcRequest>());
-        expect(
-          (replayedMessage as JsonRpcRequest).method,
-          equals('initialize'),
-        );
+        expect((replayedMessage as JsonRpcRequest).method, equals('initialize'));
         expect(replayedMessage.id, equals(originalMessage.id));
-        expect(
-          replayedMessage.params!['clientInfo']['name'],
-          equals(originalMessage.params!['clientInfo']['name']),
-        );
+        expect(replayedMessage.params!['clientInfo']['name'], equals(originalMessage.params!['clientInfo']['name']));
       }
 
       await transport.close();
@@ -491,16 +448,11 @@ void main() {
 
     test('transport throws StateError when started twice', () async {
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => "test-session-id",
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
 
-      expect(
-        () => transport.start(),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => transport.start(), throwsA(isA<StateError>()));
 
       await transport.close();
     });
@@ -533,9 +485,7 @@ void main() {
     test('stateless mode allows requests without session validation', () async {
       // Stateless mode - sessionIdGenerator returns null
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => null,
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => null),
       );
       await transport.start();
       transports['/mcp'] = transport;
@@ -560,9 +510,7 @@ void main() {
         ),
       );
 
-      final message = await messageCompleter.future.timeout(
-        const Duration(seconds: 2),
-      );
+      final message = await messageCompleter.future.timeout(const Duration(seconds: 2));
 
       expect(message, isA<JsonRpcRequest>());
       expect(transport.sessionId, isNull);
@@ -572,9 +520,7 @@ void main() {
 
     test('close cleans up all resources', () async {
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => "test-session-id",
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
       transport.sessionId = "test-session-id";
@@ -589,45 +535,31 @@ void main() {
       expect(oncloseCalled, isTrue);
     });
 
-    test('send throws StateError for response on standalone SSE stream',
-        () async {
+    test('send throws StateError for response on standalone SSE stream', () async {
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => "test-session-id",
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
       transport.sessionId = "test-session-id";
 
       // Try to send a response without a request ID (standalone SSE)
-      final response = const JsonRpcResponse(
-        id: 123,
-        result: {'data': 'test'},
-      );
+      final response = const JsonRpcResponse(id: 123, result: {'data': 'test'});
 
       // This should throw because we can't send responses on standalone SSE
-      expect(
-        () => transport.send(response),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => transport.send(response), throwsA(isA<StateError>()));
 
       await transport.close();
     });
 
     test('send discards notifications when no standalone SSE stream', () async {
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => "test-session-id",
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
       transport.sessionId = "test-session-id";
 
       // Send notification without established SSE stream
-      final notification = const JsonRpcNotification(
-        method: 'test/notification',
-        params: {'message': 'hello'},
-      );
+      final notification = const JsonRpcNotification(method: 'test/notification', params: {'message': 'hello'});
 
       // This should not throw - notifications are discarded if no stream
       await transport.send(notification);
@@ -637,32 +569,22 @@ void main() {
 
     test('send throws StateError for unknown request ID', () async {
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => "test-session-id",
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
       transport.sessionId = "test-session-id";
 
       // Try to send a response for an unknown request ID
-      final response = const JsonRpcResponse(
-        id: 999,
-        result: {'data': 'test'},
-      );
+      final response = const JsonRpcResponse(id: 999, result: {'data': 'test'});
 
-      expect(
-        () => transport.send(response, relatedRequestId: 999),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => transport.send(response, relatedRequestId: 999), throwsA(isA<StateError>()));
 
       await transport.close();
     });
 
     test('onerror callback is invoked on errors', () async {
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => "test-session-id",
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
 
@@ -678,12 +600,7 @@ void main() {
 
       // Try to trigger the error through a simulated message
       try {
-        transport.onmessage?.call(
-          const JsonRpcNotification(
-            method: 'test',
-            params: {},
-          ),
-        );
+        transport.onmessage?.call(const JsonRpcNotification(method: 'test', params: {}));
       } catch (e) {
         // Expected
       }
@@ -691,10 +608,7 @@ void main() {
       // Note: onerror is called internally when handlers throw in POST handling
       // Direct onmessage throws are caught in the test itself
       // The variable is captured but may not be set when throwing directly
-      expect(
-        receivedError,
-        isNull,
-      ); // Not called when we throw directly in handler
+      expect(receivedError, isNull); // Not called when we throw directly in handler
 
       await transport.close();
     });
@@ -717,19 +631,14 @@ void main() {
       final eventStore = TestEventStore();
 
       expect(
-        () => eventStore.replayEventsAfter(
-          'unknown-event-id',
-          send: (eventId, message) async {},
-        ),
+        () => eventStore.replayEventsAfter('unknown-event-id', send: (eventId, message) async {}),
         throwsA(isA<Exception>()),
       );
     });
 
     test('transport handles notifications-only POST with 202', () async {
       final transport = StreamableHTTPServerTransport(
-        options: StreamableHTTPServerTransportOptions(
-          sessionIdGenerator: () => "test-session-id",
-        ),
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
       transports['/mcp'] = transport;
@@ -741,12 +650,7 @@ void main() {
       };
 
       // Call onmessage with a notification
-      transport.onmessage?.call(
-        const JsonRpcNotification(
-          method: 'test/notification',
-          params: {'data': 'value'},
-        ),
-      );
+      transport.onmessage?.call(const JsonRpcNotification(method: 'test/notification', params: {'data': 'value'}));
 
       expect(messages.length, equals(1));
       expect(messages.first, isA<JsonRpcNotification>());

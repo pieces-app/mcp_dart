@@ -43,8 +43,7 @@ class SseServerManager {
   Future<void> handleRequest(HttpRequest request) async {
     _logger.debug("Received request: ${request.method} ${request.uri.path}");
 
-    if (enableDnsRebindingProtection &&
-        !_isRequestAllowedByDnsRebindingProtection(request)) {
+    if (enableDnsRebindingProtection && !_isRequestAllowedByDnsRebindingProtection(request)) {
       request.response
         ..statusCode = HttpStatus.forbidden
         ..write('Forbidden: blocked by DNS rebinding protection');
@@ -75,19 +74,14 @@ class SseServerManager {
     SseServerTransport? transport;
 
     try {
-      transport = SseServerTransport(
-        response: request.response,
-        messageEndpointPath: messagePath,
-      );
+      transport = SseServerTransport(response: request.response, messageEndpointPath: messagePath);
 
       final sessionId = transport.sessionId;
       activeSseTransports[sessionId] = transport;
       _logger.debug("Stored new SSE transport for session: $sessionId");
 
       transport.onclose = () {
-        _logger.debug(
-          "SSE transport closed (Session: $sessionId). Removing from active list.",
-        );
+        _logger.debug("SSE transport closed (Session: $sessionId). Removing from active list.");
         activeSseTransports.remove(sessionId);
       };
 
@@ -146,10 +140,7 @@ class SseServerManager {
   }
 
   /// Sends a 405 Method Not Allowed response.
-  Future<void> _sendMethodNotAllowed(
-    HttpRequest request,
-    List<String> allowedMethods,
-  ) async {
+  Future<void> _sendMethodNotAllowed(HttpRequest request, List<String> allowedMethods) async {
     request.response
       ..statusCode = HttpStatus.methodNotAllowed
       ..headers.set(HttpHeaders.allowHeader, allowedMethods.join(', '))
@@ -180,8 +171,7 @@ class SseServerManager {
     final configuredOrigins = _normalizedAllowedOrigins();
     if (configuredOrigins != null) {
       final normalizedOrigin = _normalizeOrigin(originHeader);
-      return normalizedOrigin != null &&
-          configuredOrigins.contains(normalizedOrigin);
+      return normalizedOrigin != null && configuredOrigins.contains(normalizedOrigin);
     }
 
     final originUri = Uri.tryParse(originHeader);
@@ -199,11 +189,7 @@ class SseServerManager {
       return configuredHosts.map(_extractHost).toSet();
     }
 
-    return {
-      'localhost',
-      '127.0.0.1',
-      '::1',
-    };
+    return {'localhost', '127.0.0.1', '::1'};
   }
 
   Set<String>? _normalizedAllowedOrigins() {
@@ -254,9 +240,7 @@ class SseServerManager {
 
   String? _normalizeOrigin(String origin) {
     final parsedUri = Uri.tryParse(origin.trim());
-    if (parsedUri == null ||
-        parsedUri.scheme.isEmpty ||
-        parsedUri.host.isEmpty) {
+    if (parsedUri == null || parsedUri.scheme.isEmpty || parsedUri.host.isEmpty) {
       return null;
     }
 
