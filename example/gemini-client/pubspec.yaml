@@ -6,6 +6,7 @@ publish_to: none
 environment:
   sdk: ^3.7.2
 
+
 # Add regular dependencies here.
 dependencies:
   mcp_dart:
