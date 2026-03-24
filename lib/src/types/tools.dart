@@ -75,14 +75,14 @@ class ToolAnnotations {
   }
 
   Map<String, dynamic> toJson() => {
-        'title': title,
-        'readOnlyHint': readOnlyHint,
-        'destructiveHint': destructiveHint,
-        'idempotentHint': idempotentHint,
-        'openWorldHint': openWorldHint,
-        if (priority != null) 'priority': priority,
-        if (audience != null) 'audience': audience,
-      };
+    'title': title,
+    'readOnlyHint': readOnlyHint,
+    'destructiveHint': destructiveHint,
+    'idempotentHint': idempotentHint,
+    'openWorldHint': openWorldHint,
+    if (priority != null) 'priority': priority,
+    if (audience != null) 'audience': audience,
+  };
 }
 
 /// Describes how the tool should be executed.
@@ -97,14 +97,10 @@ class ToolExecution {
   const ToolExecution({this.taskSupport = 'forbidden'});
 
   factory ToolExecution.fromJson(Map<String, dynamic> json) {
-    return ToolExecution(
-      taskSupport: json['taskSupport'] as String? ?? 'forbidden',
-    );
+    return ToolExecution(taskSupport: json['taskSupport'] as String? ?? 'forbidden');
   }
 
-  Map<String, dynamic> toJson() => {
-        'taskSupport': taskSupport,
-      };
+  Map<String, dynamic> toJson() => {'taskSupport': taskSupport};
 }
 
 /// Definition for a tool that the client can call.
@@ -152,42 +148,31 @@ class Tool {
     return Tool(
       name: json['name'] as String,
       description: json['description'] as String?,
-      inputSchema: JsonSchema.fromJson(
-        json['inputSchema'] as Map<String, dynamic>,
-      ),
+      inputSchema: JsonSchema.fromJson(json['inputSchema'] as Map<String, dynamic>),
       outputSchema: json['outputSchema'] != null
           ? JsonSchema.fromJson(json['outputSchema'] as Map<String, dynamic>)
           : null,
       annotations: json['annotations'] != null
-          ? ToolAnnotations.fromJson(
-              json['annotations'] as Map<String, dynamic>,
-            )
+          ? ToolAnnotations.fromJson(json['annotations'] as Map<String, dynamic>)
           : null,
       meta: json['_meta'] as Map<String, dynamic>?,
-      execution: json['execution'] != null
-          ? ToolExecution.fromJson(json['execution'] as Map<String, dynamic>)
-          : null,
-      icon: json['icon'] != null
-          ? ImageContent.fromJson(json['icon'] as Map<String, dynamic>)
-          : null,
-      icons: (json['icons'] as List<dynamic>?)
-          ?.map((e) => McpIcon.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      execution: json['execution'] != null ? ToolExecution.fromJson(json['execution'] as Map<String, dynamic>) : null,
+      icon: json['icon'] != null ? ImageContent.fromJson(json['icon'] as Map<String, dynamic>) : null,
+      icons: (json['icons'] as List<dynamic>?)?.map((e) => McpIcon.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        if (description != null) 'description': description,
-        'inputSchema': inputSchema.toJson(),
-        if (outputSchema != null) 'outputSchema': outputSchema!.toJson(),
-        if (annotations != null) 'annotations': annotations!.toJson(),
-        if (meta != null) '_meta': meta,
-        if (execution != null) 'execution': execution!.toJson(),
-        if (icon != null) 'icon': icon!.toJson(),
-        if (icons != null)
-          'icons': icons!.map((icon) => icon.toJson()).toList(),
-      };
+    'name': name,
+    if (description != null) 'description': description,
+    'inputSchema': inputSchema.toJson(),
+    if (outputSchema != null) 'outputSchema': outputSchema!.toJson(),
+    if (annotations != null) 'annotations': annotations!.toJson(),
+    if (meta != null) '_meta': meta,
+    if (execution != null) 'execution': execution!.toJson(),
+    if (icon != null) 'icon': icon!.toJson(),
+    if (icons != null) 'icons': icons!.map((icon) => icon.toJson()).toList(),
+  };
 }
 
 /// A request to list available tools.
@@ -198,14 +183,10 @@ class ListToolsRequest {
   const ListToolsRequest({this.cursor});
 
   factory ListToolsRequest.fromJson(Map<String, dynamic> json) {
-    return ListToolsRequest(
-      cursor: json['cursor'] as String?,
-    );
+    return ListToolsRequest(cursor: json['cursor'] as String?);
   }
 
-  Map<String, dynamic> toJson() => {
-        if (cursor != null) 'cursor': cursor,
-      };
+  Map<String, dynamic> toJson() => {if (cursor != null) 'cursor': cursor};
 }
 
 @Deprecated('Use [ListToolsRequest] instead.')
@@ -223,17 +204,11 @@ class ListToolsResult implements BaseResultData {
   @override
   final Map<String, dynamic>? meta;
 
-  const ListToolsResult({
-    required this.tools,
-    this.nextCursor,
-    this.meta,
-  });
+  const ListToolsResult({required this.tools, this.nextCursor, this.meta});
 
   factory ListToolsResult.fromJson(Map<String, dynamic> json) {
     return ListToolsResult(
-      tools: (json['tools'] as List<dynamic>)
-          .map((e) => Tool.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      tools: (json['tools'] as List<dynamic>).map((e) => Tool.fromJson(e as Map<String, dynamic>)).toList(),
       nextCursor: json['nextCursor'] as String?,
       meta: json['_meta'] as Map<String, dynamic>?,
     );
@@ -241,10 +216,10 @@ class ListToolsResult implements BaseResultData {
 
   @override
   Map<String, dynamic> toJson() => {
-        'tools': tools.map((e) => e.toJson()).toList(),
-        if (nextCursor != null) 'nextCursor': nextCursor,
-        if (meta != null) '_meta': meta,
-      };
+    'tools': tools.map((e) => e.toJson()).toList(),
+    if (nextCursor != null) 'nextCursor': nextCursor,
+    if (meta != null) '_meta': meta,
+  };
 }
 
 @Deprecated('Use [CallToolRequest] instead.')
@@ -258,10 +233,7 @@ class CallToolRequest {
   /// The arguments to pass to the tool.
   final Map<String, dynamic> arguments;
 
-  const CallToolRequest({
-    required this.name,
-    this.arguments = const {},
-  });
+  const CallToolRequest({required this.name, this.arguments = const {}});
 
   factory CallToolRequest.fromJson(Map<String, dynamic> json) {
     return CallToolRequest(
@@ -270,10 +242,7 @@ class CallToolRequest {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'arguments': arguments,
-      };
+  Map<String, dynamic> toJson() => {'name': name, 'arguments': arguments};
 }
 
 /// The server's response to a [CallToolRequest].
@@ -294,13 +263,7 @@ class CallToolResult implements BaseResultData {
   /// Additional properties merged into the result object.
   final Map<String, dynamic>? extra;
 
-  const CallToolResult({
-    required this.content,
-    this.isError = false,
-    this.structuredContent,
-    this.meta,
-    this.extra,
-  });
+  const CallToolResult({required this.content, this.isError = false, this.structuredContent, this.meta, this.extra});
 
   /// Creates a result from a list of content items.
   factory CallToolResult.fromContent(List<Content> content) {
@@ -321,14 +284,11 @@ class CallToolResult implements BaseResultData {
 
   factory CallToolResult.fromJson(Map<String, dynamic> json) {
     final knownKeys = {'content', 'isError', '_meta', 'structuredContent'};
-    final extra = Map<String, dynamic>.from(json)
-      ..removeWhere((key, value) => knownKeys.contains(key));
+    final extra = Map<String, dynamic>.from(json)..removeWhere((key, value) => knownKeys.contains(key));
 
     return CallToolResult(
-      content: (json['content'] as List<dynamic>?)
-              ?.map((e) => Content.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      content:
+          (json['content'] as List<dynamic>?)?.map((e) => Content.fromJson(e as Map<String, dynamic>)).toList() ?? [],
       isError: json['isError'] as bool? ?? false,
       structuredContent: json['structuredContent'] as Map<String, dynamic>?,
       meta: json['_meta'] as Map<String, dynamic>?,
@@ -338,21 +298,18 @@ class CallToolResult implements BaseResultData {
 
   @override
   Map<String, dynamic> toJson() => {
-        'content': content.map((e) => e.toJson()).toList(),
-        if (isError) 'isError': isError,
-        if (structuredContent != null) 'structuredContent': structuredContent,
-        if (meta != null) '_meta': meta,
-        ...?extra,
-      };
+    'content': content.map((e) => e.toJson()).toList(),
+    if (isError) 'isError': isError,
+    if (structuredContent != null) 'structuredContent': structuredContent,
+    if (meta != null) '_meta': meta,
+    ...?extra,
+  };
 }
 
 /// Notification from server indicating the list of available tools has changed.
 class JsonRpcToolListChangedNotification extends JsonRpcNotification {
-  const JsonRpcToolListChangedNotification()
-      : super(method: Method.notificationsToolsListChanged);
+  const JsonRpcToolListChangedNotification() : super(method: Method.notificationsToolsListChanged);
 
-  factory JsonRpcToolListChangedNotification.fromJson(
-    Map<String, dynamic> json,
-  ) =>
+  factory JsonRpcToolListChangedNotification.fromJson(Map<String, dynamic> json) =>
       const JsonRpcToolListChangedNotification();
 }

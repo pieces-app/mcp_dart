@@ -27,27 +27,15 @@ class ElicitationDialog extends StatelessComponent {
       div(classes: 'dialog', [
         div(classes: 'dialog-header', [
           h3([Component.text('Server Request')]),
-          button(
-            classes: 'btn-close',
-            onClick: onCancel,
-            [Component.text('×')],
-          ),
+          button(classes: 'btn-close', onClick: onCancel, [Component.text('×')]),
         ]),
         div(classes: 'dialog-content', [
           div(classes: 'dialog-icon elicitation-icon', [Component.text('?')]),
           p(classes: 'dialog-message', [Component.text(message)]),
         ]),
         div(classes: 'dialog-actions', [
-          button(
-            classes: 'btn btn-secondary',
-            onClick: onDecline,
-            [Component.text('No')],
-          ),
-          button(
-            classes: 'btn btn-primary',
-            onClick: onConfirm,
-            [Component.text('Yes')],
-          ),
+          button(classes: 'btn btn-secondary', onClick: onDecline, [Component.text('No')]),
+          button(classes: 'btn btn-primary', onClick: onConfirm, [Component.text('Yes')]),
         ]),
       ]),
     ]);

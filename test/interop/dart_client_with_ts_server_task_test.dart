@@ -5,19 +5,15 @@ import 'package:path/path.dart' as p;
 
 void main() {
   // Locate the TS server (compiled JS version)
-  final defaultTsPath =
-      p.join(io.Directory.current.path, 'test/interop/ts/dist/server.js');
-  final tsServerScript =
-      io.Platform.environment['TS_INTEROP_SERVER_CMD'] ?? defaultTsPath;
+  final defaultTsPath = p.join(io.Directory.current.path, 'test/interop/ts/dist/server.js');
+  final tsServerScript = io.Platform.environment['TS_INTEROP_SERVER_CMD'] ?? defaultTsPath;
 
   // Check if we should skip
   final skipTests = !io.File(tsServerScript).existsSync();
 
   group('TS Interop - Tasks', () {
     if (skipTests) {
-      print(
-        'Skipping TS Interop tasks tests: TS server not found at $tsServerScript',
-      );
+      print('Skipping TS Interop tasks tests: TS server not found at $tsServerScript');
       return;
     }
 
@@ -38,9 +34,7 @@ void main() {
       // 2. Create the Client instance
       client = McpClient(
         const Implementation(name: 'dart-task-test', version: '1.0'),
-        options: const McpClientOptions(
-          capabilities: ClientCapabilities(),
-        ),
+        options: const McpClientOptions(capabilities: ClientCapabilities()),
       );
 
       // 3. Wrap with TaskClient

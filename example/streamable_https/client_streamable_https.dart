@@ -28,27 +28,17 @@ Future<void> main() async {
 
 void printHelp() {
   print('\nAvailable commands:');
-  print(
-    '  connect [url]              - Connect to MCP server (default: http://localhost:3000/mcp)',
-  );
+  print('  connect [url]              - Connect to MCP server (default: http://localhost:3000/mcp)');
   print('  disconnect                 - Disconnect from server');
   print('  terminate-session          - Terminate the current session');
   print('  reconnect                  - Reconnect to the server');
   print('  list-tools                 - List available tools');
-  print(
-    '  call-tool <name> [args]    - Call a tool with optional JSON arguments',
-  );
+  print('  call-tool <name> [args]    - Call a tool with optional JSON arguments');
   print('  greet [name]               - Call the greet tool');
-  print(
-    '  multi-greet [name]         - Call the multi-greet tool with notifications',
-  );
-  print(
-    '  start-notifications [interval] [count] - Start periodic notifications',
-  );
+  print('  multi-greet [name]         - Call the multi-greet tool with notifications');
+  print('  start-notifications [interval] [count] - Start periodic notifications');
   print('  list-prompts               - List available prompts');
-  print(
-    '  get-prompt [name] [args]   - Get a prompt with optional JSON arguments',
-  );
+  print('  get-prompt [name] [args]   - Get a prompt with optional JSON arguments');
   print('  list-resources             - List available resources');
   print('  help                       - Show this help');
   print('  quit                       - Exit the program');
@@ -56,8 +46,7 @@ void printHelp() {
 
 Future<void> commandLoop() async {
   final inputController = StreamController<String>.broadcast();
-  final stdinStream =
-      stdin.transform(utf8.decoder).transform(const LineSplitter());
+  final stdinStream = stdin.transform(utf8.decoder).transform(const LineSplitter());
 
   // Pass stdin data to our controller
   stdinStream.listen((input) {
@@ -119,8 +108,7 @@ Future<void> commandLoop() async {
           break;
 
         case 'start-notifications':
-          final interval =
-              args.length > 1 ? int.tryParse(args[1]) ?? 2000 : 2000;
+          final interval = args.length > 1 ? int.tryParse(args[1]) ?? 2000 : 2000;
           final count = args.length > 2 ? int.tryParse(args[2]) : 10;
           await startNotifications(interval, count);
           break;
@@ -187,18 +175,14 @@ Future<void> connect([String? url]) async {
 
   try {
     // Create a new client
-    client = McpClient(
-      const Implementation(name: 'example-client', version: '1.0.0'),
-    );
+    client = McpClient(const Implementation(name: 'example-client', version: '1.0.0'));
     client!.onerror = (error) {
       print('\x1b[31mClient error: $error\x1b[0m');
     };
 
     transport = StreamableHttpClientTransport(
       Uri.parse(serverUrl),
-      opts: StreamableHttpClientTransportOptions(
-        sessionId: sessionId,
-      ),
+      opts: StreamableHttpClientTransportOptions(sessionId: sessionId),
     );
 
     // Set up notification handlers
@@ -208,17 +192,12 @@ Future<void> connect([String? url]) async {
         // Type check is not needed since the notification factory ensures correct type
         notificationCount++;
         final params = notification.logParams;
-        print(
-          '\nNotification #$notificationCount: ${params.level} - ${params.data}',
-        );
+        print('\nNotification #$notificationCount: ${params.level} - ${params.data}');
         // Re-display the prompt
         stdout.write('> ');
         return Future.value();
       },
-      (params, meta) => JsonRpcLoggingMessageNotification.fromJson({
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (params, meta) => JsonRpcLoggingMessageNotification.fromJson({'params': params, if (meta != null) '_meta': meta}),
     );
 
     client!.setNotificationHandler(
@@ -231,9 +210,7 @@ Future<void> connect([String? url]) async {
             return;
           }
           final resourcesResult = await client!.listResources();
-          print(
-            'Available resources count: ${resourcesResult.resources.length}',
-          );
+          print('Available resources count: ${resourcesResult.resources.length}');
         } catch (_) {
           print('Failed to list resources after change notification');
         }
@@ -241,10 +218,8 @@ Future<void> connect([String? url]) async {
         stdout.write('> ');
         return Future.value();
       },
-      (params, meta) => JsonRpcResourceListChangedNotification.fromJson({
-        'params': params,
-        if (meta != null) '_meta': meta,
-      }),
+      (params, meta) =>
+          JsonRpcResourceListChangedNotification.fromJson({'params': params, if (meta != null) '_meta': meta}),
     );
 
     // Connect the client
@@ -297,9 +272,7 @@ Future<void> terminateSession() async {
       client = null;
       transport = null;
     } else {
-      print(
-        'Server responded with 405 Method Not Allowed (session termination not supported)',
-      );
+      print('Server responded with 405 Method Not Allowed (session termination not supported)');
       print('Session ID is still active: ${transport!.sessionId}');
     }
   } catch (error) {
@@ -345,10 +318,7 @@ Future<void> callTool(String name, Map<String, dynamic> args) async {
   }
 
   try {
-    final params = CallToolRequest(
-      name: name,
-      arguments: args,
-    );
+    final params = CallToolRequest(name: name, arguments: args);
 
     print('Calling tool \'$name\' with args: $args');
 
@@ -387,13 +357,8 @@ Future<void> callMultiGreetTool(String name) async {
 }
 
 Future<void> startNotifications(int interval, int? count) async {
-  print(
-    'Starting notification stream: interval=${interval}ms, count=${count ?? 'unlimited'}',
-  );
-  await callTool(
-    'start-notification-stream',
-    {'interval': interval, 'count': count},
-  );
+  print('Starting notification stream: interval=${interval}ms, count=${count ?? 'unlimited'}');
+  await callTool('start-notification-stream', {'interval': interval, 'count': count});
 }
 
 Future<void> listPrompts() async {
@@ -426,11 +391,7 @@ Future<void> getPrompt(String name, Map<String, dynamic> args) async {
   try {
     final params = GetPromptRequest(
       name: name,
-      arguments: Map<String, String>.from(
-        args.map(
-          (key, value) => MapEntry(key, value.toString()),
-        ),
-      ),
+      arguments: Map<String, String>.from(args.map((key, value) => MapEntry(key, value.toString()))),
     );
 
     final promptResult = await client!.getPrompt(params);
@@ -503,9 +464,7 @@ void setupKeyboardHandler() {
   // A complete implementation would use a package like 'dart_console' or similar.
 
   // This would be the place to set up special key handling like the Escape key in the TypeScript version
-  print(
-    'Note: Raw keyboard handling (like ESC to disconnect) is not implemented in this example.',
-  );
+  print('Note: Raw keyboard handling (like ESC to disconnect) is not implemented in this example.');
 }
 
 // Handle program exit

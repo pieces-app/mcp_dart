@@ -72,9 +72,7 @@ Future<void> main(List<String> args) async {
     print('  dart run example/authentication/github_pat_example.dart');
     print('');
     print('Method 2 - Command Line Argument:');
-    print(
-      '  dart run example/authentication/github_pat_example.dart your_token_here',
-    );
+    print('  dart run example/authentication/github_pat_example.dart your_token_here');
     print('');
     print('To create a GitHub PAT:');
     print('  1. Visit: https://github.com/settings/tokens');
@@ -86,9 +84,7 @@ Future<void> main(List<String> args) async {
   }
 
   // Create MCP client
-  final client = McpClient(
-    const Implementation(name: 'github-mcp-pat-client', version: '1.0.0'),
-  );
+  final client = McpClient(const Implementation(name: 'github-mcp-pat-client', version: '1.0.0'));
 
   try {
     print('');
@@ -97,9 +93,7 @@ Future<void> main(List<String> args) async {
     // Create transport with PAT authentication
     final transport = StreamableHttpClientTransport(
       Uri.parse('https://api.githubcopilot.com/mcp/'),
-      opts: StreamableHttpClientTransportOptions(
-        authProvider: GitHubPATAuthProvider(githubToken),
-      ),
+      opts: StreamableHttpClientTransportOptions(authProvider: GitHubPATAuthProvider(githubToken)),
     );
 
     // Connect to GitHub MCP server
@@ -193,17 +187,13 @@ Future<void> main(List<String> args) async {
       print('');
       print('Troubleshooting:');
       print('  1. Verify your token is correct');
-      print(
-        '  2. Check token has required scopes: repo, read:packages, read:org',
-      );
+      print('  2. Check token has required scopes: repo, read:packages, read:org');
       print('  3. Ensure token has not expired');
       print('  4. Create a new token at: https://github.com/settings/tokens');
-    } else if (e.toString().contains('404') ||
-        e.toString().contains('Not Found')) {
+    } else if (e.toString().contains('404') || e.toString().contains('Not Found')) {
       print('The GitHub MCP server endpoint may not be available.');
       print('Verify the URL: https://api.githubcopilot.com/mcp/');
-    } else if (e.toString().contains('network') ||
-        e.toString().contains('connection')) {
+    } else if (e.toString().contains('network') || e.toString().contains('connection')) {
       print('Network connection issue. Check your internet connection.');
     }
 

@@ -58,11 +58,9 @@ class SseServerTransport implements Transport {
   ///   takes control of this response object.
   /// - [messageEndpointPath]: The URL path (relative or absolute) that the client
   ///   will be instructed to POST messages to.
-  SseServerTransport({
-    required HttpResponse response,
-    required String messageEndpointPath,
-  })  : _sseResponse = response,
-        _messageEndpointPath = messageEndpointPath {
+  SseServerTransport({required HttpResponse response, required String messageEndpointPath})
+    : _sseResponse = response,
+      _messageEndpointPath = messageEndpointPath {
     _sessionId = generateUUID();
   }
 
@@ -74,22 +72,18 @@ class SseServerTransport implements Transport {
   @override
   Future<void> start() async {
     if (_closeController.isClosed) {
-      throw StateError(
-        "SseServerTransport cannot start: Transport is already closed.",
-      );
+      throw StateError("SseServerTransport cannot start: Transport is already closed.");
     }
 
     try {
       _sseResponse.headers.chunkedTransferEncoding = false;
-      _sseResponse.headers.contentType =
-          ContentType('text', 'event-stream', charset: 'utf-8');
+      _sseResponse.headers.contentType = ContentType('text', 'event-stream', charset: 'utf-8');
       _sseResponse.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
       _sseResponse.headers.set(HttpHeaders.connectionHeader, 'keep-alive');
 
       final socket = await _sseResponse.detachSocket(writeHeaders: true);
       _sink = utf8.encoder.startChunkedConversion(socket);
-      final endpointUrl =
-          '$_messageEndpointPath?sessionId=${Uri.encodeComponent(sessionId)}';
+      final endpointUrl = '$_messageEndpointPath?sessionId=${Uri.encodeComponent(sessionId)}';
       await _sendSseEvent(name: 'endpoint', data: endpointUrl);
 
       socket.listen(
@@ -100,9 +94,7 @@ class SseServerTransport implements Transport {
         },
         onError: (error) {
           _logger.warn('Socket error: $error');
-          onerror?.call(
-            error is Error ? error : StateError("Socket error: $error"),
-          );
+          onerror?.call(error is Error ? error : StateError("Socket error: $error"));
         },
       );
     } on UnimplementedError catch (e) {
@@ -118,19 +110,14 @@ class SseServerTransport implements Transport {
   ///
   /// Parses the request body as JSON, validates it, and invokes the [onmessage]
   /// callback with the parsed message.
-  Future<void> handlePostMessage(
-    HttpRequest request, {
-    dynamic parsedBody,
-  }) async {
+  Future<void> handlePostMessage(HttpRequest request, {dynamic parsedBody}) async {
     final response = request.response;
 
     if (_closeController.isClosed) {
       response.statusCode = HttpStatus.serviceUnavailable;
       response.write("SSE connection not established or closed.");
       await response.close();
-      onerror?.call(
-        StateError("Received POST message but SSE connection is not active."),
-      );
+      onerror?.call(StateError("Received POST message but SSE connection is not active."));
       return;
     }
 
@@ -149,9 +136,7 @@ class SseServerTransport implements Transport {
       response.statusCode = HttpStatus.badRequest;
       response.write("Invalid Content-Type header: $e");
       await response.close();
-      onerror?.call(
-        ArgumentError("Invalid Content-Type header in POST request."),
-      );
+      onerror?.call(ArgumentError("Invalid Content-Type header in POST request."));
       return;
     }
 
@@ -162,9 +147,7 @@ class SseServerTransport implements Transport {
       );
       await response.close();
       onerror?.call(
-        ArgumentError(
-          "Unsupported Content-Type in POST request: ${request.headers.contentType?.mimeType}",
-        ),
+        ArgumentError("Unsupported Content-Type in POST request: ${request.headers.contentType?.mimeType}"),
       );
       return;
     }
@@ -174,27 +157,23 @@ class SseServerTransport implements Transport {
       if (parsedBody != null) {
         messageJson = parsedBody;
       } else {
-        final bodyBytes =
-            await request.fold<BytesBuilder>(BytesBuilder(), (builder, chunk) {
-          builder.add(chunk);
-          if (builder.length > _maximumMessageSize) {
-            throw const HttpException(
-              "Message size exceeds limit of $_maximumMessageSize bytes.",
-            );
-          }
-          return builder;
-        }).then((builder) => builder.toBytes());
+        final bodyBytes = await request
+            .fold<BytesBuilder>(BytesBuilder(), (builder, chunk) {
+              builder.add(chunk);
+              if (builder.length > _maximumMessageSize) {
+                throw const HttpException("Message size exceeds limit of $_maximumMessageSize bytes.");
+              }
+              return builder;
+            })
+            .then((builder) => builder.toBytes());
 
-        final encoding =
-            Encoding.getByName(contentType.parameters['charset']) ?? utf8;
+        final encoding = Encoding.getByName(contentType.parameters['charset']) ?? utf8;
         final bodyString = encoding.decode(bodyBytes);
         messageJson = jsonDecode(bodyString);
       }
 
       if (messageJson is! Map<String, dynamic>) {
-        throw const FormatException(
-          "Invalid JSON message format: Expected a JSON object.",
-        );
+        throw const FormatException("Invalid JSON message format: Expected a JSON object.");
       }
 
       await handleMessage(messageJson);
@@ -203,11 +182,7 @@ class SseServerTransport implements Transport {
       response.write("Accepted");
       await response.close();
     } catch (error) {
-      onerror?.call(
-        error is Error
-            ? error
-            : StateError("Error handling POST message: $error"),
-      );
+      onerror?.call(error is Error ? error : StateError("Error handling POST message: $error"));
       response.statusCode = HttpStatus.internalServerError;
       response.write("Error processing message: $error");
       await response.close();
@@ -252,10 +227,7 @@ class SseServerTransport implements Transport {
   }
 
   /// Formats and sends a Server-Sent Event.
-  Future<void> _sendSseEvent({
-    required String name,
-    required String data,
-  }) async {
+  Future<void> _sendSseEvent({required String name, required String data}) async {
     if (_closeController.isClosed) return;
 
     final buffer = 'event: $name\ndata: $data\n\n';

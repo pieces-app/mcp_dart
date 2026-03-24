@@ -28,8 +28,7 @@ class InspectHandlers {
   }
 
   /// Handles sampling/createMessage requests from the server.
-  Future<CreateMessageResult> _handleSamplingRequest(
-      CreateMessageRequest params) async {
+  Future<CreateMessageResult> _handleSamplingRequest(CreateMessageRequest params) async {
     _logger.info('\n[Sampling Request]');
     _logger.info('System Prompt: ${params.systemPrompt ?? "(none)"}');
     _logger.info('Messages:');
@@ -37,8 +36,7 @@ class InspectHandlers {
       _logger.info('  ${msg.role}: ${msg.content}');
     }
 
-    _logger.info(
-        '\n(Interactive sampling not supported yet. Returning placeholder response.)');
+    _logger.info('\n(Interactive sampling not supported yet. Returning placeholder response.)');
 
     return CreateMessageResult(
       role: SamplingMessageRole.assistant,

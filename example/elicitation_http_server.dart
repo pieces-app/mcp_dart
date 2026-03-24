@@ -32,8 +32,7 @@ class InMemoryEventStore implements EventStore {
   @override
   Future<StreamId> replayEventsAfter(
     EventId lastEventId, {
-    required Future<void> Function(EventId eventId, JsonRpcMessage message)
-        send,
+    required Future<void> Function(EventId eventId, JsonRpcMessage message) send,
   }) async {
     // Find the stream containing this event ID
     String? streamId;
@@ -64,9 +63,7 @@ class InMemoryEventStore implements EventStore {
 
 // Create MCP server with elicitation tools
 McpServer getServer() {
-  final server = McpServer(
-    const Implementation(name: 'elicitation-example-server', version: '1.0.0'),
-  );
+  final server = McpServer(const Implementation(name: 'elicitation-example-server', version: '1.0.0'));
 
   // Example 1: Simple user registration tool
   // Collects username, email, and password from the user
@@ -82,11 +79,7 @@ McpServer getServer() {
             message: 'Enter your username (3-20 characters)',
             requestedSchema: JsonSchema.object(
               properties: {
-                'username': JsonSchema.string(
-                  minLength: 3,
-                  maxLength: 20,
-                  description: 'Your desired username',
-                ),
+                'username': JsonSchema.string(minLength: 3, maxLength: 20, description: 'Your desired username'),
               },
               required: ['username'],
             ),
@@ -94,11 +87,7 @@ McpServer getServer() {
         );
 
         if (!usernameResult.accepted) {
-          return CallToolResult.fromContent(
-            [
-              const TextContent(text: 'Registration cancelled by user.'),
-            ],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Registration cancelled by user.')]);
         }
 
         final username = usernameResult.content?['username'] as String;
@@ -108,23 +97,14 @@ McpServer getServer() {
           ElicitRequest.form(
             message: 'Enter your email address',
             requestedSchema: JsonSchema.object(
-              properties: {
-                'email': JsonSchema.string(
-                  minLength: 3,
-                  description: 'Your email address',
-                ),
-              },
+              properties: {'email': JsonSchema.string(minLength: 3, description: 'Your email address')},
               required: ['email'],
             ),
           ),
         );
 
         if (!emailResult.accepted) {
-          return CallToolResult.fromContent(
-            [
-              const TextContent(text: 'Registration cancelled by user.'),
-            ],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Registration cancelled by user.')]);
         }
 
         final email = emailResult.content?['email'] as String;
@@ -134,23 +114,14 @@ McpServer getServer() {
           ElicitRequest.form(
             message: 'Enter your password (min 8 characters)',
             requestedSchema: JsonSchema.object(
-              properties: {
-                'password': JsonSchema.string(
-                  minLength: 8,
-                  description: 'Your password',
-                ),
-              },
+              properties: {'password': JsonSchema.string(minLength: 8, description: 'Your password')},
               required: ['password'],
             ),
           ),
         );
 
         if (!passwordResult.accepted) {
-          return CallToolResult.fromContent(
-            [
-              const TextContent(text: 'Registration cancelled by user.'),
-            ],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Registration cancelled by user.')]);
         }
 
         // Collect newsletter preference
@@ -159,10 +130,7 @@ McpServer getServer() {
             message: 'Subscribe to newsletter?',
             requestedSchema: JsonSchema.object(
               properties: {
-                'newsletter': JsonSchema.boolean(
-                  defaultValue: false,
-                  description: 'Receive updates via email',
-                ),
+                'newsletter': JsonSchema.boolean(defaultValue: false, description: 'Receive updates via email'),
               },
             ),
           ),
@@ -173,24 +141,18 @@ McpServer getServer() {
             : false;
 
         // Return success response
-        return CallToolResult.fromContent(
-          [
-            TextContent(
-              text: '''Registration successful!
+        return CallToolResult.fromContent([
+          TextContent(
+            text:
+                '''Registration successful!
 
 Username: $username
 Email: $email
 Newsletter: ${newsletter ? 'Yes' : 'No'}''',
-            ),
-          ],
-        );
+          ),
+        ]);
       } catch (error) {
-        return CallToolResult(
-          content: [
-            TextContent(text: 'Registration failed: $error'),
-          ],
-          isError: true,
-        );
+        return CallToolResult(content: [TextContent(text: 'Registration failed: $error')], isError: true);
       }
     },
   );
@@ -208,21 +170,14 @@ Newsletter: ${newsletter ? 'Yes' : 'No'}''',
           ElicitRequest.form(
             message: 'Step 1: Enter event title',
             requestedSchema: JsonSchema.object(
-              properties: {
-                'title': JsonSchema.string(
-                  minLength: 1,
-                  description: 'Name of the event',
-                ),
-              },
+              properties: {'title': JsonSchema.string(minLength: 1, description: 'Name of the event')},
               required: ['title'],
             ),
           ),
         );
 
         if (!titleResult.accepted) {
-          return CallToolResult.fromContent(
-            [const TextContent(text: 'Event creation cancelled.')],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Event creation cancelled.')]);
         }
 
         final title = titleResult.content?['title'] as String;
@@ -231,20 +186,14 @@ Newsletter: ${newsletter ? 'Yes' : 'No'}''',
           ElicitRequest.form(
             message: 'Enter event description (optional, or type "skip")',
             requestedSchema: JsonSchema.object(
-              properties: {
-                'description': JsonSchema.string(
-                  minLength: 0,
-                  description: 'Event description',
-                ),
-              },
+              properties: {'description': JsonSchema.string(minLength: 0, description: 'Event description')},
             ),
           ),
         );
 
-        final description = descriptionResult.accepted &&
-                (descriptionResult.content?['description'] as String? ?? '')
-                        .toLowerCase() !=
-                    'skip'
+        final description =
+            descriptionResult.accepted &&
+                (descriptionResult.content?['description'] as String? ?? '').toLowerCase() != 'skip'
             ? (descriptionResult.content?['description'] as String? ?? '')
             : '';
 
@@ -265,9 +214,7 @@ Newsletter: ${newsletter ? 'Yes' : 'No'}''',
         );
 
         if (!dateResult.accepted) {
-          return CallToolResult.fromContent(
-            [const TextContent(text: 'Event creation cancelled.')],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Event creation cancelled.')]);
         }
 
         final date = dateResult.content?['date'] as String;
@@ -288,9 +235,7 @@ Newsletter: ${newsletter ? 'Yes' : 'No'}''',
         );
 
         if (!startTimeResult.accepted) {
-          return CallToolResult.fromContent(
-            [const TextContent(text: 'Event creation cancelled.')],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Event creation cancelled.')]);
         }
 
         final startTime = startTimeResult.content?['startTime'] as String;
@@ -312,34 +257,26 @@ Newsletter: ${newsletter ? 'Yes' : 'No'}''',
         );
 
         if (!durationResult.accepted) {
-          return CallToolResult.fromContent(
-            [const TextContent(text: 'Event creation cancelled.')],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Event creation cancelled.')]);
         }
 
         final duration = durationResult.content?['duration'] as num? ?? 60;
 
         // Return success response
-        return CallToolResult.fromContent(
-          [
-            TextContent(
-              text: '''Event created successfully!
+        return CallToolResult.fromContent([
+          TextContent(
+            text:
+                '''Event created successfully!
 
 Title: $title
 Description: ${description.isEmpty ? '(none)' : description}
 Date: $date
 Start Time: $startTime
 Duration: $duration minutes''',
-            ),
-          ],
-        );
+          ),
+        ]);
       } catch (error) {
-        return CallToolResult(
-          content: [
-            TextContent(text: 'Event creation failed: $error'),
-          ],
-          isError: true,
-        );
+        return CallToolResult(content: [TextContent(text: 'Event creation failed: $error')], isError: true);
       }
     },
   );
@@ -357,23 +294,14 @@ Duration: $duration minutes''',
           ElicitRequest.form(
             message: 'Enter recipient full name',
             requestedSchema: JsonSchema.object(
-              properties: {
-                'name': JsonSchema.string(
-                  minLength: 1,
-                  description: 'Recipient name',
-                ),
-              },
+              properties: {'name': JsonSchema.string(minLength: 1, description: 'Recipient name')},
               required: ['name'],
             ),
           ),
         );
 
         if (!nameResult.accepted) {
-          return CallToolResult.fromContent(
-            [
-              const TextContent(text: 'Address update cancelled by user.'),
-            ],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Address update cancelled by user.')]);
         }
 
         final name = nameResult.content?['name'] as String;
@@ -383,23 +311,14 @@ Duration: $duration minutes''',
           ElicitRequest.form(
             message: 'Enter street address',
             requestedSchema: JsonSchema.object(
-              properties: {
-                'street': JsonSchema.string(
-                  minLength: 1,
-                  description: 'Street address',
-                ),
-              },
+              properties: {'street': JsonSchema.string(minLength: 1, description: 'Street address')},
               required: ['street'],
             ),
           ),
         );
 
         if (!streetResult.accepted) {
-          return CallToolResult.fromContent(
-            [
-              const TextContent(text: 'Address update cancelled by user.'),
-            ],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Address update cancelled by user.')]);
         }
 
         final street = streetResult.content?['street'] as String;
@@ -409,23 +328,14 @@ Duration: $duration minutes''',
           ElicitRequest.form(
             message: 'Enter city',
             requestedSchema: JsonSchema.object(
-              properties: {
-                'city': JsonSchema.string(
-                  minLength: 1,
-                  description: 'City name',
-                ),
-              },
+              properties: {'city': JsonSchema.string(minLength: 1, description: 'City name')},
               required: ['city'],
             ),
           ),
         );
 
         if (!cityResult.accepted) {
-          return CallToolResult.fromContent(
-            [
-              const TextContent(text: 'Address update cancelled by user.'),
-            ],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Address update cancelled by user.')]);
         }
 
         final city = cityResult.content?['city'] as String;
@@ -449,11 +359,7 @@ Duration: $duration minutes''',
         );
 
         if (!stateResult.accepted) {
-          return CallToolResult.fromContent(
-            [
-              const TextContent(text: 'Address update cancelled by user.'),
-            ],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Address update cancelled by user.')]);
         }
 
         final state = stateResult.content?['state'] as String;
@@ -464,11 +370,7 @@ Duration: $duration minutes''',
             message: 'Enter ZIP/Postal code',
             requestedSchema: JsonSchema.object(
               properties: {
-                'zip': JsonSchema.string(
-                  minLength: 5,
-                  maxLength: 10,
-                  description: '5-digit ZIP code or postal code',
-                ),
+                'zip': JsonSchema.string(minLength: 5, maxLength: 10, description: '5-digit ZIP code or postal code'),
               },
               required: ['zip'],
             ),
@@ -476,11 +378,7 @@ Duration: $duration minutes''',
         );
 
         if (!zipResult.accepted) {
-          return CallToolResult.fromContent(
-            [
-              const TextContent(text: 'Address update cancelled by user.'),
-            ],
-          );
+          return CallToolResult.fromContent([const TextContent(text: 'Address update cancelled by user.')]);
         }
 
         final zipCode = zipResult.content?['zip'] as String;
@@ -490,42 +388,28 @@ Duration: $duration minutes''',
           ElicitRequest.form(
             message: 'Enter phone number (optional, or type "skip")',
             requestedSchema: JsonSchema.object(
-              properties: {
-                'phone': JsonSchema.string(
-                  minLength: 0,
-                  description: 'Contact phone number',
-                ),
-              },
+              properties: {'phone': JsonSchema.string(minLength: 0, description: 'Contact phone number')},
             ),
           ),
         );
 
-        final phone = phoneResult.accepted &&
-                (phoneResult.content?['phone'] as String? ?? '')
-                        .toLowerCase() !=
-                    'skip'
+        final phone = phoneResult.accepted && (phoneResult.content?['phone'] as String? ?? '').toLowerCase() != 'skip'
             ? (phoneResult.content?['phone'] as String? ?? '')
             : '';
 
         // Return success response
-        return CallToolResult.fromContent(
-          [
-            TextContent(
-              text: '''Address updated successfully!
+        return CallToolResult.fromContent([
+          TextContent(
+            text:
+                '''Address updated successfully!
 
 $name
 $street
 $city, $state $zipCode${phone.isNotEmpty ? '\nPhone: $phone' : ''}''',
-            ),
-          ],
-        );
+          ),
+        ]);
       } catch (error) {
-        return CallToolResult(
-          content: [
-            TextContent(text: 'Address update failed: $error'),
-          ],
-          isError: true,
-        );
+        return CallToolResult(content: [TextContent(text: 'Address update failed: $error')], isError: true);
       }
     },
   );
@@ -535,8 +419,7 @@ $city, $state $zipCode${phone.isNotEmpty ? '\nPhone: $phone' : ''}''',
 
 void setCorsHeaders(HttpResponse response) {
   response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers
-      .set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   response.headers.set(
     'Access-Control-Allow-Headers',
     'Origin, X-Requested-With, Content-Type, Accept, mcp-session-id, Last-Event-ID, Authorization',
@@ -604,16 +487,11 @@ void main() async {
 
 // Check if a request is an initialization request
 bool _isInitializeRequest(dynamic body) {
-  return body is Map<String, dynamic> &&
-      body.containsKey('method') &&
-      body['method'] == 'initialize';
+  return body is Map<String, dynamic> && body.containsKey('method') && body['method'] == 'initialize';
 }
 
 // Handle POST requests
-Future<void> _handlePostRequest(
-  HttpRequest request,
-  Map<String, StreamableHTTPServerTransport> transports,
-) async {
+Future<void> _handlePostRequest(HttpRequest request, Map<String, StreamableHTTPServerTransport> transports) async {
   try {
     // Parse the body
     final bodyBytes = await _collectBytes(request);
@@ -667,8 +545,7 @@ Future<void> _handlePostRequest(
             id: null,
             error: JsonRpcErrorData(
               code: ErrorCode.connectionClosed.value,
-              message:
-                  'Bad Request: No valid session ID provided or not an initialization request',
+              message: 'Bad Request: No valid session ID provided or not an initialization request',
             ),
           ).toJson(),
         ),
@@ -681,9 +558,7 @@ Future<void> _handlePostRequest(
     await transport.handleRequest(request, body);
   } catch (error) {
     print('Error handling MCP request: $error');
-    if (!request.response.headers.contentType
-        .toString()
-        .startsWith('text/event-stream')) {
+    if (!request.response.headers.contentType.toString().startsWith('text/event-stream')) {
       request.response
         ..statusCode = HttpStatus.internalServerError
         ..headers.set(HttpHeaders.contentTypeHeader, 'application/json');
@@ -691,10 +566,7 @@ Future<void> _handlePostRequest(
         jsonEncode(
           JsonRpcError(
             id: null,
-            error: JsonRpcErrorData(
-              code: ErrorCode.internalError.value,
-              message: 'Internal server error',
-            ),
+            error: JsonRpcErrorData(code: ErrorCode.internalError.value, message: 'Internal server error'),
           ).toJson(),
         ),
       );
@@ -704,10 +576,7 @@ Future<void> _handlePostRequest(
 }
 
 // Handle GET requests for SSE streams
-Future<void> _handleGetRequest(
-  HttpRequest request,
-  Map<String, StreamableHTTPServerTransport> transports,
-) async {
+Future<void> _handleGetRequest(HttpRequest request, Map<String, StreamableHTTPServerTransport> transports) async {
   final sessionId = request.headers.value('mcp-session-id');
   if (sessionId == null || !transports.containsKey(sessionId)) {
     request.response.statusCode = HttpStatus.badRequest;
@@ -730,10 +599,7 @@ Future<void> _handleGetRequest(
 }
 
 // Handle DELETE requests for session termination
-Future<void> _handleDeleteRequest(
-  HttpRequest request,
-  Map<String, StreamableHTTPServerTransport> transports,
-) async {
+Future<void> _handleDeleteRequest(HttpRequest request, Map<String, StreamableHTTPServerTransport> transports) async {
   final sessionId = request.headers.value('mcp-session-id');
   if (sessionId == null || !transports.containsKey(sessionId)) {
     request.response.statusCode = HttpStatus.badRequest;
@@ -751,9 +617,7 @@ Future<void> _handleDeleteRequest(
     await transport.handleRequest(request);
   } catch (error) {
     print('Error handling session termination: $error');
-    if (!request.response.headers.contentType
-        .toString()
-        .startsWith('text/event-stream')) {
+    if (!request.response.headers.contentType.toString().startsWith('text/event-stream')) {
       request.response.statusCode = HttpStatus.internalServerError;
       setCorsHeaders(request.response);
       request.response

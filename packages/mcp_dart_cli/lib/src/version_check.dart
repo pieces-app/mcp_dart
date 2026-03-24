@@ -6,10 +6,7 @@ import 'version.dart';
 Future<void> checkForUpdate(Logger logger) async {
   try {
     final pubUpdater = PubUpdater();
-    final isUpToDate = await pubUpdater.isUpToDate(
-      packageName: 'mcp_dart_cli',
-      currentVersion: packageVersion,
-    );
+    final isUpToDate = await pubUpdater.isUpToDate(packageName: 'mcp_dart_cli', currentVersion: packageVersion);
     if (!isUpToDate) {
       final latestVersion = await pubUpdater.getLatestVersion('mcp_dart_cli');
       logger.info(

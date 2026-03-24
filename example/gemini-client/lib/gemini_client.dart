@@ -15,31 +15,23 @@ extension SchemaExtension on Schema {
       'object' =>
         json['properties'] != null
             ? json['properties'].isEmpty
-                ? null
-                : Schema.object(
-                  properties: (json['properties'] as Map<String, dynamic>).map(
-                    (key, value) =>
-                        MapEntry(key, SchemaExtension.fromJson(value)!),
-                  ),
-                )
-            : throw UnsupportedError(
-              "Unsupported schema type: ${json['type']}",
-            ),
+                  ? null
+                  : Schema.object(
+                      properties: (json['properties'] as Map<String, dynamic>).map(
+                        (key, value) => MapEntry(key, SchemaExtension.fromJson(value)!),
+                      ),
+                    )
+            : throw UnsupportedError("Unsupported schema type: ${json['type']}"),
       'string' =>
         json['enum'] != null
-            ? Schema.enumString(
-              enumValues: json['enum'].cast<String>(),
-              description: json['description'],
-            )
+            ? Schema.enumString(enumValues: json['enum'].cast<String>(), description: json['description'])
             : Schema.string(description: json['description']),
       'number' => Schema.number(description: json['description']),
       'boolean' => Schema.boolean(description: json['description']),
       'array' =>
         json['items'] != null
             ? Schema.array(items: SchemaExtension.fromJson(json['items'])!)
-            : throw UnsupportedError(
-              "Unsupported schema type: ${json['type']}",
-            ),
+            : throw UnsupportedError("Unsupported schema type: ${json['type']}"),
       _ => throw UnsupportedError("Unsupported schema type: ${json['type']}"),
     };
   }
@@ -73,11 +65,7 @@ class GoogleMcpClient {
   Future<void> connectToServer(String cmd, List<String> args) async {
     try {
       transport = mcp_dart.StdioClientTransport(
-        mcp_dart.StdioServerParameters(
-          command: cmd,
-          args: args,
-          stderrMode: ProcessStartMode.normal,
-        ),
+        mcp_dart.StdioServerParameters(command: cmd, args: args, stderrMode: ProcessStartMode.normal),
       );
       transport!.onerror = (error) {
         print("Transport error: $error");
@@ -89,18 +77,13 @@ class GoogleMcpClient {
 
       final toolsResult = await mcp.listTools();
 
-      tools =
-          toolsResult.tools.map((tool) {
-            return Tool(
-              functionDeclarations: [
-                FunctionDeclaration(
-                  tool.name,
-                  tool.description ?? '',
-                  SchemaExtension.fromJson(tool.inputSchema.toJson()),
-                ),
-              ],
-            );
-          }).toList();
+      tools = toolsResult.tools.map((tool) {
+        return Tool(
+          functionDeclarations: [
+            FunctionDeclaration(tool.name, tool.description ?? '', SchemaExtension.fromJson(tool.inputSchema.toJson())),
+          ],
+        );
+      }).toList();
     } catch (e) {
       print("Failed to connect to MCP server: $e");
       rethrow;
@@ -121,12 +104,8 @@ class GoogleMcpClient {
       if (part is TextPart) {
         finalText.add(part.text);
       } else if (part is FunctionCall) {
-        final result = await mcp.callTool(
-          mcp_dart.CallToolRequest(name: part.name, arguments: part.args),
-        );
-        finalText.add(
-          "[Calling tool ${part.name} with args ${jsonEncode(part.args)}]",
-        );
+        final result = await mcp.callTool(mcp_dart.CallToolRequest(name: part.name, arguments: part.args));
+        finalText.add("[Calling tool ${part.name} with args ${jsonEncode(part.args)}]");
 
         for (final c in result.content) {
           if (c is mcp_dart.TextContent) {

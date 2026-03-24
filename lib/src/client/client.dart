@@ -12,10 +12,7 @@ class McpClientOptions extends ProtocolOptions {
   /// Capabilities to advertise as being supported by this client.
   final ClientCapabilities? capabilities;
 
-  const McpClientOptions({
-    super.enforceStrictCapabilities,
-    this.capabilities,
-  });
+  const McpClientOptions({super.enforceStrictCapabilities, this.capabilities});
 }
 
 /// Deprecated alias for [McpClientOptions].
@@ -41,10 +38,7 @@ void _applyElicitationDefaults(JsonSchema schema, Map<String, dynamic> data) {
 
       // Recurse into existing nested objects (but not arrays)
       if (data[key] is Map) {
-        _applyElicitationDefaults(
-          propSchema,
-          data[key] as Map<String, dynamic>,
-        );
+        _applyElicitationDefaults(propSchema, data[key] as Map<String, dynamic>);
       }
     }
   }
@@ -52,9 +46,7 @@ void _applyElicitationDefaults(JsonSchema schema, Map<String, dynamic> data) {
 
 dynamic _deepCopy(dynamic value) {
   if (value is Map) {
-    return value.map<String, dynamic>(
-      (key, val) => MapEntry(key.toString(), _deepCopy(val)),
-    );
+    return value.map<String, dynamic>((key, val) => MapEntry(key.toString(), _deepCopy(val)));
   } else if (value is List) {
     return value.map((val) => _deepCopy(val)).toList();
   } else {
@@ -92,26 +84,22 @@ class McpClient extends Protocol {
   ///
   /// This will be called when the server sends a `sampling/createMessage` request
   /// to request an LLM completion from the client.
-  Future<CreateMessageResult> Function(CreateMessageRequest params)?
-      onSamplingRequest;
+  Future<CreateMessageResult> Function(CreateMessageRequest params)? onSamplingRequest;
 
   /// Initializes this client with its implementation details and options.
   ///
   /// - [_clientInfo]: Information about this client's name and version.
   /// - [options]: Optional configuration settings including client capabilities.
   McpClient(this._clientInfo, {McpClientOptions? options})
-      : _capabilities = options?.capabilities ?? const ClientCapabilities(),
-        super(options) {
+    : _capabilities = options?.capabilities ?? const ClientCapabilities(),
+      super(options) {
     // Register elicit handler if capability is present
     if (_capabilities.elicitation?.form != null) {
       setRequestHandler<JsonRpcElicitRequest>(
         Method.elicitationCreate,
         (request, extra) async {
           if (onElicitRequest == null) {
-            throw McpError(
-              ErrorCode.methodNotFound.value,
-              "No elicit handler registered",
-            );
+            throw McpError(ErrorCode.methodNotFound.value, "No elicit handler registered");
           }
           final result = await onElicitRequest!(request.elicitParams);
 
@@ -121,18 +109,12 @@ class McpClient extends Protocol {
               result.content is Map &&
               request.elicitParams.requestedSchema != null &&
               _capabilities.elicitation?.form?.applyDefaults == true) {
-            _applyElicitationDefaults(
-              request.elicitParams.requestedSchema!,
-              result.content!,
-            );
+            _applyElicitationDefaults(request.elicitParams.requestedSchema!, result.content!);
           }
           return result;
         },
-        (id, params, meta) => JsonRpcElicitRequest(
-          id: id,
-          elicitParams: ElicitRequest.fromJson(params ?? {}),
-          meta: meta,
-        ),
+        (id, params, meta) =>
+            JsonRpcElicitRequest(id: id, elicitParams: ElicitRequest.fromJson(params ?? {}), meta: meta),
       );
     }
 
@@ -143,10 +125,8 @@ class McpClient extends Protocol {
         (notification) async {
           await onTaskStatus?.call(notification.statusParams);
         },
-        (params, meta) => JsonRpcTaskStatusNotification(
-          statusParams: TaskStatusNotification.fromJson(params ?? {}),
-          meta: meta,
-        ),
+        (params, meta) =>
+            JsonRpcTaskStatusNotification(statusParams: TaskStatusNotification.fromJson(params ?? {}), meta: meta),
       );
     }
 
@@ -156,18 +136,12 @@ class McpClient extends Protocol {
         Method.samplingCreateMessage,
         (request, extra) async {
           if (onSamplingRequest == null) {
-            throw McpError(
-              ErrorCode.methodNotFound.value,
-              "No sampling handler registered",
-            );
+            throw McpError(ErrorCode.methodNotFound.value, "No sampling handler registered");
           }
           return await onSamplingRequest!(request.createParams);
         },
-        (id, params, meta) => JsonRpcCreateMessageRequest(
-          id: id,
-          createParams: CreateMessageRequest.fromJson(params ?? {}),
-          meta: meta,
-        ),
+        (id, params, meta) =>
+            JsonRpcCreateMessageRequest(id: id, createParams: CreateMessageRequest.fromJson(params ?? {}), meta: meta),
       );
     }
   }
@@ -178,13 +152,9 @@ class McpClient extends Protocol {
   /// Throws [StateError] if called after connecting.
   void registerCapabilities(ClientCapabilities capabilities) {
     if (transport != null) {
-      throw StateError(
-        "Cannot register capabilities after connecting to transport",
-      );
+      throw StateError("Cannot register capabilities after connecting to transport");
     }
-    _capabilities = ClientCapabilities.fromJson(
-      mergeCapabilities(_capabilities.toJson(), capabilities.toJson()),
-    );
+    _capabilities = ClientCapabilities.fromJson(mergeCapabilities(_capabilities.toJson(), capabilities.toJson()));
   }
 
   /// Connects to the server using the given [transport].
@@ -205,10 +175,7 @@ class McpClient extends Protocol {
         clientInfo: _clientInfo,
       );
 
-      final initRequest = JsonRpcInitializeRequest(
-        id: -1,
-        initParams: initParams,
-      );
+      final initRequest = JsonRpcInitializeRequest(id: -1, initParams: initParams);
 
       final InitializeResult result = await request<InitializeResult>(
         initRequest,
@@ -252,9 +219,7 @@ class McpClient extends Protocol {
   void assertCapabilityForMethod(String method) {
     final serverCaps = _serverCapabilities;
     if (serverCaps == null) {
-      throw StateError(
-        "Cannot check server capabilities before initialization is complete.",
-      );
+      throw StateError("Cannot check server capabilities before initialization is complete.");
     }
 
     bool supported = true;
@@ -291,9 +256,7 @@ class McpClient extends Protocol {
         requiredCapability = 'completions';
         break;
       default:
-        _logger.warn(
-          "assertCapabilityForMethod called for potentially custom client request: $method",
-        );
+        _logger.warn("assertCapabilityForMethod called for potentially custom client request: $method");
         supported = true;
     }
 
@@ -310,15 +273,11 @@ class McpClient extends Protocol {
     switch (method) {
       case Method.notificationsRootsListChanged:
         if (!(_capabilities.roots?.listChanged ?? false)) {
-          throw StateError(
-            "Client does not support 'roots.listChanged' capability (required for sending $method)",
-          );
+          throw StateError("Client does not support 'roots.listChanged' capability (required for sending $method)");
         }
         break;
       default:
-        _logger.warn(
-          "assertNotificationCapability called for potentially custom client notification: $method",
-        );
+        _logger.warn("assertNotificationCapability called for potentially custom client notification: $method");
     }
   }
 
@@ -327,23 +286,17 @@ class McpClient extends Protocol {
     switch (method) {
       case Method.samplingCreateMessage:
         if (!(_capabilities.sampling != null)) {
-          throw StateError(
-            "Client setup error: Cannot handle '$method' without 'sampling' capability registered.",
-          );
+          throw StateError("Client setup error: Cannot handle '$method' without 'sampling' capability registered.");
         }
         break;
       case Method.rootsList:
         if (!(_capabilities.roots != null)) {
-          throw StateError(
-            "Client setup error: Cannot handle '$method' without 'roots' capability registered.",
-          );
+          throw StateError("Client setup error: Cannot handle '$method' without 'roots' capability registered.");
         }
         break;
       case Method.elicitationCreate:
         if (!(_capabilities.elicitation != null)) {
-          throw StateError(
-            "Client setup error: Cannot handle '$method' without 'elicitation' capability registered.",
-          );
+          throw StateError("Client setup error: Cannot handle '$method' without 'elicitation' capability registered.");
         }
         break;
       default:
@@ -366,81 +319,44 @@ class McpClient extends Protocol {
   @override
   void assertTaskHandlerCapability(String method) {
     if (_capabilities.tasks == null) {
-      throw StateError(
-        "Client setup error: Cannot handle task-based '$method' without 'tasks' capability registered.",
-      );
+      throw StateError("Client setup error: Cannot handle task-based '$method' without 'tasks' capability registered.");
     }
   }
 
   /// Sends a `ping` request to the server and awaits an empty response.
   Future<EmptyResult> ping([RequestOptions? options]) {
-    return request<EmptyResult>(
-      const JsonRpcPingRequest(id: -1),
-      (json) => const EmptyResult(),
-      options,
-    );
+    return request<EmptyResult>(const JsonRpcPingRequest(id: -1), (json) => const EmptyResult(), options);
   }
 
   /// Sends a `completion/complete` request to the server for argument completion.
-  Future<CompleteResult> complete(
-    CompleteRequest params, [
-    RequestOptions? options,
-  ]) {
+  Future<CompleteResult> complete(CompleteRequest params, [RequestOptions? options]) {
     final req = JsonRpcCompleteRequest(id: -1, completeParams: params);
-    return request<CompleteResult>(
-      req,
-      (json) => CompleteResult.fromJson(json),
-      options,
-    );
+    return request<CompleteResult>(req, (json) => CompleteResult.fromJson(json), options);
   }
 
   /// Sends a `logging/setLevel` request to the server.
-  Future<EmptyResult> setLoggingLevel(
-    LoggingLevel level, [
-    RequestOptions? options,
-  ]) {
+  Future<EmptyResult> setLoggingLevel(LoggingLevel level, [RequestOptions? options]) {
     final params = SetLevelRequest(level: level);
     final req = JsonRpcSetLevelRequest(id: -1, setParams: params);
     return request<EmptyResult>(req, (json) => const EmptyResult(), options);
   }
 
   /// Sends a `prompts/get` request to retrieve a specific prompt/template.
-  Future<GetPromptResult> getPrompt(
-    GetPromptRequest params, [
-    RequestOptions? options,
-  ]) {
+  Future<GetPromptResult> getPrompt(GetPromptRequest params, [RequestOptions? options]) {
     final req = JsonRpcGetPromptRequest(id: -1, getParams: params);
-    return request<GetPromptResult>(
-      req,
-      (json) => GetPromptResult.fromJson(json),
-      options,
-    );
+    return request<GetPromptResult>(req, (json) => GetPromptResult.fromJson(json), options);
   }
 
   /// Sends a `prompts/list` request to list available prompts/templates.
-  Future<ListPromptsResult> listPrompts({
-    ListPromptsRequest? params,
-    RequestOptions? options,
-  }) {
+  Future<ListPromptsResult> listPrompts({ListPromptsRequest? params, RequestOptions? options}) {
     final req = JsonRpcListPromptsRequest(id: -1, params: params);
-    return request<ListPromptsResult>(
-      req,
-      (json) => ListPromptsResult.fromJson(json),
-      options,
-    );
+    return request<ListPromptsResult>(req, (json) => ListPromptsResult.fromJson(json), options);
   }
 
   /// Sends a `resources/list` request to list available resources.
-  Future<ListResourcesResult> listResources({
-    ListResourcesRequest? params,
-    RequestOptions? options,
-  }) {
+  Future<ListResourcesResult> listResources({ListResourcesRequest? params, RequestOptions? options}) {
     final req = JsonRpcListResourcesRequest(id: -1, params: params);
-    return request<ListResourcesResult>(
-      req,
-      (json) => ListResourcesResult.fromJson(json),
-      options,
-    );
+    return request<ListResourcesResult>(req, (json) => ListResourcesResult.fromJson(json), options);
   }
 
   /// Sends a `resources/templates/list` request to list available resource templates.
@@ -449,72 +365,42 @@ class McpClient extends Protocol {
     RequestOptions? options,
   }) {
     final req = JsonRpcListResourceTemplatesRequest(id: -1, params: params);
-    return request<ListResourceTemplatesResult>(
-      req,
-      (json) => ListResourceTemplatesResult.fromJson(json),
-      options,
-    );
+    return request<ListResourceTemplatesResult>(req, (json) => ListResourceTemplatesResult.fromJson(json), options);
   }
 
   /// Sends a `resources/read` request to read the content of a resource.
-  Future<ReadResourceResult> readResource(
-    ReadResourceRequest params, [
-    RequestOptions? options,
-  ]) {
+  Future<ReadResourceResult> readResource(ReadResourceRequest params, [RequestOptions? options]) {
     final req = JsonRpcReadResourceRequest(id: -1, readParams: params);
-    return request<ReadResourceResult>(
-      req,
-      (json) => ReadResourceResult.fromJson(json),
-      options,
-    );
+    return request<ReadResourceResult>(req, (json) => ReadResourceResult.fromJson(json), options);
   }
 
   /// Sends a `resources/subscribe` request to subscribe to updates for a resource.
-  Future<EmptyResult> subscribeResource(
-    SubscribeRequest params, [
-    RequestOptions? options,
-  ]) {
+  Future<EmptyResult> subscribeResource(SubscribeRequest params, [RequestOptions? options]) {
     final req = JsonRpcSubscribeRequest(id: -1, subParams: params);
     return request<EmptyResult>(req, (json) => const EmptyResult(), options);
   }
 
   /// Sends a `resources/unsubscribe` request to cancel a resource subscription.
-  Future<EmptyResult> unsubscribeResource(
-    UnsubscribeRequest params, [
-    RequestOptions? options,
-  ]) {
+  Future<EmptyResult> unsubscribeResource(UnsubscribeRequest params, [RequestOptions? options]) {
     final req = JsonRpcUnsubscribeRequest(id: -1, unsubParams: params);
     return request<EmptyResult>(req, (json) => const EmptyResult(), options);
   }
 
   /// Sends a `tools/call` request to invoke a tool on the server.
-  Future<CallToolResult> callTool(
-    CallToolRequest params, {
-    RequestOptions? options,
-  }) async {
+  Future<CallToolResult> callTool(CallToolRequest params, {RequestOptions? options}) async {
     if (_cachedRequiredTaskTools.contains(params.name)) {
-      throw McpError(
-        ErrorCode.invalidRequest.value,
-        'Tool "${params.name}" requires task-based execution.',
-      );
+      throw McpError(ErrorCode.invalidRequest.value, 'Tool "${params.name}" requires task-based execution.');
     }
 
     final req = JsonRpcCallToolRequest(id: -1, params: params.toJson());
-    final result = await request<CallToolResult>(
-      req,
-      (json) => CallToolResult.fromJson(json),
-      options,
-    );
+    final result = await request<CallToolResult>(req, (json) => CallToolResult.fromJson(json), options);
 
     final outputSchema = _cachedToolOutputSchemas[params.name];
     if (outputSchema != null && !result.isError) {
       try {
         outputSchema.validate(result.structuredContent);
       } catch (e) {
-        throw McpError(
-          ErrorCode.invalidParams.value,
-          "Structured content does not match the tool's output schema: $e",
-        );
+        throw McpError(ErrorCode.invalidParams.value, "Structured content does not match the tool's output schema: $e");
       }
     }
 
@@ -522,16 +408,9 @@ class McpClient extends Protocol {
   }
 
   /// Sends a `tools/list` request to list available tools on the server.
-  Future<ListToolsResult> listTools({
-    ListToolsRequest? params,
-    RequestOptions? options,
-  }) async {
+  Future<ListToolsResult> listTools({ListToolsRequest? params, RequestOptions? options}) async {
     final req = JsonRpcListToolsRequest(id: -1, params: params?.toJson());
-    final result = await request<ListToolsResult>(
-      req,
-      (json) => ListToolsResult.fromJson(json),
-      options,
-    );
+    final result = await request<ListToolsResult>(req, (json) => ListToolsResult.fromJson(json), options);
 
     _cacheToolMetadata(result.tools);
 

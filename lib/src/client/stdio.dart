@@ -75,8 +75,7 @@ class StdioClientTransport implements Transport {
 
   /// Subscriptions to the process's stdout and stderr streams.
   StreamSubscription<List<int>>? _stdoutSubscription;
-  StreamSubscription<List<int>>?
-      _stderrSubscription; // Only used if stderrMode is pipe
+  StreamSubscription<List<int>>? _stderrSubscription; // Only used if stderrMode is pipe
 
   /// Callback for when the connection (process) is closed.
   @override
@@ -124,9 +123,7 @@ class StdioClientTransport implements Transport {
         mode: io.ProcessStartMode.normal, // Always use normal to enable piping
       );
 
-      _logger.debug(
-        "StdioClientTransport: Process started (PID: ${_process?.pid})",
-      );
+      _logger.debug("StdioClientTransport: Process started (PID: ${_process?.pid})");
 
       // --- Setup stream listeners ---
 
@@ -144,10 +141,7 @@ class StdioClientTransport implements Transport {
         // Do NOT listen here, as that would prevent the user from listening.
       } else {
         // Inherit stderr (manually pipe to parent stderr)
-        _stderrSubscription = _process!.stderr.listen(
-          (data) => io.stderr.add(data),
-          onError: _onStreamError,
-        );
+        _stderrSubscription = _process!.stderr.listen((data) => io.stderr.add(data), onError: _onStreamError);
       }
 
       // Handle process exit
@@ -159,9 +153,7 @@ class StdioClientTransport implements Transport {
       // Handle errors during Process.start()
       _logger.error("StdioClientTransport: Failed to start process: $error");
       _started = false; // Reset state
-      final startError = StateError(
-        "Failed to start server process: $error\n$stackTrace",
-      );
+      final startError = StateError("Failed to start server process: $error\n$stackTrace");
       try {
         onerror?.call(startError);
       } catch (e) {
@@ -176,8 +168,7 @@ class StdioClientTransport implements Transport {
   /// [io.ProcessStartMode.normal] during construction.
   /// Returns null if stderr is not piped or if the process is not running.
   Stream<List<int>>? get stderr {
-    if (_serverParams.stderrMode == io.ProcessStartMode.normal &&
-        _process != null) {
+    if (_serverParams.stderrMode == io.ProcessStartMode.normal && _process != null) {
       return _process!.stderr;
     }
     return null;
@@ -200,9 +191,7 @@ class StdioClientTransport implements Transport {
 
   /// Internal handler for errors on process stdout/stderr streams.
   void _onStreamError(dynamic error, StackTrace stackTrace) {
-    final Error streamError = (error is Error)
-        ? error
-        : StateError("Process stream error: $error\n$stackTrace");
+    final Error streamError = (error is Error) ? error : StateError("Process stream error: $error\n$stackTrace");
     try {
       onerror?.call(streamError);
     } catch (e) {
@@ -225,17 +214,13 @@ class StdioClientTransport implements Transport {
           onerror?.call(StateError("Error in onmessage handler: $e"));
         }
       } catch (error) {
-        final Error parseError = (error is Error)
-            ? error
-            : StateError("Message parsing error: $error");
+        final Error parseError = (error is Error) ? error : StateError("Message parsing error: $error");
         try {
           onerror?.call(parseError);
         } catch (e) {
           _logger.warn("Error in onerror handler: $e");
         }
-        _logger.error(
-          "StdioClientTransport: Error processing read buffer: $parseError. Skipping data.",
-        );
+        _logger.error("StdioClientTransport: Error processing read buffer: $parseError. Skipping data.");
         // Consider clearing buffer or attempting recovery depending on error type.
         // Clearing might be safest for unknown parsing errors.
         // _readBuffer.clear();
@@ -255,12 +240,8 @@ class StdioClientTransport implements Transport {
 
   /// Internal handler for errors retrieving the process exit code.
   void _onProcessExitError(dynamic error, StackTrace stackTrace) {
-    _logger.debug(
-      "StdioClientTransport: Error waiting for process exit: $error",
-    );
-    final Error exitError = (error is Error)
-        ? error
-        : StateError("Process exit error: $error\n$stackTrace");
+    _logger.debug("StdioClientTransport: Error waiting for process exit: $error");
+    final Error exitError = (error is Error) ? error : StateError("Process exit error: $error\n$stackTrace");
     try {
       onerror?.call(exitError);
     } catch (e) {
@@ -298,15 +279,11 @@ class StdioClientTransport implements Transport {
     _process = null; // Clear reference
 
     if (processToKill != null) {
-      _logger.debug(
-        "StdioClientTransport: Terminating process (PID: ${processToKill.pid})...",
-      );
+      _logger.debug("StdioClientTransport: Terminating process (PID: ${processToKill.pid})...");
       // Attempt graceful termination first
       final bool killed = processToKill.kill(io.ProcessSignal.sigterm);
       if (!killed) {
-        _logger.debug(
-          "StdioClientTransport: Failed to send SIGTERM or process already exited.",
-        );
+        _logger.debug("StdioClientTransport: Failed to send SIGTERM or process already exited.");
         // If SIGTERM fails or wasn't sent (e.g., process already dead),
         // rely on the exitCode future completing.
       } else {
@@ -315,15 +292,11 @@ class StdioClientTransport implements Transport {
           await _exitCompleter.future.timeout(const Duration(seconds: 2));
           _logger.debug("StdioClientTransport: Process terminated gracefully.");
         } on TimeoutException {
-          _logger.warn(
-            "StdioClientTransport: Process did not exit after SIGTERM, sending SIGKILL.",
-          );
+          _logger.warn("StdioClientTransport: Process did not exit after SIGTERM, sending SIGKILL.");
           processToKill.kill(io.ProcessSignal.sigkill); // Force kill
         } catch (e) {
           // Error waiting for exit after SIGTERM (might have exited quickly)
-          _logger.error(
-            "StdioClientTransport: Error waiting for process exit after SIGTERM: $e",
-          );
+          _logger.error("StdioClientTransport: Error waiting for process exit after SIGTERM: $e");
         }
       }
     }
@@ -351,9 +324,7 @@ class StdioClientTransport implements Transport {
   Future<void> send(JsonRpcMessage message, {int? relatedRequestId}) async {
     final currentProcess = _process; // Capture locally
     if (!_started || currentProcess == null) {
-      throw StateError(
-        "Cannot send message: StdioClientTransport is not running.",
-      );
+      throw StateError("Cannot send message: StdioClientTransport is not running.");
     }
 
     try {
@@ -362,12 +333,8 @@ class StdioClientTransport implements Transport {
       // Flushing stdin might be necessary depending on the server's reading behavior.
       await currentProcess.stdin.flush();
     } catch (error, stackTrace) {
-      _logger.warn(
-        "StdioClientTransport: Error writing to process stdin: $error",
-      );
-      final Error sendError = (error is Error)
-          ? error
-          : StateError("Process stdin write error: $error\n$stackTrace");
+      _logger.warn("StdioClientTransport: Error writing to process stdin: $error");
+      final Error sendError = (error is Error) ? error : StateError("Process stdin write error: $error\n$stackTrace");
       try {
         onerror?.call(sendError);
       } catch (e) {

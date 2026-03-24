@@ -111,21 +111,14 @@ void main() {
       } catch (_) {}
     });
 
-    test('throws StateError when connecting to already connected protocol',
-        () async {
+    test('throws StateError when connecting to already connected protocol', () async {
       await protocol.connect(transport);
       expect(protocol.transport, isNotNull);
 
       final anotherTransport = EdgeCaseMockTransport();
       expect(
         () => protocol.connect(anotherTransport),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('already connected'),
-          ),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('already connected'))),
       );
 
       await anotherTransport.close();
@@ -138,10 +131,7 @@ void main() {
       // by sending a cancellation for a non-existent request (should be silently ignored)
       transport.receiveMessage(
         JsonRpcCancelledNotification(
-          cancelParams: const CancelledNotificationParams(
-            requestId: 999,
-            reason: 'Test cancellation',
-          ),
+          cancelParams: const CancelledNotificationParams(requestId: 999, reason: 'Test cancellation'),
         ),
       );
 
@@ -159,11 +149,7 @@ void main() {
       // Send a progress notification for a non-existent request (should be silently ignored)
       transport.receiveMessage(
         JsonRpcProgressNotification(
-          progressParams: const ProgressNotificationParams(
-            progressToken: 999,
-            progress: 50,
-            total: 100,
-          ),
+          progressParams: const ProgressNotificationParams(progressToken: 999, progress: 50, total: 100),
         ),
       );
 
@@ -181,10 +167,7 @@ void main() {
       protocol.onerror = (error) => errors.add(error);
 
       // Create a custom message that will fail parsing
-      final badMessage = const JsonRpcResponse(
-        id: 999,
-        result: {'invalid': 'structure'},
-      );
+      final badMessage = const JsonRpcResponse(id: 999, result: {'invalid': 'structure'});
 
       // Modify toJson to return invalid structure
       final badJson = badMessage.toJson();
@@ -204,20 +187,14 @@ void main() {
       await protocol.connect(transport);
 
       // Send notification with no registered handler
-      transport.receiveMessage(
-        const JsonRpcNotification(
-          method: 'unhandled/notification',
-          params: {},
-        ),
-      );
+      transport.receiveMessage(const JsonRpcNotification(method: 'unhandled/notification', params: {}));
 
       // Should not throw, just silently ignore
       await Future.delayed(const Duration(milliseconds: 50));
       // Test passes if no exception is thrown
     });
 
-    test('fallback notification handler would be called if method parsed',
-        () async {
+    test('fallback notification handler would be called if method parsed', () async {
       // Note: This test documents that fallback handlers CAN'T be tested with
       // custom methods because JsonRpcMessage.fromJson throws UnimplementedError
       // for unknown notification methods. The fallback handler mechanism exists
@@ -264,16 +241,16 @@ void main() {
         futures.add(
           protocol
               .request<EmptyResult>(
-            const JsonRpcPingRequest(id: 0),
-            (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
-          )
+                const JsonRpcPingRequest(id: 0),
+                (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
+              )
               .catchError((e) {
-            // Catch errors inline to prevent unhandled error zone warnings
-            if (e is McpError && e.code == ErrorCode.connectionClosed.value) {
-              return const EmptyResult(); // Return dummy result
-            }
-            throw e; // Rethrow unexpected errors
-          }),
+                // Catch errors inline to prevent unhandled error zone warnings
+                if (e is McpError && e.code == ErrorCode.connectionClosed.value) {
+                  return const EmptyResult(); // Return dummy result
+                }
+                throw e; // Rethrow unexpected errors
+              }),
         );
       }
 
@@ -284,11 +261,7 @@ void main() {
       final results = await Future.wait(futures);
 
       // Verify all 3 completed (catchError returned EmptyResult for each)
-      expect(
-        results.length,
-        equals(3),
-        reason: 'All 3 requests should complete',
-      );
+      expect(results.length, equals(3), reason: 'All 3 requests should complete');
     });
 
     test('handles user onclose error gracefully', () async {
@@ -305,12 +278,7 @@ void main() {
 
       // Should handle the error without crashing
       expect(errors.length, greaterThan(0));
-      expect(
-        errors.any(
-          (e) => e is StateError && e.message.contains('User onclose error'),
-        ),
-        isTrue,
-      );
+      expect(errors.any((e) => e is StateError && e.message.contains('User onclose error')), isTrue);
     });
 
     test('handles user onerror error gracefully', () async {

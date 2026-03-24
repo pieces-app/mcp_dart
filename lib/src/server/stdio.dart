@@ -52,8 +52,8 @@ class StdioServerTransport implements Transport {
   /// By default, uses [io.stdin] and [io.stdout] from `dart:io`.
   /// Provide alternative streams for testing or embedding purposes.
   StdioServerTransport({io.Stdin? stdin, io.IOSink? stdout})
-      : _stdin = stdin ?? io.stdin,
-        _stdout = stdout ?? io.stdout;
+    : _stdin = stdin ?? io.stdin,
+      _stdout = stdout ?? io.stdout;
 
   /// Starts listening for messages on stdin.
   ///
@@ -68,12 +68,7 @@ class StdioServerTransport implements Transport {
     }
     _started = true;
 
-    _stdinSubscription = _stdin.listen(
-      _ondata,
-      onError: _onErrorCallback,
-      onDone: _onStdinDone,
-      cancelOnError: false,
-    );
+    _stdinSubscription = _stdin.listen(_ondata, onError: _onErrorCallback, onDone: _onStdinDone, cancelOnError: false);
   }
 
   /// Internal callback for handling data chunks from stdin.
@@ -87,9 +82,7 @@ class StdioServerTransport implements Transport {
 
   /// Internal callback for handling errors on the stdin stream.
   void _onErrorCallback(dynamic error, StackTrace stackTrace) {
-    final Error dartError = (error is Error)
-        ? error
-        : StateError("Stdin error: $error\n$stackTrace");
+    final Error dartError = (error is Error) ? error : StateError("Stdin error: $error\n$stackTrace");
     try {
       onerror?.call(dartError);
     } catch (e) {
@@ -118,17 +111,13 @@ class StdioServerTransport implements Transport {
           onerror?.call(StateError("Error in onmessage handler: $e"));
         }
       } catch (error) {
-        final Error dartError = (error is Error)
-            ? error
-            : StateError("Message parsing error: $error");
+        final Error dartError = (error is Error) ? error : StateError("Message parsing error: $error");
         try {
           onerror?.call(dartError);
         } catch (e) {
           _logger.warn("Error within onerror handler during parsing: $e");
         }
-        _logger.warn(
-          "StdioServerTransport: Error processing read buffer: $dartError. Attempting to continue.",
-        );
+        _logger.warn("StdioServerTransport: Error processing read buffer: $dartError. Attempting to continue.");
       }
     }
   }
@@ -166,9 +155,7 @@ class StdioServerTransport implements Transport {
   @override
   Future<void> send(JsonRpcMessage message, {int? relatedRequestId}) {
     if (!_started) {
-      _logger.warn(
-        "Attempted to send message on stopped StdioServerTransport.",
-      );
+      _logger.warn("Attempted to send message on stopped StdioServerTransport.");
       return Future.value();
     }
     try {
@@ -176,9 +163,7 @@ class StdioServerTransport implements Transport {
       _stdout.write(jsonString);
       return Future.value();
     } catch (error) {
-      final Error dartError = (error is Error)
-          ? error
-          : StateError("Failed to send message: $error");
+      final Error dartError = (error is Error) ? error : StateError("Failed to send message: $error");
       try {
         onerror?.call(dartError);
       } catch (e) {

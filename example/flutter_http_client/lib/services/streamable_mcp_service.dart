@@ -10,15 +10,9 @@ class NotificationMessage {
   final String message;
   final DateTime timestamp;
 
-  NotificationMessage({
-    required this.count,
-    required this.level,
-    required this.message,
-    required this.timestamp,
-  });
+  NotificationMessage({required this.count, required this.level, required this.message, required this.timestamp});
 
-  String get formattedTimestamp =>
-      '${timestamp.hour}:${timestamp.minute}:${timestamp.second}';
+  String get formattedTimestamp => '${timestamp.hour}:${timestamp.minute}:${timestamp.second}';
 }
 
 /// MCP Client Service with StreamableHttpClientTransport
@@ -55,8 +49,7 @@ class StreamableMcpService extends ChangeNotifier {
   void updateServerUrl(String newUrl) {
     // Only update if not connected
     if (_client != null) {
-      _connectionError =
-          'Cannot change server URL while connected. Disconnect first.';
+      _connectionError = 'Cannot change server URL while connected. Disconnect first.';
       notifyListeners();
       return;
     }
@@ -75,9 +68,7 @@ class StreamableMcpService extends ChangeNotifier {
 
     try {
       // Create a new client
-      _client = McpClient(
-        Implementation(name: 'flutter-mcp-client', version: '1.0.0'),
-      );
+      _client = McpClient(Implementation(name: 'flutter-mcp-client', version: '1.0.0'));
 
       _client!.onerror = (error) {
         _connectionError = 'Client error: $error';
@@ -134,10 +125,8 @@ class StreamableMcpService extends ChangeNotifier {
           }
           return Future.value();
         },
-        (params, meta) => JsonRpcLoggingMessageNotification.fromJson({
-          'params': params,
-          if (meta != null) '_meta': meta,
-        }),
+        (params, meta) =>
+            JsonRpcLoggingMessageNotification.fromJson({'params': params, if (meta != null) '_meta': meta}),
       );
 
       _client!.setNotificationHandler(
@@ -164,10 +153,8 @@ class StreamableMcpService extends ChangeNotifier {
           notifyListeners();
           return Future.value();
         },
-        (params, meta) => JsonRpcResourceListChangedNotification.fromJson({
-          'params': params,
-          if (meta != null) '_meta': meta,
-        }),
+        (params, meta) =>
+            JsonRpcResourceListChangedNotification.fromJson({'params': params, if (meta != null) '_meta': meta}),
       );
 
       // Connect the client
@@ -203,8 +190,7 @@ class StreamableMcpService extends ChangeNotifier {
     } catch (error) {
       String errorMessage = 'Failed to connect: $error';
       // Add more specific error messages for network issues
-      if (error.toString().contains('SocketException') ||
-          error.toString().contains('Connection refused')) {
+      if (error.toString().contains('SocketException') || error.toString().contains('Connection refused')) {
         errorMessage +=
             '\n\nCheck that the server is running and the URL is correct. '
             'If you\'re using a physical device, make sure to use the actual IP address instead of localhost.';
@@ -236,8 +222,7 @@ class StreamableMcpService extends ChangeNotifier {
       );
     } catch (error) {
       // Log the error but continue with cleanup
-      _connectionError =
-          'Warning during disconnect: $error - Cleaning up anyway';
+      _connectionError = 'Warning during disconnect: $error - Cleaning up anyway';
     } finally {
       // Always clean up client and transport regardless of errors
       _client = null;
@@ -359,10 +344,7 @@ class StreamableMcpService extends ChangeNotifier {
 
     return await _client!.callTool(
       params,
-      options: RequestOptions(
-        timeout: const Duration(seconds: 30),
-        resetTimeoutOnProgress: true,
-      ),
+      options: RequestOptions(timeout: const Duration(seconds: 30), resetTimeoutOnProgress: true),
     );
   }
 
@@ -392,9 +374,7 @@ class StreamableMcpService extends ChangeNotifier {
 
     final params = GetPromptRequest(
       name: name,
-      arguments: Map<String, String>.from(
-        args.map((key, value) => MapEntry(key, value.toString())),
-      ),
+      arguments: Map<String, String>.from(args.map((key, value) => MapEntry(key, value.toString()))),
     );
 
     return await _client!.getPrompt(params);

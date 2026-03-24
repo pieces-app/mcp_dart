@@ -43,18 +43,13 @@ void main() async {
           ];
 
           // Filter suggestions based on current value
-          final filtered = suggestions
-              .where((s) => s.toLowerCase().contains(value.toLowerCase()))
-              .toList();
+          final filtered = suggestions.where((s) => s.toLowerCase().contains(value.toLowerCase())).toList();
 
           return filtered.isEmpty ? suggestions : filtered;
         },
       },
     ),
-    (
-      description: "Read files with auto-completion support",
-      mimeType: "text/plain"
-    ),
+    (description: "Read files with auto-completion support", mimeType: "text/plain"),
     (uri, variables, extra) async {
       final path = variables['path'] ?? 'unknown';
       return ReadResourceResult(
@@ -62,8 +57,7 @@ void main() async {
           TextResourceContents(
             uri: uri.toString(),
             mimeType: 'text/plain',
-            text:
-                'Content of file: $path\n\n(This is a demo - actual file reading not implemented)',
+            text: 'Content of file: $path\n\n(This is a demo - actual file reading not implemented)',
           ),
         ],
       );
@@ -83,22 +77,10 @@ void main() async {
           def: CompletableDef(
             complete: (value) async {
               // Provide language completions
-              final languages = [
-                'dart',
-                'javascript',
-                'typescript',
-                'python',
-                'java',
-                'go',
-                'rust',
-                'c',
-                'cpp',
-              ];
+              final languages = ['dart', 'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'c', 'cpp'];
 
               // Filter based on current input
-              final filtered = languages
-                  .where((lang) => lang.startsWith(value.toLowerCase()))
-                  .toList();
+              final filtered = languages.where((lang) => lang.startsWith(value.toLowerCase())).toList();
 
               return filtered.isEmpty ? languages : filtered;
             },
@@ -113,12 +95,7 @@ void main() async {
           def: CompletableDef(
             complete: (value) async {
               // Provide style completions
-              return [
-                'concise',
-                'detailed',
-                'security-focused',
-                'performance-focused',
-              ];
+              return ['concise', 'detailed', 'security-focused', 'performance-focused'];
             },
           ),
         ),
@@ -148,18 +125,12 @@ void main() async {
     'echo',
     description: 'Echo back the input message',
     inputSchema: JsonSchema.object(
-      properties: {
-        'message': JsonSchema.string(description: 'Message to echo'),
-      },
+      properties: {'message': JsonSchema.string(description: 'Message to echo')},
       required: ['message'],
     ),
     callback: (args, extra) async {
       final message = args['message'] ?? '';
-      return CallToolResult.fromContent(
-        [
-          TextContent(text: 'Echo: $message'),
-        ],
-      );
+      return CallToolResult.fromContent([TextContent(text: 'Echo: $message')]);
     },
   );
 

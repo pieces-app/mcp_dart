@@ -38,8 +38,7 @@ abstract class BaseTool {
   /// Execute the tool with the given arguments.
   ///
   /// Returns a [CallToolResult] with either success content or an error.
-  Future<CallToolResult> execute(
-      Map<String, dynamic> args, RequestHandlerExtra? extra);
+  Future<CallToolResult> execute(Map<String, dynamic> args, RequestHandlerExtra? extra);
 }
 
 /// Extension to register tools with an MCP server.

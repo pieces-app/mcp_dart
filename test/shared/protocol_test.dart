@@ -8,8 +8,7 @@ import 'package:test/test.dart';
 /// A mock transport implementation for testing the protocol layer
 class MockTransport implements Transport {
   final List<JsonRpcMessage> sentMessages = [];
-  final StreamController<JsonRpcMessage> _incomingMessages =
-      StreamController<JsonRpcMessage>.broadcast();
+  final StreamController<JsonRpcMessage> _incomingMessages = StreamController<JsonRpcMessage>.broadcast();
   bool _started = false;
   bool _closed = false;
   String? _sessionId;
@@ -113,38 +112,24 @@ class MockTransport implements Transport {
 class TestProtocol extends Protocol {
   // Properly structure capabilities as nested Maps
   final Map<String, Map<String, bool>> _capabilities = {
-    'requests': {
-      'test/method': true,
-      'ping': true,
-    },
-    'notifications': {
-      'test/notification': true,
-      'notifications/cancelled': true,
-      'notifications/progress': true,
-    },
+    'requests': {'test/method': true, 'ping': true},
+    'notifications': {'test/notification': true, 'notifications/cancelled': true, 'notifications/progress': true},
   };
 
   /// Constructs a TestProtocol with optional configuration
-  TestProtocol([ProtocolOptions? options])
-      : super(options ?? const ProtocolOptions());
+  TestProtocol([ProtocolOptions? options]) : super(options ?? const ProtocolOptions());
 
   @override
   void assertCapabilityForMethod(String method) {
     if (_capabilities['requests']?[method] != true) {
-      throw McpError(
-        ErrorCode.methodNotFound.value,
-        'Method not supported: $method',
-      );
+      throw McpError(ErrorCode.methodNotFound.value, 'Method not supported: $method');
     }
   }
 
   @override
   void assertNotificationCapability(String method) {
     if (_capabilities['notifications']?[method] != true) {
-      throw McpError(
-        ErrorCode.methodNotFound.value,
-        'Notification not supported: $method',
-      );
+      throw McpError(ErrorCode.methodNotFound.value, 'Notification not supported: $method');
     }
   }
 
@@ -208,9 +193,7 @@ void main() {
       expect(defaultProtocol, isNotNull);
 
       // Custom options test
-      final customProtocol = TestProtocol(
-        const ProtocolOptions(enforceStrictCapabilities: true),
-      );
+      final customProtocol = TestProtocol(const ProtocolOptions(enforceStrictCapabilities: true));
       expect(customProtocol, isNotNull);
     });
 
@@ -259,12 +242,7 @@ void main() {
       expect(sentMessage.params?['param'], equals('value'));
 
       // Simulate response
-      transport.receiveMessage(
-        JsonRpcResponse(
-          id: sentMessage.id,
-          result: {'value': 'response-data'},
-        ),
-      );
+      transport.receiveMessage(JsonRpcResponse(id: sentMessage.id, result: {'value': 'response-data'}));
 
       // Verify the response was processed
       final result = await requestFuture;
@@ -278,11 +256,7 @@ void main() {
       // Start a request
       final requestFuture = protocol
           .request<TestResult>(
-            const JsonRpcRequest(
-              id: 0,
-              method: 'test/method',
-              params: {'param': 'value'},
-            ),
+            const JsonRpcRequest(id: 0, method: 'test/method', params: {'param': 'value'}),
             (json) => TestResult(value: json['value'] as String),
           )
           .timeout(const Duration(seconds: 5));
@@ -295,10 +269,7 @@ void main() {
       transport.receiveMessage(
         JsonRpcError(
           id: sentId,
-          error: JsonRpcErrorData(
-            code: ErrorCode.internalError.value,
-            message: 'Test error message',
-          ),
+          error: JsonRpcErrorData(code: ErrorCode.internalError.value, message: 'Test error message'),
         ),
       );
 
@@ -367,40 +338,24 @@ void main() {
         expect(transport.sentMessages.length, greaterThan(1));
         bool foundCancellation = false;
         for (final message in transport.sentMessages) {
-          if (message is JsonRpcNotification &&
-              message.method == 'notifications/cancelled') {
+          if (message is JsonRpcNotification && message.method == 'notifications/cancelled') {
             foundCancellation = true;
             break;
           }
         }
-        expect(
-          foundCancellation,
-          isTrue,
-          reason: 'Should have sent a cancellation notification',
-        );
+        expect(foundCancellation, isTrue, reason: 'Should have sent a cancellation notification');
       }
     });
 
     test('enforces strict capabilities when enabled', () {
       // We avoid using a transport connection in this test and just verify the capability check directly
-      final strictProtocol = TestProtocol(
-        const ProtocolOptions(enforceStrictCapabilities: true),
-      );
+      final strictProtocol = TestProtocol(const ProtocolOptions(enforceStrictCapabilities: true));
 
       // Test that the capability checking works directly
-      expect(
-        () => strictProtocol.assertCapabilityForMethod('test/method'),
-        returnsNormally,
-      );
+      expect(() => strictProtocol.assertCapabilityForMethod('test/method'), returnsNormally);
       expect(
         () => strictProtocol.assertCapabilityForMethod('unsupported/method'),
-        throwsA(
-          isA<McpError>().having(
-            (error) => error.code,
-            'error code',
-            equals(ErrorCode.methodNotFound.value),
-          ),
-        ),
+        throwsA(isA<McpError>().having((error) => error.code, 'error code', equals(ErrorCode.methodNotFound.value))),
       );
     });
   });

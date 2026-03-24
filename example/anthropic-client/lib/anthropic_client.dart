@@ -20,11 +20,7 @@ class AnthropicMcpClient {
   Future<void> connectToServer(String cmd, List<String> args) async {
     try {
       transport = mcp_dart.StdioClientTransport(
-        mcp_dart.StdioServerParameters(
-          command: cmd,
-          args: args,
-          stderrMode: ProcessStartMode.normal,
-        ),
+        mcp_dart.StdioServerParameters(command: cmd, args: args, stderrMode: ProcessStartMode.normal),
       );
       transport!.onerror = (error) {
         print("Transport error: $error");
@@ -35,21 +31,14 @@ class AnthropicMcpClient {
       await mcp.connect(transport!);
 
       final toolsResult = await mcp.listTools();
-      tools =
-          toolsResult.tools
-              .map((tool) {
-                return Tool.custom(
-                  name: tool.name,
-                  description: tool.description,
-                  inputSchema: tool.inputSchema.toJson(),
-                );
-              })
-              .cast<Tool>()
-              .toList();
+      tools = toolsResult.tools
+          .map((tool) {
+            return Tool.custom(name: tool.name, description: tool.description, inputSchema: tool.inputSchema.toJson());
+          })
+          .cast<Tool>()
+          .toList();
 
-      print(
-        "Connected to server with tools: ${tools.map((t) => t.name).toList()}",
-      );
+      print("Connected to server with tools: ${tools.map((t) => t.name).toList()}");
     } catch (e) {
       print("Failed to connect to MCP server: $e");
       rethrow;
@@ -61,9 +50,7 @@ class AnthropicMcpClient {
   /// [query] is the user's input query.
   /// Returns the response as a string.
   Future<String> processQuery(String query) async {
-    final messages = [
-      Message(role: MessageRole.user, content: MessageContent.text(query)),
-    ];
+    final messages = [Message(role: MessageRole.user, content: MessageContent.text(query))];
 
     final response = await anthropic.createMessage(
       request: CreateMessageRequest(
@@ -81,23 +68,14 @@ class AnthropicMcpClient {
       if (content.type == "text") {
         finalText.add(content.text);
       } else if (content case ToolUseBlock()) {
-        final result = await mcp.callTool(
-          mcp_dart.CallToolRequest(
-            name: content.name,
-            arguments: content.input,
-          ),
-        );
+        final result = await mcp.callTool(mcp_dart.CallToolRequest(name: content.name, arguments: content.input));
         toolResults.add(result);
-        finalText.add(
-          "[Calling tool ${content.name} with args ${jsonEncode(content.input)}]",
-        );
+        finalText.add("[Calling tool ${content.name} with args ${jsonEncode(content.input)}]");
 
         messages.add(
           Message(
             role: MessageRole.user,
-            content: MessageContent.blocks(
-              result.content.map((c) => Block.fromJson(c.toJson())).toList(),
-            ),
+            content: MessageContent.blocks(result.content.map((c) => Block.fromJson(c.toJson())).toList()),
           ),
         );
 
@@ -109,11 +87,7 @@ class AnthropicMcpClient {
           ),
         );
 
-        finalText.add(
-          nextResponse.content.blocks.first.type == "text"
-              ? nextResponse.content.blocks.first.text
-              : "",
-        );
+        finalText.add(nextResponse.content.blocks.first.type == "text" ? nextResponse.content.blocks.first.text : "");
       }
     }
 

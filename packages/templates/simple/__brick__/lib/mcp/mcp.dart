@@ -16,10 +16,7 @@ McpServer createMcpServer() {
   final server = McpServer(
     Implementation(name: '{{name}}', version: '1.0.0'),
     options: McpServerOptions(
-      capabilities: ServerCapabilities(
-        tools: ServerCapabilitiesTools(),
-        resources: ServerCapabilitiesResources(),
-      ),
+      capabilities: ServerCapabilities(tools: ServerCapabilitiesTools(), resources: ServerCapabilitiesResources()),
     ),
   );
 

@@ -13,12 +13,7 @@ import 'package:mcp_dart/mcp_dart.dart' hide LogLevel;
 // ============================================================================
 
 /// Represents the connection state of the MCP client.
-enum McpConnectionState {
-  disconnected,
-  connecting,
-  connected,
-  error,
-}
+enum McpConnectionState { disconnected, connecting, connected, error }
 
 /// A sealed class representing all possible MCP client events.
 sealed class McpEvent {
@@ -190,10 +185,7 @@ class McpService {
       return false;
     }
 
-    _setConnectionState(
-      McpConnectionState.connecting,
-      'Connecting to $serverUrl',
-    );
+    _setConnectionState(McpConnectionState.connecting, 'Connecting to $serverUrl');
 
     try {
       // Create the MCP client with elicitation and sampling capabilities
@@ -205,9 +197,7 @@ class McpService {
             sampling: ClientCapabilitiesSampling(),
             tasks: ClientCapabilitiesTasks(
               requests: ClientCapabilitiesTasksRequests(
-                elicitation: ClientCapabilitiesTasksElicitation(
-                  create: ClientCapabilitiesTasksElicitationCreate(),
-                ),
+                elicitation: ClientCapabilitiesTasksElicitation(create: ClientCapabilitiesTasksElicitationCreate()),
                 sampling: ClientCapabilitiesTasksSampling(
                   createMessage: ClientCapabilitiesTasksSamplingCreateMessage(),
                 ),
@@ -254,10 +244,8 @@ class McpService {
           };
           _emitLog(level, params.data.toString());
         },
-        (params, meta) => JsonRpcLoggingMessageNotification(
-          logParams: LoggingMessageNotification.fromJson(params ?? {}),
-          meta: meta,
-        ),
+        (params, meta) =>
+            JsonRpcLoggingMessageNotification(logParams: LoggingMessageNotification.fromJson(params ?? {}), meta: meta),
       );
 
       // Create the transport
@@ -275,17 +263,11 @@ class McpService {
       _sessionId = _transport!.sessionId;
       _taskClient = TaskClient(_client!);
 
-      _setConnectionState(
-        McpConnectionState.connected,
-        'Connected with session: $_sessionId',
-      );
+      _setConnectionState(McpConnectionState.connected, 'Connected with session: $_sessionId');
 
       return true;
     } catch (error) {
-      _setConnectionState(
-        McpConnectionState.error,
-        'Connection failed: $error',
-      );
+      _setConnectionState(McpConnectionState.error, 'Connection failed: $error');
       _cleanup();
       return false;
     }
@@ -332,10 +314,7 @@ class McpService {
       final result = await _client!.listTools();
       _tools = result.tools;
       _eventController.add(ToolsListedEvent(_tools));
-      _emitLog(
-        McpLogLevel.info,
-        'Listed ${_tools.length} tools: ${_tools.map((t) => t.name).join(", ")}',
-      );
+      _emitLog(McpLogLevel.info, 'Listed ${_tools.length} tools: ${_tools.map((t) => t.name).join(", ")}');
       return _tools;
     } catch (error) {
       _emitLog(McpLogLevel.error, 'Failed to list tools: $error');
@@ -377,13 +356,8 @@ class McpService {
 
     try {
       final result = await _client!.listResourceTemplates();
-      _eventController.add(
-        ResourceTemplatesListedEvent(result.resourceTemplates),
-      );
-      _emitLog(
-        McpLogLevel.info,
-        'Listed ${result.resourceTemplates.length} resource templates',
-      );
+      _eventController.add(ResourceTemplatesListedEvent(result.resourceTemplates));
+      _emitLog(McpLogLevel.info, 'Listed ${result.resourceTemplates.length} resource templates');
     } catch (e) {
       _emitLog(McpLogLevel.error, 'Failed to list resource templates: $e');
       rethrow;
@@ -425,15 +399,10 @@ class McpService {
   }
 
   /// Gets a prompt by name with optional arguments.
-  Future<void> getPrompt(
-    String name, [
-    Map<String, String>? arguments,
-  ]) async {
+  Future<void> getPrompt(String name, [Map<String, String>? arguments]) async {
     _ensureConnected();
     try {
-      final result = await _client!.getPrompt(
-        GetPromptRequest(name: name, arguments: arguments),
-      );
+      final result = await _client!.getPrompt(GetPromptRequest(name: name, arguments: arguments));
       _eventController.add(PromptGetEvent(result));
       _emitLog(McpLogLevel.info, 'Got prompt: $name');
     } catch (e) {
@@ -517,18 +486,13 @@ class McpService {
     if (!supportsTasks) {
       _emitLog(McpLogLevel.debug, 'Server does not support tasks. Using standard tool call.');
       try {
-        final result = await _client!.callTool(
-          CallToolRequest(name: name, arguments: arguments),
-        );
+        final result = await _client!.callTool(CallToolRequest(name: name, arguments: arguments));
 
         // Emit events
         _eventController.add(TaskResultEvent('', result));
 
         final textContent = result.content.whereType<TextContent>().firstOrNull;
-        _emitLog(
-          McpLogLevel.info,
-          'Tool result: ${textContent?.text ?? "(no text)"}',
-        );
+        _emitLog(McpLogLevel.info, 'Tool result: ${textContent?.text ?? "(no text)"}');
 
         yield TaskResultMessage(result);
         return;
@@ -555,19 +519,13 @@ class McpService {
         );
 
         final textContent = result.content.whereType<TextContent>().firstOrNull;
-        _emitLog(
-          McpLogLevel.info,
-          'Tool result: ${textContent?.text ?? "(no text)"}',
-        );
+        _emitLog(McpLogLevel.info, 'Tool result: ${textContent?.text ?? "(no text)"}');
         _eventController.add(TaskResultEvent('', result));
         yield TaskResultMessage(result);
         return;
       } catch (error) {
         if (error is McpError && error.message.contains('requires task-based execution')) {
-          _emitLog(
-            McpLogLevel.warning,
-            'Tool "$name" requires task execution. Progress callbacks will be ignored.',
-          );
+          _emitLog(McpLogLevel.warning, 'Tool "$name" requires task execution. Progress callbacks will be ignored.');
           // Fallback to TaskClient below
         } else {
           _emitLog(McpLogLevel.error, 'Tool call failed: $error');
@@ -594,10 +552,7 @@ class McpService {
             if (result is CallToolResult) {
               _eventController.add(TaskResultEvent('', result));
               final textContent = result.content.whereType<TextContent>().firstOrNull;
-              _emitLog(
-                McpLogLevel.info,
-                'Task result: ${textContent?.text ?? "(no text)"}',
-              );
+              _emitLog(McpLogLevel.info, 'Task result: ${textContent?.text ?? "(no text)"}');
             }
           case TaskErrorMessage(:final error):
             _eventController.add(TaskErrorEvent('', error));
@@ -666,9 +621,7 @@ class McpService {
     return completer.future;
   }
 
-  Future<CreateMessageResult> _handleSampling(
-    CreateMessageRequest params,
-  ) async {
+  Future<CreateMessageResult> _handleSampling(CreateMessageRequest params) async {
     final requestId = generateUUID();
     final completer = Completer<CreateMessageResult>();
 

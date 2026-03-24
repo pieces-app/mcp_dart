@@ -20,11 +20,7 @@ class ManifestResource extends BaseResource {
   ReadResourceResult read(Uri requestUri, RequestHandlerExtra? extra) {
     return ReadResourceResult(
       contents: [
-        TextResourceContents(
-          uri: requestUri.toString(),
-          mimeType: mimeType,
-          text: '{"name": "simple-server"}',
-        ),
+        TextResourceContents(uri: requestUri.toString(), mimeType: mimeType, text: '{"name": "simple-server"}'),
       ],
     );
   }

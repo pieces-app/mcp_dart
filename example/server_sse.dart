@@ -13,9 +13,7 @@ Future<void> main() async {
     description: 'Perform basic arithmetic operations',
     inputSchema: JsonSchema.object(
       properties: {
-        'operation': JsonSchema.string(
-          enumValues: ['add', 'subtract', 'multiply', 'divide'],
-        ),
+        'operation': JsonSchema.string(enumValues: ['add', 'subtract', 'multiply', 'divide']),
         'a': JsonSchema.number(),
         'b': JsonSchema.number(),
       },
@@ -25,19 +23,17 @@ Future<void> main() async {
       final operation = args['operation'];
       final a = args['a'];
       final b = args['b'];
-      return CallToolResult.fromContent(
-        [
-          TextContent(
-            text: switch (operation) {
-              'add' => 'Result: ${a + b}',
-              'subtract' => 'Result: ${a - b}',
-              'multiply' => 'Result: ${a * b}',
-              'divide' => 'Result: ${a / b}',
-              _ => throw Exception('Invalid operation'),
-            },
-          ),
-        ],
-      );
+      return CallToolResult.fromContent([
+        TextContent(
+          text: switch (operation) {
+            'add' => 'Result: ${a + b}',
+            'subtract' => 'Result: ${a - b}',
+            'multiply' => 'Result: ${a * b}',
+            'divide' => 'Result: ${a / b}',
+            _ => throw Exception('Invalid operation'),
+          },
+        ),
+      ]);
     },
   );
 

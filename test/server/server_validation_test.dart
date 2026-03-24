@@ -69,11 +69,7 @@ void main() {
           ),
           SamplingMessage(
             role: SamplingMessageRole.assistant, // Corrected
-            content: SamplingToolUseContent(
-              id: 'call1',
-              name: 'tool1',
-              input: {},
-            ), // Corrected
+            content: SamplingToolUseContent(id: 'call1', name: 'tool1', input: {}), // Corrected
           ),
           SamplingMessage(
             role: SamplingMessageRole.user, // Corrected
@@ -91,12 +87,7 @@ void main() {
       await Future.delayed(Duration.zero);
 
       // Check if request was sent
-      expect(
-        transport.sent.any(
-          (m) => m is JsonRpcRequest && m.method == 'sampling/createMessage',
-        ),
-        isTrue,
-      );
+      expect(transport.sent.any((m) => m is JsonRpcRequest && m.method == 'sampling/createMessage'), isTrue);
 
       // Emit response to complete the future
       final req = transport.sent.last as JsonRpcRequest;
@@ -118,28 +109,18 @@ void main() {
         messages: [
           SamplingMessage(
             role: SamplingMessageRole.assistant, // Corrected
-            content: SamplingToolUseContent(
-              id: 'call1',
-              name: 'tool1',
-              input: {},
-            ), // Corrected
+            content: SamplingToolUseContent(id: 'call1', name: 'tool1', input: {}), // Corrected
           ),
           SamplingMessage(
             role: SamplingMessageRole.user, // Corrected
-            content: SamplingToolResultContent(
-              toolUseId: 'call2',
-              content: 'tool result',
-            ), // Corrected
+            content: SamplingToolResultContent(toolUseId: 'call2', content: 'tool result'), // Corrected
           ),
         ],
         maxTokens: 100,
         tools: [],
       );
 
-      expect(
-        () => server.createMessage(invalidParams),
-        throwsA(isA<McpError>()),
-      );
+      expect(() => server.createMessage(invalidParams), throwsA(isA<McpError>()));
     });
 
     test('elicitInput validates schema', () async {
@@ -159,28 +140,15 @@ void main() {
       transport.emitMessage(const JsonRpcInitializedNotification());
       await Future.delayed(Duration.zero);
 
-      final schema = JsonSchema.object(
-        properties: {
-          'foo': JsonSchema.string(),
-        },
-        required: ['foo'],
-      );
+      final schema = JsonSchema.object(properties: {'foo': JsonSchema.string()}, required: ['foo']);
 
-      final params = ElicitRequestParams.form(
-        message: 'test',
-        requestedSchema: schema,
-      );
+      final params = ElicitRequestParams.form(message: 'test', requestedSchema: schema);
 
       // Case 1: Invalid response
       final future = server.elicitInput(params);
 
       await Future.delayed(Duration.zero);
-      expect(
-        transport.sent.any(
-          (m) => m is JsonRpcRequest && m.method == 'elicitation/create',
-        ),
-        isTrue,
-      );
+      expect(transport.sent.any((m) => m is JsonRpcRequest && m.method == 'elicitation/create'), isTrue);
       final elicitMsg = transport.sent.last as JsonRpcRequest;
 
       transport.emitMessage(
@@ -203,10 +171,7 @@ void main() {
       transport.emitMessage(
         JsonRpcResponse(
           id: elicitMsg2.id,
-          result: const ElicitResult(
-            action: 'accept',
-            content: {'foo': 'bar'},
-          ).toJson(),
+          result: const ElicitResult(action: 'accept', content: {'foo': 'bar'}).toJson(),
         ),
       );
 

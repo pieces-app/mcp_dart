@@ -19,23 +19,13 @@ abstract class TaskStore {
   Future<Task?> getTask(String taskId, [String? sessionId]);
 
   /// Stores the result of a task and sets its final status.
-  Future<void> storeTaskResult(
-    String taskId,
-    TaskStatus status,
-    BaseResultData result, [
-    String? sessionId,
-  ]);
+  Future<void> storeTaskResult(String taskId, TaskStatus status, BaseResultData result, [String? sessionId]);
 
   /// Retrieves the stored result of a task.
   Future<BaseResultData> getTaskResult(String taskId, [String? sessionId]);
 
   /// Updates a task's status.
-  Future<void> updateTaskStatus(
-    String taskId,
-    TaskStatus status, [
-    String? statusMessage,
-    String? sessionId,
-  ]);
+  Future<void> updateTaskStatus(String taskId, TaskStatus status, [String? statusMessage, String? sessionId]);
 
   /// Lists tasks, optionally starting from a pagination cursor.
   Future<ListTasksResult> listTasks(String? cursor, [String? sessionId]);
@@ -44,12 +34,7 @@ abstract class TaskStore {
 /// Interface for managing server-initiated messages for tasks.
 abstract class TaskMessageQueue {
   /// Enqueues a message for delivery.
-  Future<void> enqueue(
-    String taskId,
-    QueuedMessage message,
-    String? sessionId, [
-    int? maxSize,
-  ]);
+  Future<void> enqueue(String taskId, QueuedMessage message, String? sessionId, [int? maxSize]);
 
   /// Dequeues the next message for a task.
   Future<QueuedMessage?> dequeue(String taskId, [String? sessionId]);
@@ -64,28 +49,16 @@ class QueuedMessage {
   final JsonRpcMessage message;
   final int timestamp;
 
-  QueuedMessage({
-    required this.type,
-    required this.message,
-    required this.timestamp,
-  });
+  QueuedMessage({required this.type, required this.message, required this.timestamp});
 }
 
 /// Request-scoped TaskStore interface.
 abstract class RequestTaskStore {
   Future<Task> createTask(TaskCreation taskParams);
   Future<Task> getTask(String taskId);
-  Future<void> storeTaskResult(
-    String taskId,
-    TaskStatus status,
-    BaseResultData result,
-  );
+  Future<void> storeTaskResult(String taskId, TaskStatus status, BaseResultData result);
   Future<BaseResultData> getTaskResult(String taskId);
-  Future<void> updateTaskStatus(
-    String taskId,
-    TaskStatus status, [
-    String? statusMessage,
-  ]);
+  Future<void> updateTaskStatus(String taskId, TaskStatus status, [String? statusMessage]);
   Future<ListTasksResult> listTasks([String? cursor]);
 }
 

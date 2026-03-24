@@ -9,12 +9,7 @@ class TemplateLocation {
   final String? gitRef;
   final String? gitPath;
 
-  const TemplateLocation({
-    this.path,
-    this.gitUrl,
-    this.gitRef,
-    this.gitPath,
-  });
+  const TemplateLocation({this.path, this.gitUrl, this.gitRef, this.gitPath});
 
   /// Converts this location to a [Brick].
   Brick toBrick() {
@@ -22,16 +17,9 @@ class TemplateLocation {
       return Brick.path(path!);
     }
     if (gitUrl != null) {
-      return Brick.git(
-        GitPath(
-          gitUrl!,
-          ref: gitRef,
-          path: gitPath,
-        ),
-      );
+      return Brick.git(GitPath(gitUrl!, ref: gitRef, path: gitPath));
     }
-    throw StateError(
-        'Invalid TemplateLocation: neither path nor gitUrl provided');
+    throw StateError('Invalid TemplateLocation: neither path nor gitUrl provided');
   }
 }
 
@@ -65,10 +53,7 @@ class TemplateResolver {
 
     // 4. Parse GitHub Short Syntax: owner/repo/path/to/brick@ref
     // Heuristic: Must have at least one slash, no scheme (http/s), no .git
-    if (!template.contains(':') &&
-        !template.startsWith('/') &&
-        !template.startsWith('.') &&
-        template.contains('/')) {
+    if (!template.contains(':') && !template.startsWith('/') && !template.startsWith('.') && template.contains('/')) {
       return _parseGitHubShortSyntax(template);
     }
 
@@ -133,10 +118,7 @@ class TemplateResolver {
     final fileParts = pathStr.split('/');
     if (fileParts.length < 2) {
       // Should have been caught by regex or caller, but fallback
-      return TemplateLocation(
-        gitUrl: 'https://github.com/$pathStr.git',
-        gitRef: ref,
-      );
+      return TemplateLocation(gitUrl: 'https://github.com/$pathStr.git', gitRef: ref);
     }
 
     final owner = fileParts[0];

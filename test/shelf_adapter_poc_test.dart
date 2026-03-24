@@ -1,8 +1,8 @@
 /// Proof-of-Concept Test for Shelf HTTP Adapter
-/// 
+///
 /// This validates that the shelf adapter can handle the write pattern
 /// used by StreamableHTTPServerTransport (multiple writes, flush, close).
-/// 
+///
 /// Note: These tests focus on validating the adapter works, not on testing
 /// full streaming behavior which requires more complex async handling.
 library;
@@ -36,7 +36,7 @@ void main() {
 
       // Response should be created now
       final response = await adapter.shelfResponse;
-      
+
       // Verify response was created with correct headers
       expect(response.statusCode, equals(200));
       expect(response.headers['content-type'], equals('text/event-stream'));
@@ -86,11 +86,7 @@ void main() {
 
     test('can read request body stream', () async {
       final testBody = '{"jsonrpc": "2.0", "method": "initialize", "id": 1}';
-      final request = Request(
-        'POST',
-        Uri.parse('http://localhost/test'),
-        body: testBody,
-      );
+      final request = Request('POST', Uri.parse('http://localhost/test'), body: testBody);
 
       final responseCompleter = Completer<Response>();
       final adapter = ShelfHttpAdapter(request, responseCompleter);
@@ -140,10 +136,7 @@ void main() {
 
       // Try to modify - should throw
       expect(() => adapter.response.statusCode = 404, throwsStateError);
-      expect(
-        () => adapter.response.setHeader('X-Test', 'value'),
-        throwsStateError,
-      );
+      expect(() => adapter.response.setHeader('X-Test', 'value'), throwsStateError);
     });
 
     test('multiple writes accumulate correctly', () async {
@@ -152,7 +145,7 @@ void main() {
       final adapter = ShelfHttpAdapter(request, responseCompleter);
 
       adapter.response.statusCode = 200;
-      
+
       // Multiple writes before flush
       adapter.response.write('line1\n');
       adapter.response.write('line2\n');
@@ -168,4 +161,3 @@ void main() {
     });
   });
 }
-

@@ -24,10 +24,7 @@ void main() {
       logger.info(message);
 
       final captured = await completer.future;
-      expect(
-        captured,
-        equals([loggerName, LogLevel.info, message]),
-      );
+      expect(captured, equals([loggerName, LogLevel.info, message]));
     });
 
     test('supports all log levels', () async {
@@ -103,15 +100,7 @@ void main() {
 
       await Future.delayed(Duration.zero);
 
-      expect(
-        logs,
-        equals([
-          LogLevel.debug,
-          LogLevel.info,
-          LogLevel.warn,
-          LogLevel.error,
-        ]),
-      );
+      expect(logs, equals([LogLevel.debug, LogLevel.info, LogLevel.warn, LogLevel.error]));
     });
   });
 }

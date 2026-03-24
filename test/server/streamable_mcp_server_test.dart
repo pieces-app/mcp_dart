@@ -15,9 +15,7 @@ void main() {
     setUp(() async {
       server = StreamableMcpServer(
         serverFactory: (sessionId) {
-          return McpServer(
-            const Implementation(name: 'TestServer', version: '1.0.0'),
-          );
+          return McpServer(const Implementation(name: 'TestServer', version: '1.0.0'));
         },
         host: host,
         port: 0, // Dynamic port to avoid conflicts
@@ -93,10 +91,7 @@ void main() {
       final res = await http.post(
         Uri.parse(baseUrl),
         body: jsonEncode(req.toJson()),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json, text/event-stream',
-        },
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'},
       );
 
       expect(res.statusCode, HttpStatus.badRequest);
@@ -111,12 +106,10 @@ void main() {
       await server.stop();
 
       server = StreamableMcpServer(
-        serverFactory: (sid) =>
-            McpServer(const Implementation(name: 'AuthServer', version: '1.0')),
+        serverFactory: (sid) => McpServer(const Implementation(name: 'AuthServer', version: '1.0')),
         host: host,
         port: 0,
-        authenticator: (req) =>
-            req.headers.value('Authorization') == 'Bearer secret',
+        authenticator: (req) => req.headers.value('Authorization') == 'Bearer secret',
       );
       await server.start();
       baseUrl = 'http://$host:${server.port}/mcp';
@@ -124,12 +117,7 @@ void main() {
       // 1. Fail without auth
       final resFail = await http.post(
         Uri.parse(baseUrl),
-        body: jsonEncode(
-          const JsonRpcRequest(
-            id: 1,
-            method: 'initialize',
-          ).toJson(),
-        ),
+        body: jsonEncode(const JsonRpcRequest(id: 1, method: 'initialize').toJson()),
       );
       expect(resFail.statusCode, HttpStatus.forbidden);
 
@@ -140,17 +128,19 @@ void main() {
         req.headers.contentType = ContentType.json;
         req.headers.add('Accept', 'application/json, text/event-stream');
         req.headers.add('Authorization', 'Bearer secret');
-        req.write(jsonEncode(
-          JsonRpcRequest(
-            id: 1,
-            method: 'initialize',
-            params: const InitializeRequestParams(
-              protocolVersion: latestProtocolVersion,
-              capabilities: ClientCapabilities(),
-              clientInfo: Implementation(name: 'test', version: '1.0'),
+        req.write(
+          jsonEncode(
+            JsonRpcRequest(
+              id: 1,
+              method: 'initialize',
+              params: const InitializeRequestParams(
+                protocolVersion: latestProtocolVersion,
+                capabilities: ClientCapabilities(),
+                clientInfo: Implementation(name: 'test', version: '1.0'),
+              ).toJson(),
             ).toJson(),
-          ).toJson(),
-        ));
+          ),
+        );
         final res = await req.close();
         final receivedOkResponse = res.statusCode == HttpStatus.ok;
         expect(receivedOkResponse, isTrue);
@@ -172,8 +162,7 @@ void main() {
       await server.stop();
 
       server = StreamableMcpServer(
-        serverFactory: (sid) =>
-            McpServer(const Implementation(name: 'DnsServer', version: '1.0')),
+        serverFactory: (sid) => McpServer(const Implementation(name: 'DnsServer', version: '1.0')),
         host: host,
         port: 0,
         enableDnsRebindingProtection: true,
@@ -221,8 +210,7 @@ void main() {
       await server.stop();
 
       server = StreamableMcpServer(
-        serverFactory: (sid) =>
-            McpServer(const Implementation(name: 'DnsServer', version: '1.0')),
+        serverFactory: (sid) => McpServer(const Implementation(name: 'DnsServer', version: '1.0')),
         host: host,
         port: 0,
         enableDnsRebindingProtection: true,
@@ -235,8 +223,7 @@ void main() {
       await server.stop();
 
       server = StreamableMcpServer(
-        serverFactory: (sid) =>
-            McpServer(const Implementation(name: 'DnsServer', version: '1.0')),
+        serverFactory: (sid) => McpServer(const Implementation(name: 'DnsServer', version: '1.0')),
         host: host,
         port: actualPort,
         enableDnsRebindingProtection: true,

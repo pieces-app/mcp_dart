@@ -52,10 +52,7 @@ void main() {
 
   group('JsonRpcSetLevelRequest', () {
     test('constructs correctly', () {
-      final request = JsonRpcSetLevelRequest(
-        id: 1,
-        setParams: const SetLevelRequestParams(level: LoggingLevel.info),
-      );
+      final request = JsonRpcSetLevelRequest(id: 1, setParams: const SetLevelRequestParams(level: LoggingLevel.info));
       expect(request.id, equals(1));
       expect(request.method, equals('logging/setLevel'));
       expect(request.setParams.level, equals(LoggingLevel.info));
@@ -89,15 +86,8 @@ void main() {
     });
 
     test('fromJson throws on missing params', () {
-      final json = {
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'logging/setLevel',
-      };
-      expect(
-        () => JsonRpcSetLevelRequest.fromJson(json),
-        throwsA(isA<FormatException>()),
-      );
+      final json = {'jsonrpc': '2.0', 'id': 1, 'method': 'logging/setLevel'};
+      expect(() => JsonRpcSetLevelRequest.fromJson(json), throwsA(isA<FormatException>()));
     });
 
     test('toJson serializes correctly', () {
@@ -114,9 +104,7 @@ void main() {
 
   group('LoggingMessageNotificationParams', () {
     test('constructs with required level', () {
-      const params = LoggingMessageNotificationParams(
-        level: LoggingLevel.error,
-      );
+      const params = LoggingMessageNotificationParams(level: LoggingLevel.error);
       expect(params.level, equals(LoggingLevel.error));
       expect(params.logger, isNull);
       expect(params.data, isNull);
@@ -154,9 +142,7 @@ void main() {
     });
 
     test('toJson serializes required fields', () {
-      const params = LoggingMessageNotificationParams(
-        level: LoggingLevel.alert,
-      );
+      const params = LoggingMessageNotificationParams(level: LoggingLevel.alert);
       final json = params.toJson();
       expect(json['level'], equals('alert'));
       expect(json.containsKey('logger'), isFalse);
@@ -192,10 +178,7 @@ void main() {
   group('JsonRpcLoggingMessageNotification', () {
     test('constructs correctly', () {
       final notification = JsonRpcLoggingMessageNotification(
-        logParams: const LoggingMessageNotificationParams(
-          level: LoggingLevel.info,
-          data: 'Test message',
-        ),
+        logParams: const LoggingMessageNotificationParams(level: LoggingLevel.info, data: 'Test message'),
       );
       expect(notification.method, equals('notifications/message'));
       expect(notification.logParams.level, equals(LoggingLevel.info));
@@ -205,11 +188,7 @@ void main() {
       final json = {
         'jsonrpc': '2.0',
         'method': 'notifications/message',
-        'params': {
-          'level': 'error',
-          'logger': 'test',
-          'data': 'Error occurred',
-        },
+        'params': {'level': 'error', 'logger': 'test', 'data': 'Error occurred'},
       };
       final notification = JsonRpcLoggingMessageNotification.fromJson(json);
       expect(notification.logParams.level, equals(LoggingLevel.error));
@@ -232,14 +211,8 @@ void main() {
     });
 
     test('fromJson throws on missing params', () {
-      final json = {
-        'jsonrpc': '2.0',
-        'method': 'notifications/message',
-      };
-      expect(
-        () => JsonRpcLoggingMessageNotification.fromJson(json),
-        throwsA(isA<FormatException>()),
-      );
+      final json = {'jsonrpc': '2.0', 'method': 'notifications/message'};
+      expect(() => JsonRpcLoggingMessageNotification.fromJson(json), throwsA(isA<FormatException>()));
     });
 
     test('toJson serializes correctly', () {

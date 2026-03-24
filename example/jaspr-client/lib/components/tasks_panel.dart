@@ -10,32 +10,21 @@ class TasksPanel extends StatelessComponent {
   final Function(String taskId) onCancelTask;
   final Function() onRefresh;
 
-  const TasksPanel({
-    required this.tasks,
-    required this.onCancelTask,
-    required this.onRefresh,
-    super.key,
-  });
+  const TasksPanel({required this.tasks, required this.onCancelTask, required this.onRefresh, super.key});
 
   @override
   Component build(BuildContext context) {
     return section(classes: 'panel tasks-panel', [
       div(classes: 'panel-header', [
         h2([Component.text('Tasks')]),
-        button(
-          classes: 'btn btn-small btn-secondary',
-          onClick: onRefresh,
-          [Component.text('Refresh')],
-        ),
+        button(classes: 'btn btn-small btn-secondary', onClick: onRefresh, [Component.text('Refresh')]),
       ]),
       if (tasks.isEmpty)
         div(classes: 'empty-state', [
           p([Component.text('No tasks available.')]),
         ])
       else
-        div(classes: 'tasks-list', [
-          for (final task in tasks) _buildTaskItem(task),
-        ]),
+        div(classes: 'tasks-list', [for (final task in tasks) _buildTaskItem(task)]),
     ]);
   }
 
@@ -45,11 +34,9 @@ class TasksPanel extends StatelessComponent {
       div(classes: 'tool-header', [
         h3([Component.text('Task: ${task.taskId}')]),
         if (!isTerminal)
-          button(
-            classes: 'btn btn-small btn-secondary',
-            onClick: () => onCancelTask(task.taskId),
-            [Component.text('Cancel')],
-          ),
+          button(classes: 'btn btn-small btn-secondary', onClick: () => onCancelTask(task.taskId), [
+            Component.text('Cancel'),
+          ]),
       ]),
       div([
         span(classes: 'tool-args', [Component.text('Status: ${task.status.name}')]),

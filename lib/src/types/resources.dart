@@ -14,12 +14,7 @@ class ResourceAnnotations {
   /// ISO 8601 timestamp when the resource was last modified.
   final String? lastModified;
 
-  const ResourceAnnotations({
-    this.title,
-    this.audience,
-    this.priority,
-    this.lastModified,
-  });
+  const ResourceAnnotations({this.title, this.audience, this.priority, this.lastModified});
 
   factory ResourceAnnotations.fromJson(Map<String, dynamic> json) {
     return ResourceAnnotations(
@@ -31,11 +26,11 @@ class ResourceAnnotations {
   }
 
   Map<String, dynamic> toJson() => {
-        if (title != null) 'title': title,
-        if (audience != null) 'audience': audience,
-        if (priority != null) 'priority': priority,
-        if (lastModified != null) 'lastModified': lastModified,
-      };
+    if (title != null) 'title': title,
+    if (audience != null) 'audience': audience,
+    if (priority != null) 'priority': priority,
+    if (lastModified != null) 'lastModified': lastModified,
+  };
 }
 
 /// A known resource offered by the server.
@@ -78,31 +73,24 @@ class Resource {
       name: json['name'] as String,
       description: json['description'] as String?,
       mimeType: json['mimeType'] as String?,
-      icon: json['icon'] != null
-          ? ImageContent.fromJson(json['icon'] as Map<String, dynamic>)
-          : null,
-      icons: (json['icons'] as List<dynamic>?)
-          ?.map((e) => McpIcon.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      icon: json['icon'] != null ? ImageContent.fromJson(json['icon'] as Map<String, dynamic>) : null,
+      icons: (json['icons'] as List<dynamic>?)?.map((e) => McpIcon.fromJson(e as Map<String, dynamic>)).toList(),
       annotations: json['annotations'] != null
-          ? ResourceAnnotations.fromJson(
-              json['annotations'] as Map<String, dynamic>,
-            )
+          ? ResourceAnnotations.fromJson(json['annotations'] as Map<String, dynamic>)
           : null,
     );
   }
 
   /// Converts to JSON.
   Map<String, dynamic> toJson() => {
-        'uri': uri,
-        'name': name,
-        if (description != null) 'description': description,
-        if (mimeType != null) 'mimeType': mimeType,
-        if (icon != null) 'icon': icon!.toJson(),
-        if (icons != null)
-          'icons': icons!.map((icon) => icon.toJson()).toList(),
-        if (annotations != null) 'annotations': annotations!.toJson(),
-      };
+    'uri': uri,
+    'name': name,
+    if (description != null) 'description': description,
+    if (mimeType != null) 'mimeType': mimeType,
+    if (icon != null) 'icon': icon!.toJson(),
+    if (icons != null) 'icons': icons!.map((icon) => icon.toJson()).toList(),
+    if (annotations != null) 'annotations': annotations!.toJson(),
+  };
 }
 
 /// A template description for resources available on the server.
@@ -146,31 +134,24 @@ class ResourceTemplate {
       name: json['name'] as String,
       description: json['description'] as String?,
       mimeType: json['mimeType'] as String?,
-      icon: json['icon'] != null
-          ? ImageContent.fromJson(json['icon'] as Map<String, dynamic>)
-          : null,
-      icons: (json['icons'] as List<dynamic>?)
-          ?.map((e) => McpIcon.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      icon: json['icon'] != null ? ImageContent.fromJson(json['icon'] as Map<String, dynamic>) : null,
+      icons: (json['icons'] as List<dynamic>?)?.map((e) => McpIcon.fromJson(e as Map<String, dynamic>)).toList(),
       annotations: json['annotations'] != null
-          ? ResourceAnnotations.fromJson(
-              json['annotations'] as Map<String, dynamic>,
-            )
+          ? ResourceAnnotations.fromJson(json['annotations'] as Map<String, dynamic>)
           : null,
     );
   }
 
   /// Converts to JSON.
   Map<String, dynamic> toJson() => {
-        'uriTemplate': uriTemplate,
-        'name': name,
-        if (description != null) 'description': description,
-        if (mimeType != null) 'mimeType': mimeType,
-        if (icon != null) 'icon': icon!.toJson(),
-        if (icons != null)
-          'icons': icons!.map((icon) => icon.toJson()).toList(),
-        if (annotations != null) 'annotations': annotations!.toJson(),
-      };
+    'uriTemplate': uriTemplate,
+    'name': name,
+    if (description != null) 'description': description,
+    if (mimeType != null) 'mimeType': mimeType,
+    if (icon != null) 'icon': icon!.toJson(),
+    if (icons != null) 'icons': icons!.map((icon) => icon.toJson()).toList(),
+    if (annotations != null) 'annotations': annotations!.toJson(),
+  };
 }
 
 /// Parameters for the `resources/list` request. Includes pagination.
@@ -195,12 +176,9 @@ class JsonRpcListResourcesRequest extends JsonRpcRequest {
   final ListResourcesRequest listParams;
 
   /// Creates a list resources request.
-  JsonRpcListResourcesRequest({
-    required super.id,
-    ListResourcesRequest? params,
-    super.meta,
-  })  : listParams = params ?? const ListResourcesRequest(),
-        super(method: Method.resourcesList, params: params?.toJson());
+  JsonRpcListResourcesRequest({required super.id, ListResourcesRequest? params, super.meta})
+    : listParams = params ?? const ListResourcesRequest(),
+      super(method: Method.resourcesList, params: params?.toJson());
 
   /// Creates from JSON.
   factory JsonRpcListResourcesRequest.fromJson(Map<String, dynamic> json) {
@@ -208,8 +186,7 @@ class JsonRpcListResourcesRequest extends JsonRpcRequest {
     final meta = paramsMap?['_meta'] as Map<String, dynamic>?;
     return JsonRpcListResourcesRequest(
       id: json['id'],
-      params:
-          paramsMap == null ? null : ListResourcesRequest.fromJson(paramsMap),
+      params: paramsMap == null ? null : ListResourcesRequest.fromJson(paramsMap),
       meta: meta,
     );
   }
@@ -228,19 +205,14 @@ class ListResourcesResult implements BaseResultData {
   final Map<String, dynamic>? meta;
 
   /// Creates a list resources result.
-  const ListResourcesResult({
-    required this.resources,
-    this.nextCursor,
-    this.meta,
-  });
+  const ListResourcesResult({required this.resources, this.nextCursor, this.meta});
 
   /// Creates from JSON.
   factory ListResourcesResult.fromJson(Map<String, dynamic> json) {
     final meta = json['_meta'] as Map<String, dynamic>?;
     return ListResourcesResult(
-      resources: (json['resources'] as List<dynamic>?)
-              ?.map((e) => Resource.fromJson(e as Map<String, dynamic>))
-              .toList() ??
+      resources:
+          (json['resources'] as List<dynamic>?)?.map((e) => Resource.fromJson(e as Map<String, dynamic>)).toList() ??
           [],
       nextCursor: json['nextCursor'] as String?,
       meta: meta,
@@ -250,9 +222,9 @@ class ListResourcesResult implements BaseResultData {
   /// Converts to JSON (excluding meta).
   @override
   Map<String, dynamic> toJson() => {
-        'resources': resources.map((r) => r.toJson()).toList(),
-        if (nextCursor != null) 'nextCursor': nextCursor,
-      };
+    'resources': resources.map((r) => r.toJson()).toList(),
+    if (nextCursor != null) 'nextCursor': nextCursor,
+  };
 }
 
 /// Parameters for the `resources/templates/list` request. Includes pagination.
@@ -262,9 +234,7 @@ class ListResourceTemplatesRequest {
 
   const ListResourceTemplatesRequest({this.cursor});
 
-  factory ListResourceTemplatesRequest.fromJson(
-    Map<String, dynamic> json,
-  ) =>
+  factory ListResourceTemplatesRequest.fromJson(Map<String, dynamic> json) =>
       ListResourceTemplatesRequest(cursor: json['cursor'] as String?);
 
   Map<String, dynamic> toJson() => {if (cursor != null) 'cursor': cursor};
@@ -275,23 +245,16 @@ class JsonRpcListResourceTemplatesRequest extends JsonRpcRequest {
   /// The list parameters (containing cursor).
   final ListResourceTemplatesRequest listParams;
 
-  JsonRpcListResourceTemplatesRequest({
-    required super.id,
-    ListResourceTemplatesRequest? params,
-    super.meta,
-  })  : listParams = params ?? const ListResourceTemplatesRequest(),
-        super(method: Method.resourcesTemplatesList, params: params?.toJson());
+  JsonRpcListResourceTemplatesRequest({required super.id, ListResourceTemplatesRequest? params, super.meta})
+    : listParams = params ?? const ListResourceTemplatesRequest(),
+      super(method: Method.resourcesTemplatesList, params: params?.toJson());
 
-  factory JsonRpcListResourceTemplatesRequest.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory JsonRpcListResourceTemplatesRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
     final meta = paramsMap?['_meta'] as Map<String, dynamic>?;
     return JsonRpcListResourceTemplatesRequest(
       id: json['id'],
-      params: paramsMap == null
-          ? null
-          : ListResourceTemplatesRequest.fromJson(paramsMap),
+      params: paramsMap == null ? null : ListResourceTemplatesRequest.fromJson(paramsMap),
       meta: meta,
     );
   }
@@ -308,16 +271,13 @@ class ListResourceTemplatesResult implements BaseResultData {
   @override
   final Map<String, dynamic>? meta;
 
-  const ListResourceTemplatesResult({
-    required this.resourceTemplates,
-    this.nextCursor,
-    this.meta,
-  });
+  const ListResourceTemplatesResult({required this.resourceTemplates, this.nextCursor, this.meta});
 
   factory ListResourceTemplatesResult.fromJson(Map<String, dynamic> json) {
     final meta = json['_meta'] as Map<String, dynamic>?;
     return ListResourceTemplatesResult(
-      resourceTemplates: (json['resourceTemplates'] as List<dynamic>?)
+      resourceTemplates:
+          (json['resourceTemplates'] as List<dynamic>?)
               ?.map((e) => ResourceTemplate.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -328,9 +288,9 @@ class ListResourceTemplatesResult implements BaseResultData {
 
   @override
   Map<String, dynamic> toJson() => {
-        'resourceTemplates': resourceTemplates.map((t) => t.toJson()).toList(),
-        if (nextCursor != null) 'nextCursor': nextCursor,
-      };
+    'resourceTemplates': resourceTemplates.map((t) => t.toJson()).toList(),
+    if (nextCursor != null) 'nextCursor': nextCursor,
+  };
 }
 
 /// Parameters for the `resources/read` request.
@@ -340,8 +300,7 @@ class ReadResourceRequest {
 
   const ReadResourceRequest({required this.uri});
 
-  factory ReadResourceRequest.fromJson(Map<String, dynamic> json) =>
-      ReadResourceRequest(uri: json['uri'] as String);
+  factory ReadResourceRequest.fromJson(Map<String, dynamic> json) => ReadResourceRequest(uri: json['uri'] as String);
 
   Map<String, dynamic> toJson() => {'uri': uri};
 }
@@ -351,11 +310,8 @@ class JsonRpcReadResourceRequest extends JsonRpcRequest {
   /// The read parameters (containing URI).
   final ReadResourceRequest readParams;
 
-  JsonRpcReadResourceRequest({
-    required super.id,
-    required this.readParams,
-    super.meta,
-  }) : super(method: Method.resourcesRead, params: readParams.toJson());
+  JsonRpcReadResourceRequest({required super.id, required this.readParams, super.meta})
+    : super(method: Method.resourcesRead, params: readParams.toJson());
 
   factory JsonRpcReadResourceRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -363,11 +319,7 @@ class JsonRpcReadResourceRequest extends JsonRpcRequest {
       throw const FormatException("Missing params for read resource request");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcReadResourceRequest(
-      id: json['id'],
-      readParams: ReadResourceRequest.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcReadResourceRequest(id: json['id'], readParams: ReadResourceRequest.fromJson(paramsMap), meta: meta);
   }
 }
 
@@ -384,7 +336,8 @@ class ReadResourceResult implements BaseResultData {
   factory ReadResourceResult.fromJson(Map<String, dynamic> json) {
     final meta = json['_meta'] as Map<String, dynamic>?;
     return ReadResourceResult(
-      contents: (json['contents'] as List<dynamic>?)
+      contents:
+          (json['contents'] as List<dynamic>?)
               ?.map((e) => ResourceContents.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -393,19 +346,14 @@ class ReadResourceResult implements BaseResultData {
   }
 
   @override
-  Map<String, dynamic> toJson() => {
-        'contents': contents.map((c) => c.toJson()).toList(),
-      };
+  Map<String, dynamic> toJson() => {'contents': contents.map((c) => c.toJson()).toList()};
 }
 
 /// Notification from server indicating the list of available resources has changed.
 class JsonRpcResourceListChangedNotification extends JsonRpcNotification {
-  const JsonRpcResourceListChangedNotification()
-      : super(method: Method.notificationsResourcesListChanged);
+  const JsonRpcResourceListChangedNotification() : super(method: Method.notificationsResourcesListChanged);
 
-  factory JsonRpcResourceListChangedNotification.fromJson(
-    Map<String, dynamic> json,
-  ) =>
+  factory JsonRpcResourceListChangedNotification.fromJson(Map<String, dynamic> json) =>
       const JsonRpcResourceListChangedNotification();
 }
 
@@ -416,8 +364,7 @@ class SubscribeRequest {
 
   const SubscribeRequest({required this.uri});
 
-  factory SubscribeRequest.fromJson(Map<String, dynamic> json) =>
-      SubscribeRequest(uri: json['uri'] as String);
+  factory SubscribeRequest.fromJson(Map<String, dynamic> json) => SubscribeRequest(uri: json['uri'] as String);
 
   Map<String, dynamic> toJson() => {'uri': uri};
 }
@@ -427,11 +374,8 @@ class JsonRpcSubscribeRequest extends JsonRpcRequest {
   /// The subscribe parameters (containing URI).
   final SubscribeRequest subParams;
 
-  JsonRpcSubscribeRequest({
-    required super.id,
-    required this.subParams,
-    super.meta,
-  }) : super(method: Method.resourcesSubscribe, params: subParams.toJson());
+  JsonRpcSubscribeRequest({required super.id, required this.subParams, super.meta})
+    : super(method: Method.resourcesSubscribe, params: subParams.toJson());
 
   factory JsonRpcSubscribeRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -439,11 +383,7 @@ class JsonRpcSubscribeRequest extends JsonRpcRequest {
       throw const FormatException("Missing params for subscribe request");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcSubscribeRequest(
-      id: json['id'],
-      subParams: SubscribeRequest.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcSubscribeRequest(id: json['id'], subParams: SubscribeRequest.fromJson(paramsMap), meta: meta);
   }
 }
 
@@ -454,8 +394,7 @@ class UnsubscribeRequest {
 
   const UnsubscribeRequest({required this.uri});
 
-  factory UnsubscribeRequest.fromJson(Map<String, dynamic> json) =>
-      UnsubscribeRequest(uri: json['uri'] as String);
+  factory UnsubscribeRequest.fromJson(Map<String, dynamic> json) => UnsubscribeRequest(uri: json['uri'] as String);
 
   Map<String, dynamic> toJson() => {'uri': uri};
 }
@@ -465,11 +404,8 @@ class JsonRpcUnsubscribeRequest extends JsonRpcRequest {
   /// The unsubscribe parameters (containing URI).
   final UnsubscribeRequest unsubParams;
 
-  JsonRpcUnsubscribeRequest({
-    required super.id,
-    required this.unsubParams,
-    super.meta,
-  }) : super(method: Method.resourcesUnsubscribe, params: unsubParams.toJson());
+  JsonRpcUnsubscribeRequest({required super.id, required this.unsubParams, super.meta})
+    : super(method: Method.resourcesUnsubscribe, params: unsubParams.toJson());
 
   factory JsonRpcUnsubscribeRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -477,11 +413,7 @@ class JsonRpcUnsubscribeRequest extends JsonRpcRequest {
       throw const FormatException("Missing params for unsubscribe request");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
-    return JsonRpcUnsubscribeRequest(
-      id: json['id'],
-      unsubParams: UnsubscribeRequest.fromJson(paramsMap),
-      meta: meta,
-    );
+    return JsonRpcUnsubscribeRequest(id: json['id'], unsubParams: UnsubscribeRequest.fromJson(paramsMap), meta: meta);
   }
 }
 
@@ -492,9 +424,7 @@ class ResourceUpdatedNotification {
 
   const ResourceUpdatedNotification({required this.uri});
 
-  factory ResourceUpdatedNotification.fromJson(
-    Map<String, dynamic> json,
-  ) =>
+  factory ResourceUpdatedNotification.fromJson(Map<String, dynamic> json) =>
       ResourceUpdatedNotification(uri: json['uri'] as String);
 
   Map<String, dynamic> toJson() => {'uri': uri};
@@ -506,19 +436,12 @@ class JsonRpcResourceUpdatedNotification extends JsonRpcNotification {
   final ResourceUpdatedNotification updatedParams;
 
   JsonRpcResourceUpdatedNotification({required this.updatedParams, super.meta})
-      : super(
-          method: Method.notificationsResourcesUpdated,
-          params: updatedParams.toJson(),
-        );
+    : super(method: Method.notificationsResourcesUpdated, params: updatedParams.toJson());
 
-  factory JsonRpcResourceUpdatedNotification.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory JsonRpcResourceUpdatedNotification.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
     if (paramsMap == null) {
-      throw const FormatException(
-        "Missing params for resource updated notification",
-      );
+      throw const FormatException("Missing params for resource updated notification");
     }
     final meta = paramsMap['_meta'] as Map<String, dynamic>?;
     return JsonRpcResourceUpdatedNotification(

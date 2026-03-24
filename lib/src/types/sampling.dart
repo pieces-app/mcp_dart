@@ -12,9 +12,7 @@ class ModelHint {
     return ModelHint(name: json['name'] as String?);
   }
 
-  Map<String, dynamic> toJson() => {
-        if (name != null) 'name': name,
-      };
+  Map<String, dynamic> toJson() => {if (name != null) 'name': name};
 }
 
 /// Server's preferences for model selection requested during sampling.
@@ -31,27 +29,14 @@ class ModelPreferences {
   /// How much to prioritize intelligence/capabilities (0-1).
   final double? intelligencePriority;
 
-  const ModelPreferences({
-    this.hints,
-    this.costPriority,
-    this.speedPriority,
-    this.intelligencePriority,
-  })  : assert(
-          costPriority == null || (costPriority >= 0 && costPriority <= 1),
-        ),
-        assert(
-          speedPriority == null || (speedPriority >= 0 && speedPriority <= 1),
-        ),
-        assert(
-          intelligencePriority == null ||
-              (intelligencePriority >= 0 && intelligencePriority <= 1),
-        );
+  const ModelPreferences({this.hints, this.costPriority, this.speedPriority, this.intelligencePriority})
+    : assert(costPriority == null || (costPriority >= 0 && costPriority <= 1)),
+      assert(speedPriority == null || (speedPriority >= 0 && speedPriority <= 1)),
+      assert(intelligencePriority == null || (intelligencePriority >= 0 && intelligencePriority <= 1));
 
   factory ModelPreferences.fromJson(Map<String, dynamic> json) {
     return ModelPreferences(
-      hints: (json['hints'] as List<dynamic>?)
-          ?.map((h) => ModelHint.fromJson(h as Map<String, dynamic>))
-          .toList(),
+      hints: (json['hints'] as List<dynamic>?)?.map((h) => ModelHint.fromJson(h as Map<String, dynamic>)).toList(),
       costPriority: (json['costPriority'] as num?)?.toDouble(),
       speedPriority: (json['speedPriority'] as num?)?.toDouble(),
       intelligencePriority: (json['intelligencePriority'] as num?)?.toDouble(),
@@ -59,12 +44,11 @@ class ModelPreferences {
   }
 
   Map<String, dynamic> toJson() => {
-        if (hints != null) 'hints': hints!.map((h) => h.toJson()).toList(),
-        if (costPriority != null) 'costPriority': costPriority,
-        if (speedPriority != null) 'speedPriority': speedPriority,
-        if (intelligencePriority != null)
-          'intelligencePriority': intelligencePriority,
-      };
+    if (hints != null) 'hints': hints!.map((h) => h.toJson()).toList(),
+    if (costPriority != null) 'costPriority': costPriority,
+    if (speedPriority != null) 'speedPriority': speedPriority,
+    if (intelligencePriority != null) 'intelligencePriority': intelligencePriority,
+  };
 }
 
 /// Represents content parts within sampling messages.
@@ -88,25 +72,18 @@ sealed class SamplingContent {
 
   /// Converts to JSON.
   Map<String, dynamic> toJson() => {
-        'type': type,
-        ...switch (this) {
-          final SamplingTextContent c => {'text': c.text},
-          final SamplingImageContent c => {
-              'data': c.data,
-              'mimeType': c.mimeType,
-            },
-          final SamplingToolUseContent c => {
-              'id': c.id,
-              'name': c.name,
-              'input': c.input,
-            },
-          final SamplingToolResultContent c => {
-              'toolUseId': c.toolUseId,
-              'content': c.content,
-              if (c.isError != null) 'isError': c.isError,
-            },
-        },
-      };
+    'type': type,
+    ...switch (this) {
+      final SamplingTextContent c => {'text': c.text},
+      final SamplingImageContent c => {'data': c.data, 'mimeType': c.mimeType},
+      final SamplingToolUseContent c => {'id': c.id, 'name': c.name, 'input': c.input},
+      final SamplingToolResultContent c => {
+        'toolUseId': c.toolUseId,
+        'content': c.content,
+        if (c.isError != null) 'isError': c.isError,
+      },
+    },
+  };
 }
 
 /// Text content for sampling messages.
@@ -116,8 +93,7 @@ class SamplingTextContent extends SamplingContent {
 
   const SamplingTextContent({required this.text}) : super(type: 'text');
 
-  factory SamplingTextContent.fromJson(Map<String, dynamic> json) =>
-      SamplingTextContent(text: json['text'] as String);
+  factory SamplingTextContent.fromJson(Map<String, dynamic> json) => SamplingTextContent(text: json['text'] as String);
 }
 
 /// Image content for sampling messages.
@@ -128,14 +104,10 @@ class SamplingImageContent extends SamplingContent {
   /// MIME type of the image (e.g., "image/png").
   final String mimeType;
 
-  const SamplingImageContent({required this.data, required this.mimeType})
-      : super(type: 'image');
+  const SamplingImageContent({required this.data, required this.mimeType}) : super(type: 'image');
 
   factory SamplingImageContent.fromJson(Map<String, dynamic> json) =>
-      SamplingImageContent(
-        data: json['data'] as String,
-        mimeType: json['mimeType'] as String,
-      );
+      SamplingImageContent(data: json['data'] as String, mimeType: json['mimeType'] as String);
 }
 
 /// Tool use content for sampling messages.
@@ -144,18 +116,13 @@ class SamplingToolUseContent extends SamplingContent {
   final String name;
   final Map<String, dynamic> input;
 
-  const SamplingToolUseContent({
-    required this.id,
-    required this.name,
-    required this.input,
-  }) : super(type: 'tool_use');
+  const SamplingToolUseContent({required this.id, required this.name, required this.input}) : super(type: 'tool_use');
 
-  factory SamplingToolUseContent.fromJson(Map<String, dynamic> json) =>
-      SamplingToolUseContent(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        input: json['input'] as Map<String, dynamic>,
-      );
+  factory SamplingToolUseContent.fromJson(Map<String, dynamic> json) => SamplingToolUseContent(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    input: json['input'] as Map<String, dynamic>,
+  );
 }
 
 /// Tool result content for sampling messages.
@@ -164,18 +131,14 @@ class SamplingToolResultContent extends SamplingContent {
   final dynamic content;
   final bool? isError;
 
-  const SamplingToolResultContent({
-    required this.toolUseId,
-    required this.content,
-    this.isError,
-  }) : super(type: 'tool_result');
+  const SamplingToolResultContent({required this.toolUseId, required this.content, this.isError})
+    : super(type: 'tool_result');
 
-  factory SamplingToolResultContent.fromJson(Map<String, dynamic> json) =>
-      SamplingToolResultContent(
-        toolUseId: json['toolUseId'] as String,
-        content: json['content'],
-        isError: json['isError'] as bool?,
-      );
+  factory SamplingToolResultContent.fromJson(Map<String, dynamic> json) => SamplingToolResultContent(
+    toolUseId: json['toolUseId'] as String,
+    content: json['content'],
+    isError: json['isError'] as bool?,
+  );
 }
 
 /// Role in a sampling message exchange.
@@ -189,25 +152,17 @@ class SamplingMessage {
   /// The content of the message (text, image, tool_use, or tool_result).
   final SamplingContent content;
 
-  const SamplingMessage({
-    required this.role,
-    required this.content,
-  });
+  const SamplingMessage({required this.role, required this.content});
 
   factory SamplingMessage.fromJson(Map<String, dynamic> json) {
     return SamplingMessage(
       role: SamplingMessageRole.values.byName(json['role'] as String),
-      content: SamplingContent.fromJson(
-        json['content'] as Map<String, dynamic>,
-      ),
+      content: SamplingContent.fromJson(json['content'] as Map<String, dynamic>),
     );
   }
 
   /// Converts to JSON.
-  Map<String, dynamic> toJson() => {
-        'role': role.name,
-        'content': content.toJson(),
-      };
+  Map<String, dynamic> toJson() => {'role': role.name, 'content': content.toJson()};
 }
 
 /// Context inclusion options for sampling requests.
@@ -261,43 +216,38 @@ class CreateMessageRequest {
   factory CreateMessageRequest.fromJson(Map<String, dynamic> json) {
     final ctxStr = json['includeContext'] as String?;
     return CreateMessageRequest(
-      messages: (json['messages'] as List<dynamic>?)
+      messages:
+          (json['messages'] as List<dynamic>?)
               ?.map((m) => SamplingMessage.fromJson(m as Map<String, dynamic>))
               .toList() ??
           [],
       systemPrompt: json['systemPrompt'] as String?,
-      includeContext:
-          ctxStr == null ? null : IncludeContext.values.byName(ctxStr),
+      includeContext: ctxStr == null ? null : IncludeContext.values.byName(ctxStr),
       temperature: (json['temperature'] as num?)?.toDouble(),
       maxTokens: json['maxTokens'] as int,
       stopSequences: (json['stopSequences'] as List<dynamic>?)?.cast<String>(),
       metadata: json['metadata'] as Map<String, dynamic>?,
       modelPreferences: json['modelPreferences'] == null
           ? null
-          : ModelPreferences.fromJson(
-              json['modelPreferences'] as Map<String, dynamic>,
-            ),
-      tools: (json['tools'] as List<dynamic>?)
-          ?.map((t) => Tool.fromJson(t as Map<String, dynamic>))
-          .toList(),
+          : ModelPreferences.fromJson(json['modelPreferences'] as Map<String, dynamic>),
+      tools: (json['tools'] as List<dynamic>?)?.map((t) => Tool.fromJson(t as Map<String, dynamic>)).toList(),
       toolChoice: json['toolChoice'] as Map<String, dynamic>?,
     );
   }
 
   /// Converts to JSON.
   Map<String, dynamic> toJson() => {
-        'messages': messages.map((m) => m.toJson()).toList(),
-        if (systemPrompt != null) 'systemPrompt': systemPrompt,
-        if (includeContext != null) 'includeContext': includeContext!.name,
-        if (temperature != null) 'temperature': temperature,
-        'maxTokens': maxTokens,
-        if (stopSequences != null) 'stopSequences': stopSequences,
-        if (metadata != null) 'metadata': metadata,
-        if (modelPreferences != null)
-          'modelPreferences': modelPreferences!.toJson(),
-        if (tools != null) 'tools': tools!.map((t) => t.toJson()).toList(),
-        if (toolChoice != null) 'toolChoice': toolChoice,
-      };
+    'messages': messages.map((m) => m.toJson()).toList(),
+    if (systemPrompt != null) 'systemPrompt': systemPrompt,
+    if (includeContext != null) 'includeContext': includeContext!.name,
+    if (temperature != null) 'temperature': temperature,
+    'maxTokens': maxTokens,
+    if (stopSequences != null) 'stopSequences': stopSequences,
+    if (metadata != null) 'metadata': metadata,
+    if (modelPreferences != null) 'modelPreferences': modelPreferences!.toJson(),
+    if (tools != null) 'tools': tools!.map((t) => t.toJson()).toList(),
+    if (toolChoice != null) 'toolChoice': toolChoice,
+  };
 }
 
 /// Request sent from server to client to sample an LLM.
@@ -305,14 +255,8 @@ class JsonRpcCreateMessageRequest extends JsonRpcRequest {
   /// The create message parameters.
   final CreateMessageRequest createParams;
 
-  JsonRpcCreateMessageRequest({
-    required super.id,
-    required this.createParams,
-    super.meta,
-  }) : super(
-          method: Method.samplingCreateMessage,
-          params: createParams.toJson(),
-        );
+  JsonRpcCreateMessageRequest({required super.id, required this.createParams, super.meta})
+    : super(method: Method.samplingCreateMessage, params: createParams.toJson());
 
   factory JsonRpcCreateMessageRequest.fromJson(Map<String, dynamic> json) {
     final paramsMap = json['params'] as Map<String, dynamic>?;
@@ -358,11 +302,7 @@ class CreateMessageResult implements BaseResultData {
     required this.role,
     required this.content,
     this.meta,
-  }) : assert(
-          stopReason == null ||
-              stopReason is StopReason ||
-              stopReason is String,
-        );
+  }) : assert(stopReason == null || stopReason is StopReason || stopReason is String);
 
   factory CreateMessageResult.fromJson(Map<String, dynamic> json) {
     final meta = json['_meta'] as Map<String, dynamic>?;
@@ -376,22 +316,18 @@ class CreateMessageResult implements BaseResultData {
       model: json['model'] as String,
       stopReason: reason,
       role: SamplingMessageRole.values.byName(json['role'] as String),
-      content: SamplingContent.fromJson(
-        json['content'] as Map<String, dynamic>,
-      ),
+      content: SamplingContent.fromJson(json['content'] as Map<String, dynamic>),
       meta: meta,
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
-        'model': model,
-        if (stopReason != null)
-          'stopReason':
-              (stopReason is StopReason) ? stopReason.toString() : stopReason,
-        'role': role.name,
-        'content': content.toJson(),
-      };
+    'model': model,
+    if (stopReason != null) 'stopReason': (stopReason is StopReason) ? stopReason.toString() : stopReason,
+    'role': role.name,
+    'content': content.toJson(),
+  };
 }
 
 /// Deprecated alias for [CreateMessageRequest].

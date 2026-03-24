@@ -46,11 +46,7 @@ void main() {
     setUp(() {
       mcpServer = McpServer(
         const Implementation(name: 'TestServer', version: '1.0.0'),
-        options: const ServerOptions(
-          capabilities: ServerCapabilities(
-            tools: ServerCapabilitiesTools(),
-          ),
-        ),
+        options: const ServerOptions(capabilities: ServerCapabilities(tools: ServerCapabilitiesTools())),
       );
       transport = MockTransport();
     });
@@ -62,17 +58,11 @@ void main() {
       mcpServer.registerTool(
         'test_tool',
         description: 'A test tool',
-        inputSchema: JsonObject(
-          properties: {
-            'input': JsonSchema.string(),
-          },
-        ),
+        inputSchema: JsonObject(properties: {'input': JsonSchema.string()}),
         callback: (args, extra) async {
           callbackInvoked = true;
           receivedArgs = args;
-          return CallToolResult(
-            content: [TextContent(text: 'Tool executed: ${args['input']}')],
-          );
+          return CallToolResult(content: [TextContent(text: 'Tool executed: ${args['input']}')]);
         },
       );
 
@@ -94,10 +84,7 @@ void main() {
       // Now simulate tools/call request
       final callRequest = JsonRpcCallToolRequest(
         id: 3,
-        params: const CallToolRequest(
-          name: 'test_tool',
-          arguments: {'input': 'test value'},
-        ).toJson(),
+        params: const CallToolRequest(name: 'test_tool', arguments: {'input': 'test value'}).toJson(),
       );
 
       transport.receiveMessage(callRequest);
@@ -114,9 +101,7 @@ void main() {
         'extra_test',
         callback: (args, extra) async {
           receivedExtra = extra;
-          return const CallToolResult(
-            content: [TextContent(text: 'ok')],
-          );
+          return const CallToolResult(content: [TextContent(text: 'ok')]);
         },
       );
 
@@ -133,10 +118,7 @@ void main() {
       transport.receiveMessage(initRequest);
       await Future.delayed(const Duration(milliseconds: 10));
 
-      final callRequest = JsonRpcCallToolRequest(
-        id: 2,
-        params: const CallToolRequest(name: 'extra_test').toJson(),
-      );
+      final callRequest = JsonRpcCallToolRequest(id: 2, params: const CallToolRequest(name: 'extra_test').toJson());
       transport.receiveMessage(callRequest);
       await Future.delayed(const Duration(milliseconds: 10));
 
@@ -164,10 +146,7 @@ void main() {
       transport.receiveMessage(initRequest);
       await Future.delayed(const Duration(milliseconds: 10));
 
-      final callRequest = JsonRpcCallToolRequest(
-        id: 2,
-        params: const CallToolRequest(name: 'error_tool').toJson(),
-      );
+      final callRequest = JsonRpcCallToolRequest(id: 2, params: const CallToolRequest(name: 'error_tool').toJson());
 
       transport.receiveMessage(callRequest);
       await Future.delayed(const Duration(milliseconds: 10));
@@ -180,9 +159,7 @@ void main() {
       mcpServer.registerTool(
         'duplicate',
         callback: (args, extra) async {
-          return const CallToolResult(
-            content: [TextContent(text: 'first')],
-          );
+          return const CallToolResult(content: [TextContent(text: 'first')]);
         },
       );
 
@@ -190,18 +167,10 @@ void main() {
         () => mcpServer.registerTool(
           'duplicate',
           callback: (args, extra) async {
-            return const CallToolResult(
-              content: [TextContent(text: 'second')],
-            );
+            return const CallToolResult(content: [TextContent(text: 'second')]);
           },
         ),
-        throwsA(
-          isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('already registered'),
-          ),
-        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('already registered'))),
       );
     });
 
@@ -209,20 +178,10 @@ void main() {
       mcpServer.registerTool(
         'schema_tool',
         description: 'Tool with schemas',
-        inputSchema: JsonObject(
-          properties: {
-            'query': JsonSchema.string(),
-          },
-        ),
-        outputSchema: JsonObject(
-          properties: {
-            'result': JsonSchema.string(),
-          },
-        ),
+        inputSchema: JsonObject(properties: {'query': JsonSchema.string()}),
+        outputSchema: JsonObject(properties: {'result': JsonSchema.string()}),
         callback: (args, extra) async {
-          return const CallToolResult(
-            content: [TextContent(text: 'result')],
-          );
+          return const CallToolResult(content: [TextContent(text: 'result')]);
         },
       );
 
@@ -241,9 +200,7 @@ void main() {
           },
         },
         callback: (args, extra) async {
-          return const CallToolResult(
-            content: [TextContent(text: 'result')],
-          );
+          return const CallToolResult(content: [TextContent(text: 'result')]);
         },
       );
 
@@ -262,27 +219,18 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 10));
 
       // Request tools/list
-      final listRequest = JsonRpcListToolsRequest.fromJson({
-        'jsonrpc': '2.0',
-        'id': 2,
-        'method': 'tools/list',
-      });
+      final listRequest = JsonRpcListToolsRequest.fromJson({'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list'});
       transport.receiveMessage(listRequest);
       await Future.delayed(const Duration(milliseconds: 10));
 
       // Find the tools/list response
-      final response = transport.sentMessages
-          .whereType<JsonRpcResponse>()
-          .where((r) => r.id == 2)
-          .first;
+      final response = transport.sentMessages.whereType<JsonRpcResponse>().where((r) => r.id == 2).first;
 
-      final tools = (response.result['tools'] as List)
-          .cast<Map<String, dynamic>>();
+      final tools = (response.result['tools'] as List).cast<Map<String, dynamic>>();
       final uiTool = tools.firstWhere((t) => t['name'] == 'ui_tool');
 
       expect(uiTool['_meta'], isNotNull);
-      expect(uiTool['_meta']['ui']['resourceUri'],
-          equals('ui://test-server/dashboard'));
+      expect(uiTool['_meta']['ui']['resourceUri'], equals('ui://test-server/dashboard'));
       expect(uiTool['_meta']['ui']['visibility'], equals(['model', 'app']));
     });
   });
@@ -294,11 +242,7 @@ void main() {
     setUp(() {
       mcpServer = McpServer(
         const Implementation(name: 'TestServer', version: '1.0.0'),
-        options: const ServerOptions(
-          capabilities: ServerCapabilities(
-            resources: ServerCapabilitiesResources(),
-          ),
-        ),
+        options: const ServerOptions(capabilities: ServerCapabilities(resources: ServerCapabilitiesResources())),
       );
       transport = MockTransport();
     });
@@ -306,22 +250,12 @@ void main() {
     test('registers static resource and handles read callback', () async {
       var readCallbackInvoked = false;
 
-      mcpServer.resource(
-        'test_resource',
-        'file:///test.txt',
-        (uri, extra) async {
-          readCallbackInvoked = true;
-          return ReadResourceResult(
-            contents: [
-              TextResourceContents(
-                uri: uri.toString(),
-                text: 'Test content',
-              ),
-            ],
-          );
-        },
-        metadata: (description: 'Test resource', mimeType: 'text/plain'),
-      );
+      mcpServer.resource('test_resource', 'file:///test.txt', (uri, extra) async {
+        readCallbackInvoked = true;
+        return ReadResourceResult(
+          contents: [TextResourceContents(uri: uri.toString(), text: 'Test content')],
+        );
+      }, metadata: (description: 'Test resource', mimeType: 'text/plain'));
 
       await mcpServer.connect(transport);
 
@@ -348,37 +282,19 @@ void main() {
     });
 
     test('cannot register duplicate resource URIs', () {
-      mcpServer.resource(
-        'resource1',
-        'file:///duplicate.txt',
-        (uri, extra) async {
-          return ReadResourceResult(
-            contents: [
-              TextResourceContents(uri: uri.toString(), text: 'content1'),
-            ],
-          );
-        },
-      );
+      mcpServer.resource('resource1', 'file:///duplicate.txt', (uri, extra) async {
+        return ReadResourceResult(
+          contents: [TextResourceContents(uri: uri.toString(), text: 'content1')],
+        );
+      });
 
       expect(
-        () => mcpServer.resource(
-          'resource2',
-          'file:///duplicate.txt',
-          (uri, extra) async {
-            return ReadResourceResult(
-              contents: [
-                TextResourceContents(uri: uri.toString(), text: 'content2'),
-              ],
-            );
-          },
-        ),
-        throwsA(
-          isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('already registered'),
-          ),
-        ),
+        () => mcpServer.resource('resource2', 'file:///duplicate.txt', (uri, extra) async {
+          return ReadResourceResult(
+            contents: [TextResourceContents(uri: uri.toString(), text: 'content2')],
+          );
+        }),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('already registered'))),
       );
     });
 
@@ -390,33 +306,20 @@ void main() {
           listCallback: (extra) async {
             return const ListResourcesResult(
               resources: [
-                Resource(
-                  uri: 'file:///file1.txt',
-                  name: 'File 1',
-                ),
-                Resource(
-                  uri: 'file:///file2.txt',
-                  name: 'File 2',
-                ),
+                Resource(uri: 'file:///file1.txt', name: 'File 1'),
+                Resource(uri: 'file:///file2.txt', name: 'File 2'),
               ],
             );
           },
           completeCallbacks: {
             'path': (currentValue) async {
-              return ['file1.txt', 'file2.txt', 'file3.txt']
-                  .where((f) => f.startsWith(currentValue))
-                  .toList();
+              return ['file1.txt', 'file2.txt', 'file3.txt'].where((f) => f.startsWith(currentValue)).toList();
             },
           },
         ),
         (uri, variables, extra) async {
           return ReadResourceResult(
-            contents: [
-              TextResourceContents(
-                uri: uri.toString(),
-                text: 'Content for ${variables['path']}',
-              ),
-            ],
+            contents: [TextResourceContents(uri: uri.toString(), text: 'Content for ${variables['path']}')],
           );
         },
         metadata: (description: 'File resources', mimeType: 'text/plain'),
@@ -446,16 +349,13 @@ void main() {
         'entity_template',
         ResourceTemplateRegistration(
           'entity://list{?status,assignee}',
-          listCallback: (extra) async =>
-              const ListResourcesResult(resources: []),
+          listCallback: (extra) async => const ListResourcesResult(resources: []),
         ),
         (uri, variables, extra) async {
           readCallbackInvoked = true;
           receivedVariables = Map<String, dynamic>.from(variables);
           return ReadResourceResult(
-            contents: [
-              TextResourceContents(uri: uri.toString(), text: 'content'),
-            ],
+            contents: [TextResourceContents(uri: uri.toString(), text: 'content')],
           );
         },
       );
@@ -475,9 +375,7 @@ void main() {
 
       final readRequest = JsonRpcReadResourceRequest(
         id: 2,
-        readParams: const ReadResourceRequestParams(
-          uri: 'entity://list?status=s1&assignee=u1',
-        ),
+        readParams: const ReadResourceRequestParams(uri: 'entity://list?status=s1&assignee=u1'),
       );
 
       transport.receiveMessage(readRequest);
@@ -492,14 +390,11 @@ void main() {
         'duplicate_template',
         ResourceTemplateRegistration(
           'file:///{path}',
-          listCallback: (extra) async =>
-              const ListResourcesResult(resources: []),
+          listCallback: (extra) async => const ListResourcesResult(resources: []),
         ),
         (uri, variables, extra) async {
           return ReadResourceResult(
-            contents: [
-              TextResourceContents(uri: uri.toString(), text: 'content'),
-            ],
+            contents: [TextResourceContents(uri: uri.toString(), text: 'content')],
           );
         },
       );
@@ -509,39 +404,24 @@ void main() {
           'duplicate_template',
           ResourceTemplateRegistration(
             'http://{host}/{path}',
-            listCallback: (extra) async =>
-                const ListResourcesResult(resources: []),
+            listCallback: (extra) async => const ListResourcesResult(resources: []),
           ),
           (uri, variables, extra) async {
             return ReadResourceResult(
-              contents: [
-                TextResourceContents(uri: uri.toString(), text: 'content2'),
-              ],
+              contents: [TextResourceContents(uri: uri.toString(), text: 'content2')],
             );
           },
         ),
-        throwsA(
-          isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('already registered'),
-          ),
-        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('already registered'))),
       );
     });
 
     test('resource read with invalid URI throws McpError', () async {
-      mcpServer.resource(
-        'valid_resource',
-        'file:///valid.txt',
-        (uri, extra) async {
-          return ReadResourceResult(
-            contents: [
-              TextResourceContents(uri: uri.toString(), text: 'content'),
-            ],
-          );
-        },
-      );
+      mcpServer.resource('valid_resource', 'file:///valid.txt', (uri, extra) async {
+        return ReadResourceResult(
+          contents: [TextResourceContents(uri: uri.toString(), text: 'content')],
+        );
+      });
 
       await mcpServer.connect(transport);
 
@@ -576,11 +456,7 @@ void main() {
     setUp(() {
       mcpServer = McpServer(
         const Implementation(name: 'TestServer', version: '1.0.0'),
-        options: const ServerOptions(
-          capabilities: ServerCapabilities(
-            prompts: ServerCapabilitiesPrompts(),
-          ),
-        ),
+        options: const ServerOptions(capabilities: ServerCapabilities(prompts: ServerCapabilitiesPrompts())),
       );
       transport = MockTransport();
     });
@@ -592,12 +468,7 @@ void main() {
       mcpServer.prompt(
         'test_prompt',
         description: 'A test prompt',
-        argsSchema: {
-          'topic': const PromptArgumentDefinition(
-            description: 'Topic to discuss',
-            required: true,
-          ),
-        },
+        argsSchema: {'topic': const PromptArgumentDefinition(description: 'Topic to discuss', required: true)},
         callback: (args, extra) async {
           callbackInvoked = true;
           receivedArgs = args ?? {};
@@ -628,10 +499,7 @@ void main() {
       // Test prompts/get
       final getRequest = JsonRpcGetPromptRequest(
         id: 3,
-        getParams: const GetPromptRequestParams(
-          name: 'test_prompt',
-          arguments: {'topic': 'AI'},
-        ),
+        getParams: const GetPromptRequestParams(name: 'test_prompt', arguments: {'topic': 'AI'}),
       );
       transport.receiveMessage(getRequest);
       await Future.delayed(const Duration(milliseconds: 10));
@@ -651,9 +519,7 @@ void main() {
             completable: CompletableField(
               def: CompletableDef(
                 complete: (value) async {
-                  return ['tech', 'science', 'sports']
-                      .where((c) => c.startsWith(value))
-                      .toList();
+                  return ['tech', 'science', 'sports'].where((c) => c.startsWith(value)).toList();
                 },
               ),
             ),
@@ -701,11 +567,7 @@ void main() {
     test('prompt argument validation - missing required argument', () async {
       mcpServer.prompt(
         'strict_prompt',
-        argsSchema: {
-          'required_arg': const PromptArgumentDefinition(
-            required: true,
-          ),
-        },
+        argsSchema: {'required_arg': const PromptArgumentDefinition(required: true)},
         callback: (args, extra) async {
           return const GetPromptResult(
             messages: [
@@ -749,11 +611,7 @@ void main() {
     test('prompt argument validation - wrong type', () async {
       mcpServer.prompt(
         'typed_prompt',
-        argsSchema: {
-          'count': const PromptArgumentDefinition(
-            required: true,
-          ),
-        },
+        argsSchema: {'count': const PromptArgumentDefinition(required: true)},
         callback: (args, extra) async {
           return const GetPromptResult(
             messages: [
@@ -823,13 +681,7 @@ void main() {
             );
           },
         ),
-        throwsA(
-          isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            contains('already registered'),
-          ),
-        ),
+        throwsA(isA<ArgumentError>().having((e) => e.message, 'message', contains('already registered'))),
       );
     });
   });
@@ -856,8 +708,7 @@ void main() {
         'completion_template',
         ResourceTemplateRegistration(
           'file:///{path}',
-          listCallback: (extra) async =>
-              const ListResourcesResult(resources: []),
+          listCallback: (extra) async => const ListResourcesResult(resources: []),
           completeCallbacks: {
             'path': (currentValue) async {
               return [
@@ -870,9 +721,7 @@ void main() {
         ),
         (uri, variables, extra) async {
           return ReadResourceResult(
-            contents: [
-              TextResourceContents(uri: uri.toString(), text: 'content'),
-            ],
+            contents: [TextResourceContents(uri: uri.toString(), text: 'content')],
           );
         },
       );
@@ -893,9 +742,7 @@ void main() {
       final completeRequest = JsonRpcCompleteRequest(
         id: 2,
         completeParams: const CompleteRequestParams(
-          ref: ResourceReference(
-            uri: 'file:///{path}',
-          ),
+          ref: ResourceReference(uri: 'file:///{path}'),
           argument: ArgumentCompletionInfo(name: 'path', value: 'documents'),
         ),
       );
@@ -959,8 +806,7 @@ void main() {
       expect(transport.sentMessages.isNotEmpty, isTrue);
     });
 
-    test('completion returns empty result when no completer registered',
-        () async {
+    test('completion returns empty result when no completer registered', () async {
       mcpServer.prompt(
         'no_completion_prompt',
         argsSchema: {
@@ -1011,9 +857,7 @@ void main() {
 
   group('McpServer - Connection Lifecycle', () {
     test('connect and close work correctly', () async {
-      final mcpServer = McpServer(
-        const Implementation(name: 'TestServer', version: '1.0.0'),
-      );
+      final mcpServer = McpServer(const Implementation(name: 'TestServer', version: '1.0.0'));
       final transport = MockTransport();
 
       await mcpServer.connect(transport);

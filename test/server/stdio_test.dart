@@ -17,12 +17,7 @@ class MockStdin extends Stream<List<int>> implements io.Stdin {
     void Function()? onDone,
     bool? cancelOnError,
   }) {
-    return _controller.stream.listen(
-      onData,
-      onError: onError,
-      onDone: onDone,
-      cancelOnError: cancelOnError,
-    );
+    return _controller.stream.listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 
   /// Add data to the mock stdin stream
@@ -61,11 +56,7 @@ class MockStdin extends Stream<List<int>> implements io.Stdin {
   int readByteSync() => throw UnimplementedError();
 
   @override
-  String? readLineSync({
-    Encoding encoding = utf8,
-    bool retainNewlines = false,
-  }) =>
-      throw UnimplementedError();
+  String? readLineSync({Encoding encoding = utf8, bool retainNewlines = false}) => throw UnimplementedError();
 
   @override
   bool get echoNewlineMode => true;
@@ -165,13 +156,7 @@ void main() {
       // Should not throw - transport is now listening
       expect(
         () => transport.start(),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('already started'),
-          ),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('already started'))),
       );
     });
 
@@ -180,10 +165,7 @@ void main() {
 
       expect(
         () => transport.start(),
-        throwsA(
-          isA<StateError>()
-              .having((e) => e.message, 'message', contains('already started')),
-        ),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('already started'))),
       );
     });
 

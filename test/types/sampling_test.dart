@@ -102,15 +102,13 @@ void main() {
 
     group('SamplingImageContent', () {
       test('constructs correctly', () {
-        const content =
-            SamplingImageContent(data: 'base64data', mimeType: 'image/png');
+        const content = SamplingImageContent(data: 'base64data', mimeType: 'image/png');
         expect(content.data, equals('base64data'));
         expect(content.mimeType, equals('image/png'));
       });
 
       test('toJson serializes correctly', () {
-        const content =
-            SamplingImageContent(data: 'imgdata', mimeType: 'image/jpeg');
+        const content = SamplingImageContent(data: 'imgdata', mimeType: 'image/jpeg');
         final json = content.toJson();
         expect(json['type'], equals('image'));
         expect(json['data'], equals('imgdata'));
@@ -118,11 +116,7 @@ void main() {
       });
 
       test('fromJson parses correctly', () {
-        final json = {
-          'type': 'image',
-          'data': 'encoded',
-          'mimeType': 'image/gif',
-        };
+        final json = {'type': 'image', 'data': 'encoded', 'mimeType': 'image/gif'};
         final content = SamplingContent.fromJson(json);
         expect(content, isA<SamplingImageContent>());
         final img = content as SamplingImageContent;
@@ -133,21 +127,13 @@ void main() {
 
     group('SamplingToolUseContent', () {
       test('constructs correctly', () {
-        const content = SamplingToolUseContent(
-          id: 'tool-123',
-          name: 'calculator',
-          input: {'x': 1, 'y': 2},
-        );
+        const content = SamplingToolUseContent(id: 'tool-123', name: 'calculator', input: {'x': 1, 'y': 2});
         expect(content.id, equals('tool-123'));
         expect(content.name, equals('calculator'));
       });
 
       test('toJson serializes correctly', () {
-        const content = SamplingToolUseContent(
-          id: 'id1',
-          name: 'search',
-          input: {'query': 'test'},
-        );
+        const content = SamplingToolUseContent(id: 'id1', name: 'search', input: {'query': 'test'});
         final json = content.toJson();
         expect(json['type'], equals('tool_use'));
         expect(json['id'], equals('id1'));
@@ -172,19 +158,12 @@ void main() {
 
     group('SamplingToolResultContent', () {
       test('constructs correctly', () {
-        const content = SamplingToolResultContent(
-          toolUseId: 'result-123',
-          content: {'status': 'ok'},
-        );
+        const content = SamplingToolResultContent(toolUseId: 'result-123', content: {'status': 'ok'});
         expect(content.toolUseId, equals('result-123'));
       });
 
       test('toJson serializes correctly', () {
-        const content = SamplingToolResultContent(
-          toolUseId: 'res1',
-          content: {'value': 42},
-          isError: true,
-        );
+        const content = SamplingToolResultContent(toolUseId: 'res1', content: {'value': 42}, isError: true);
         final json = content.toJson();
         expect(json['type'], equals('tool_result'));
         expect(json['toolUseId'], equals('res1'));
@@ -383,15 +362,8 @@ void main() {
     });
 
     test('fromJson throws on missing params', () {
-      final json = {
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'sampling/createMessage',
-      };
-      expect(
-        () => JsonRpcCreateMessageRequest.fromJson(json),
-        throwsA(isA<FormatException>()),
-      );
+      final json = {'jsonrpc': '2.0', 'id': 1, 'method': 'sampling/createMessage'};
+      expect(() => JsonRpcCreateMessageRequest.fromJson(json), throwsA(isA<FormatException>()));
     });
   });
 

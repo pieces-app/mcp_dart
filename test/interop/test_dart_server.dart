@@ -4,24 +4,18 @@ import 'package:mcp_dart/mcp_dart.dart';
 
 McpServer createServer() {
   // Define Server
-  final server = McpServer(
-    const Implementation(name: 'dart-test-server', version: '1.0.0'),
-  );
+  final server = McpServer(const Implementation(name: 'dart-test-server', version: '1.0.0'));
 
   // Tools
   server.registerTool(
     'echo',
     description: 'Echoes the message back',
     inputSchema: JsonSchema.object(
-      properties: {
-        'message': JsonSchema.string(description: 'Message to echo'),
-      },
+      properties: {'message': JsonSchema.string(description: 'Message to echo')},
       required: ['message'],
     ),
     callback: (args, extra) async {
-      return CallToolResult(
-        content: [TextContent(text: args['message'] as String)],
-      );
+      return CallToolResult(content: [TextContent(text: args['message'] as String)]);
     },
   );
 
@@ -38,9 +32,7 @@ McpServer createServer() {
     callback: (args, extra) async {
       final a = args['a'] as num;
       final b = args['b'] as num;
-      return CallToolResult(
-        content: [TextContent(text: '${a + b}')],
-      );
+      return CallToolResult(content: [TextContent(text: '${a + b}')]);
     },
   );
 
@@ -51,13 +43,7 @@ McpServer createServer() {
     (description: 'A test resource', mimeType: 'text/plain'),
     (uri, extra) async {
       return ReadResourceResult(
-        contents: [
-          TextResourceContents(
-            uri: uri.toString(),
-            text: 'This is a test resource',
-            mimeType: 'text/plain',
-          ),
-        ],
+        contents: [TextResourceContents(uri: uri.toString(), text: 'This is a test resource', mimeType: 'text/plain')],
       );
     },
   );
@@ -92,9 +78,7 @@ McpServer createServer() {
           def: CompletableDef(
             complete: (value) {
               final languages = ['English', 'Spanish', 'French', 'German'];
-              return languages
-                  .where((l) => l.toLowerCase().startsWith(value.toLowerCase()))
-                  .toList();
+              return languages.where((l) => l.toLowerCase().startsWith(value.toLowerCase())).toList();
             },
           ),
         ),
@@ -102,20 +86,13 @@ McpServer createServer() {
     },
     callback: (args, extra) async {
       final language = (args?['language'] as String?) ?? 'English';
-      final greetings = {
-        'English': 'Hello!',
-        'Spanish': '¡Hola!',
-        'French': 'Bonjour!',
-        'German': 'Guten Tag!',
-      };
+      final greetings = {'English': 'Hello!', 'Spanish': '¡Hola!', 'French': 'Bonjour!', 'German': 'Guten Tag!'};
       return GetPromptResult(
         description: 'Greeting in $language',
         messages: [
           PromptMessage(
             role: PromptMessageRole.user,
-            content: TextContent(
-              text: greetings[language] ?? 'Hello in $language!',
-            ),
+            content: TextContent(text: greetings[language] ?? 'Hello in $language!'),
           ),
         ],
       );
@@ -129,16 +106,10 @@ McpServer createServer() {
     callback: (args, extra) async {
       try {
         final result = await server.server.listRoots();
-        final rootsJson =
-            result.roots.map((r) => {'uri': r.uri, 'name': r.name}).toList();
-        return CallToolResult(
-          content: [TextContent(text: jsonEncode(rootsJson))],
-        );
+        final rootsJson = result.roots.map((r) => {'uri': r.uri, 'name': r.name}).toList();
+        return CallToolResult(content: [TextContent(text: jsonEncode(rootsJson))]);
       } catch (e) {
-        return CallToolResult(
-          content: [TextContent(text: 'Error getting roots: $e')],
-          isError: true,
-        );
+        return CallToolResult(content: [TextContent(text: 'Error getting roots: $e')], isError: true);
       }
     },
   );
@@ -148,10 +119,7 @@ McpServer createServer() {
     'elicit_input',
     description: 'Requests structured input from the client',
     inputSchema: JsonSchema.object(
-      properties: {
-        'message':
-            JsonSchema.string(description: 'The message to show the user'),
-      },
+      properties: {'message': JsonSchema.string(description: 'The message to show the user')},
       required: ['message'],
     ),
     callback: (args, extra) async {
@@ -161,22 +129,14 @@ McpServer createServer() {
           ElicitRequest.form(
             message: message,
             requestedSchema: JsonSchema.object(
-              properties: {
-                'confirmed':
-                    JsonSchema.boolean(description: 'User confirmation'),
-              },
+              properties: {'confirmed': JsonSchema.boolean(description: 'User confirmation')},
               required: ['confirmed'],
             ),
           ),
         );
-        return CallToolResult(
-          content: [TextContent(text: jsonEncode(result.toJson()))],
-        );
+        return CallToolResult(content: [TextContent(text: jsonEncode(result.toJson()))]);
       } catch (e) {
-        return CallToolResult(
-          content: [TextContent(text: 'Error eliciting input: $e')],
-          isError: true,
-        );
+        return CallToolResult(content: [TextContent(text: 'Error eliciting input: $e')], isError: true);
       }
     },
   );
@@ -186,10 +146,7 @@ McpServer createServer() {
     'sample_llm',
     description: 'Requests an LLM completion from the client',
     inputSchema: JsonSchema.object(
-      properties: {
-        'prompt':
-            JsonSchema.string(description: 'The prompt to send to the LLM'),
-      },
+      properties: {'prompt': JsonSchema.string(description: 'The prompt to send to the LLM')},
       required: ['prompt'],
     ),
     callback: (args, extra) async {
@@ -207,17 +164,10 @@ McpServer createServer() {
           ),
         );
         final content = result.content;
-        final text = content is SamplingTextContent
-            ? content.text
-            : jsonEncode(content.toJson());
-        return CallToolResult(
-          content: [TextContent(text: text)],
-        );
+        final text = content is SamplingTextContent ? content.text : jsonEncode(content.toJson());
+        return CallToolResult(content: [TextContent(text: text)]);
       } catch (e) {
-        return CallToolResult(
-          content: [TextContent(text: 'Error sampling LLM: $e')],
-          isError: true,
-        );
+        return CallToolResult(content: [TextContent(text: 'Error sampling LLM: $e')], isError: true);
       }
     },
   );
@@ -227,11 +177,7 @@ McpServer createServer() {
     'progress_demo',
     description: 'Demonstrates progress notifications',
     inputSchema: JsonSchema.object(
-      properties: {
-        'steps': JsonSchema.number(
-          description: 'Number of progress steps (default 4)',
-        ),
-      },
+      properties: {'steps': JsonSchema.number(description: 'Number of progress steps (default 4)')},
     ),
     callback: (args, extra) async {
       final steps = (args['steps'] as num?)?.toInt() ?? 4;
@@ -246,11 +192,7 @@ McpServer createServer() {
           await extra.sendNotification(
             // Fixed to use extra.sendNotification
             JsonRpcProgressNotification(
-              progressParams: ProgressNotification(
-                progressToken: progressToken,
-                progress: progress,
-                total: 100,
-              ),
+              progressParams: ProgressNotification(progressToken: progressToken, progress: progress, total: 100),
             ),
           );
         }
@@ -259,13 +201,7 @@ McpServer createServer() {
         await Future.delayed(const Duration(milliseconds: 50));
       }
 
-      return CallToolResult(
-        content: [
-          TextContent(
-            text: 'Completed $totalSteps steps with progress notifications',
-          ),
-        ],
-      );
+      return CallToolResult(content: [TextContent(text: 'Completed $totalSteps steps with progress notifications')]);
     },
   );
 
@@ -316,10 +252,7 @@ class TestTaskHandler implements ToolTaskHandler {
   }
 
   @override
-  Future<CreateTaskResult> createTask(
-    Map<String, dynamic>? args,
-    RequestHandlerExtra? extra,
-  ) async {
+  Future<CreateTaskResult> createTask(Map<String, dynamic>? args, RequestHandlerExtra? extra) async {
     print('DEBUG: createTask called with $args');
     try {
       final taskId = 'task-${++_counter}';
@@ -407,10 +340,7 @@ class TestTaskHandler implements ToolTaskHandler {
   }
 
   @override
-  Future<CallToolResult> getTaskResult(
-    String taskId,
-    RequestHandlerExtra? extra,
-  ) async {
+  Future<CallToolResult> getTaskResult(String taskId, RequestHandlerExtra? extra) async {
     final state = _tasks[taskId];
     if (state == null) {
       throw McpError(ErrorCode.invalidParams.value, "Task not found");
@@ -419,9 +349,7 @@ class TestTaskHandler implements ToolTaskHandler {
       throw McpError(ErrorCode.invalidParams.value, "Task not complete");
     }
 
-    return CallToolResult(
-      content: [TextContent(text: state.message)],
-    );
+    return CallToolResult(content: [TextContent(text: state.message)]);
   }
 }
 
@@ -462,10 +390,7 @@ void main(List<String> args) async {
       print('Error: --port is required for http transport');
       exit(1);
     }
-    final transport = StreamableMcpServer(
-      serverFactory: (sessionId) => createServer(),
-      port: port,
-    );
+    final transport = StreamableMcpServer(serverFactory: (sessionId) => createServer(), port: port);
     await transport.start();
     // Keep alive? StreamableMcpServer listens on http
     await ProcessSignal.sigint.watch().first;

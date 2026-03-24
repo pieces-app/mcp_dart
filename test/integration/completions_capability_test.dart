@@ -6,11 +6,7 @@ void main() {
     test('Server declares completions capability', () {
       final mcpServer = McpServer(
         const Implementation(name: "test-server", version: "1.0.0"),
-        options: const ServerOptions(
-          capabilities: ServerCapabilities(
-            completions: ServerCapabilitiesCompletions(),
-          ),
-        ),
+        options: const ServerOptions(capabilities: ServerCapabilities(completions: ServerCapabilitiesCompletions())),
       );
 
       final caps = mcpServer.server.getCapabilities();
@@ -22,9 +18,7 @@ void main() {
       final mcpServer = McpServer(
         const Implementation(name: "test-server", version: "1.0.0"),
         options: const ServerOptions(
-          capabilities: ServerCapabilities(
-            completions: ServerCapabilitiesCompletions(listChanged: true),
-          ),
+          capabilities: ServerCapabilities(completions: ServerCapabilitiesCompletions(listChanged: true)),
         ),
       );
 
@@ -36,11 +30,7 @@ void main() {
     test('Server without completions capability returns null', () {
       final mcpServer = McpServer(
         const Implementation(name: "test-server", version: "1.0.0"),
-        options: const ServerOptions(
-          capabilities: ServerCapabilities(
-            tools: ServerCapabilitiesTools(),
-          ),
-        ),
+        options: const ServerOptions(capabilities: ServerCapabilities(tools: ServerCapabilitiesTools())),
       );
 
       final caps = mcpServer.server.getCapabilities();
@@ -51,11 +41,7 @@ void main() {
       // Create a server with completions capability
       final mcpServer = McpServer(
         const Implementation(name: "test-server", version: "1.0.0"),
-        options: const ServerOptions(
-          capabilities: ServerCapabilities(
-            completions: ServerCapabilitiesCompletions(),
-          ),
-        ),
+        options: const ServerOptions(capabilities: ServerCapabilities(completions: ServerCapabilitiesCompletions())),
       );
 
       // Verify server capabilities include completions
@@ -71,10 +57,7 @@ void main() {
           capabilities: ServerCapabilities(
             completions: ServerCapabilitiesCompletions(listChanged: true),
             tools: ServerCapabilitiesTools(listChanged: true),
-            resources: ServerCapabilitiesResources(
-              subscribe: true,
-              listChanged: true,
-            ),
+            resources: ServerCapabilitiesResources(subscribe: true, listChanged: true),
             prompts: ServerCapabilitiesPrompts(listChanged: true),
           ),
         ),

@@ -12,15 +12,11 @@ class HelloPrompt extends BasePrompt {
 
   @override
   Map<String, PromptArgumentDefinition>? get argsSchema => {
-        'name': PromptArgumentDefinition(
-          description: 'The name to say hello to',
-          required: false,
-        ),
-      };
+    'name': PromptArgumentDefinition(description: 'The name to say hello to', required: false),
+  };
 
   @override
-  GetPromptResult getPrompt(
-      Map<String, dynamic>? args, RequestHandlerExtra? extra) {
+  GetPromptResult getPrompt(Map<String, dynamic>? args, RequestHandlerExtra? extra) {
     final name = args?['name'] as String? ?? 'World';
     return GetPromptResult(
       description: 'A friendly greeting',

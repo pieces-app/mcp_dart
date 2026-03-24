@@ -10,42 +10,33 @@ void main() async {
   print('Keep-alive messages will be sent every 5 seconds');
 
   // Create the MCP server
-  final mcpServer = McpServer(
-    Implementation(name: 'keepalive-test-server', version: '1.0.0'),
-  );
+  final mcpServer = McpServer(Implementation(name: 'keepalive-test-server', version: '1.0.0'));
 
   // Register a simple tool
   mcpServer.tool(
     'test-keepalive',
     description: 'A tool that waits to test keep-alive',
     toolInputSchema: ToolInputSchema(
-      properties: {
-        'delay': JsonSchema.number(
-          description: 'Delay in seconds before responding',
-          defaultValue: 10,
-        ),
-      },
+      properties: {'delay': JsonSchema.number(description: 'Delay in seconds before responding', defaultValue: 10)},
     ),
     callback: ({args, extra}) async {
       final delay = (args?['delay'] as num? ?? 10).toInt();
       print('Tool called, waiting $delay seconds...');
-      
+
       // Send periodic notifications during the wait
       for (int i = 0; i < delay; i++) {
-        await extra?.sendNotification(JsonRpcLoggingMessageNotification(
-          logParams: LoggingMessageNotificationParams(
-            level: LoggingLevel.info,
-            data: 'Waiting... ${i + 1}/$delay seconds',
+        await extra?.sendNotification(
+          JsonRpcLoggingMessageNotification(
+            logParams: LoggingMessageNotificationParams(
+              level: LoggingLevel.info,
+              data: 'Waiting... ${i + 1}/$delay seconds',
+            ),
           ),
-        ));
+        );
         await Future.delayed(Duration(seconds: 1));
       }
-      
-      return CallToolResult.fromContent(
-        [
-          TextContent(text: 'Completed after $delay seconds!'),
-        ],
-      );
+
+      return CallToolResult.fromContent([TextContent(text: 'Completed after $delay seconds!')]);
     },
   );
 
@@ -53,8 +44,7 @@ void main() async {
     // Set CORS headers
     request.response.headers.set('Access-Control-Allow-Origin', '*');
     request.response.headers.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-    request.response.headers.set('Access-Control-Allow-Headers', 
-        'Origin, Content-Type, Accept, mcp-session-id');
+    request.response.headers.set('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, mcp-session-id');
     request.response.headers.set('Access-Control-Expose-Headers', 'mcp-session-id');
 
     if (request.method == 'OPTIONS') {
@@ -95,7 +85,7 @@ void main() async {
 
       // Handle the request
       await transport.handleRequest(request);
-      
+
       print('Request handled, SSE stream should be active with keep-alive');
     } catch (error) {
       print('Error handling request: $error');

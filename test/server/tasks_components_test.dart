@@ -94,12 +94,7 @@ void main() {
       store = InMemoryTaskStore();
       queue = InMemoryTaskMessageQueue();
 
-      final task = await store.createTask(
-        const TaskCreationParams(),
-        123,
-        {'name': 'test_tool'},
-        'session1',
-      );
+      final task = await store.createTask(const TaskCreationParams(), 123, {'name': 'test_tool'}, 'session1');
 
       session = TaskSession(server, task.taskId, store, queue);
     });
@@ -123,8 +118,7 @@ void main() {
       expect(task?.status, TaskStatus.inputRequired);
 
       // Resolve
-      serverMsg.resolver!
-          .complete(const ElicitResult(action: 'accept', content: {}).toJson());
+      serverMsg.resolver!.complete(const ElicitResult(action: 'accept', content: {}).toJson());
 
       await expectLater(future, completes);
 
@@ -180,12 +174,7 @@ void main() {
     });
 
     test('handle waits for task completion and returns result', () async {
-      final task = await store.createTask(
-        const TaskCreationParams(),
-        123,
-        {'name': 'test_tool'},
-        'session1',
-      );
+      final task = await store.createTask(const TaskCreationParams(), 123, {'name': 'test_tool'}, 'session1');
 
       final future = handler.handle(task.taskId);
 
@@ -205,12 +194,7 @@ void main() {
     });
 
     test('handle processes queued requests (elicit)', () async {
-      final task = await store.createTask(
-        const TaskCreationParams(),
-        123,
-        {'name': 'test_tool'},
-        'session1',
-      );
+      final task = await store.createTask(const TaskCreationParams(), 123, {'name': 'test_tool'}, 'session1');
 
       final future = handler.handle(task.taskId);
 
@@ -256,8 +240,7 @@ void main() {
       Future<void> autoReply() async {
         while (!completer.isCompleted) {
           await Future.delayed(const Duration(milliseconds: 10));
-          final reqs =
-              transport.sentMessages.whereType<JsonRpcRequest>().toList();
+          final reqs = transport.sentMessages.whereType<JsonRpcRequest>().toList();
           for (final req in reqs) {
             // If it's the elicit request
             if (req.method == 'elicitation/create') {
@@ -265,8 +248,7 @@ void main() {
               server.server.transport?.onmessage?.call(
                 JsonRpcResponse(
                   id: req.id,
-                  result: const ElicitResult(action: 'accept', content: {})
-                      .toJson(),
+                  result: const ElicitResult(action: 'accept', content: {}).toJson(),
                 ),
               );
               // Clear it so we don't reply again

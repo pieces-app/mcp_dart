@@ -23,11 +23,7 @@ void main() {
 
   group('JsonRpcErrorData Edge Cases', () {
     test('JsonRpcErrorData with null data field', () {
-      final errorData = const JsonRpcErrorData(
-        code: -32600,
-        message: 'Test error',
-        data: null,
-      );
+      final errorData = const JsonRpcErrorData(code: -32600, message: 'Test error', data: null);
 
       final json = errorData.toJson();
       expect(json['code'], equals(-32600));
@@ -64,22 +60,13 @@ void main() {
 
       expect(
         () => JsonRpcCancelledNotification.fromJson(json),
-        throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains('Missing params'),
-          ),
-        ),
+        throwsA(isA<FormatException>().having((e) => e.message, 'message', contains('Missing params'))),
       );
     });
 
     test('handles optional reason field correctly', () {
       // With reason
-      final withReason = const CancelledNotificationParams(
-        requestId: 123,
-        reason: 'User cancelled',
-      );
+      final withReason = const CancelledNotificationParams(requestId: 123, reason: 'User cancelled');
       var json = withReason.toJson();
       expect(json['reason'], equals('User cancelled'));
 
@@ -116,13 +103,7 @@ void main() {
 
       expect(
         () => JsonRpcInitializeRequest.fromJson(json),
-        throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains('Missing params'),
-          ),
-        ),
+        throwsA(isA<FormatException>().having((e) => e.message, 'message', contains('Missing params'))),
       );
     });
 
@@ -154,13 +135,7 @@ void main() {
 
       expect(
         () => JsonRpcProgressNotification.fromJson(json),
-        throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains('Missing params'),
-          ),
-        ),
+        throwsA(isA<FormatException>().having((e) => e.message, 'message', contains('Missing params'))),
       );
     });
 
@@ -196,8 +171,7 @@ void main() {
   });
 
   group('JsonRpcMessage.fromJson Additional Edge Cases', () {
-    test('returns generic JsonRpcNotification for unknown notification method',
-        () {
+    test('returns generic JsonRpcNotification for unknown notification method', () {
       final json = {
         'jsonrpc': '2.0',
         'method': 'notifications/unknown',
@@ -206,10 +180,7 @@ void main() {
 
       final message = JsonRpcMessage.fromJson(json);
       expect(message, isA<JsonRpcNotification>());
-      expect(
-        (message as JsonRpcNotification).method,
-        equals('notifications/unknown'),
-      );
+      expect((message as JsonRpcNotification).method, equals('notifications/unknown'));
     });
 
     test('handles response with null id', () {

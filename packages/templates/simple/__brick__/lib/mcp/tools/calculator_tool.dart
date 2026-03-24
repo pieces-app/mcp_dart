@@ -12,29 +12,21 @@ class CalculatorTool extends BaseTool {
 
   @override
   ToolInputSchema get inputSchema => ToolInputSchema(
-        properties: {
-          'a': JsonSchema.number(description: 'First number'),
-          'b': JsonSchema.number(description: 'Second number'),
-        },
-        required: ['a', 'b'],
-      );
+    properties: {
+      'a': JsonSchema.number(description: 'First number'),
+      'b': JsonSchema.number(description: 'Second number'),
+    },
+    required: ['a', 'b'],
+  );
 
   @override
-  ToolOutputSchema? get outputSchema => ToolOutputSchema(
-        properties: {
-          'result': JsonSchema.number(description: 'The sum of a and b'),
-        },
-      );
+  ToolOutputSchema? get outputSchema =>
+      ToolOutputSchema(properties: {'result': JsonSchema.number(description: 'The sum of a and b')});
 
   @override
-  Future<CallToolResult> execute(
-      Map<String, dynamic> args, RequestHandlerExtra? extra) async {
+  Future<CallToolResult> execute(Map<String, dynamic> args, RequestHandlerExtra? extra) async {
     final a = args['a'] as num;
     final b = args['b'] as num;
-    return CallToolResult.fromStructuredContent(
-      {
-        'result': a + b,
-      },
-    );
+    return CallToolResult.fromStructuredContent({'result': a + b});
   }
 }

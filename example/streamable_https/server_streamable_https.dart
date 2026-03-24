@@ -20,8 +20,7 @@ class InMemoryEventStore implements EventStore {
   @override
   Future<StreamId> replayEventsAfter(
     EventId lastEventId, {
-    required Future<void> Function(EventId eventId, JsonRpcMessage message)
-        send,
+    required Future<void> Function(EventId eventId, JsonRpcMessage message) send,
   }) async {
     // Find the stream containing this event ID
     String? streamId;
@@ -54,53 +53,31 @@ class InMemoryEventStore implements EventStore {
 // Create an MCP server with implementation details
 McpServer getServer() {
   // Create the McpServer with the implementation details and options
-  final server = McpServer(
-    const Implementation(
-      name: 'simple-streamable-http-server',
-      version: '1.0.0',
-    ),
-  );
+  final server = McpServer(const Implementation(name: 'simple-streamable-http-server', version: '1.0.0'));
 
   // Register a simple tool that returns a greeting
   server.registerTool(
     'greet',
     description: 'A simple greeting tool',
     inputSchema: JsonSchema.object(
-      properties: {
-        'name': JsonSchema.string(
-          description: 'Name to greet',
-        ),
-      },
+      properties: {'name': JsonSchema.string(description: 'Name to greet')},
       required: ['name'],
     ),
     callback: (args, extra) async {
       final name = args['name'] as String? ?? 'world';
-      return CallToolResult.fromContent(
-        [
-          TextContent(text: 'Hello, $name!'),
-        ],
-      );
+      return CallToolResult.fromContent([TextContent(text: 'Hello, $name!')]);
     },
   );
 
   // Register a tool that sends multiple greetings with notifications
   server.registerTool(
     'multi-greet',
-    description:
-        'A tool that sends different greetings with delays between them',
+    description: 'A tool that sends different greetings with delays between them',
     inputSchema: JsonSchema.object(
-      properties: {
-        'name': JsonSchema.string(
-          description: 'Name to greet',
-        ),
-      },
+      properties: {'name': JsonSchema.string(description: 'Name to greet')},
       required: [],
     ),
-    annotations: const ToolAnnotations(
-      title: 'Multiple Greeting Tool',
-      readOnlyHint: true,
-      openWorldHint: false,
-    ),
+    annotations: const ToolAnnotations(title: 'Multiple Greeting Tool', readOnlyHint: true, openWorldHint: false),
     callback: (args, extra) async {
       final name = args['name'] as String? ?? 'world';
 
@@ -110,10 +87,7 @@ McpServer getServer() {
       // Send debug notification
       await extra.sendNotification(
         JsonRpcLoggingMessageNotification(
-          logParams: LoggingMessageNotification(
-            level: LoggingLevel.debug,
-            data: 'Starting multi-greet for $name',
-          ),
+          logParams: LoggingMessageNotification(level: LoggingLevel.debug, data: 'Starting multi-greet for $name'),
         ),
       );
 
@@ -122,10 +96,7 @@ McpServer getServer() {
       // Send first info notification
       await extra.sendNotification(
         JsonRpcLoggingMessageNotification(
-          logParams: LoggingMessageNotification(
-            level: LoggingLevel.info,
-            data: 'Sending first greeting to $name',
-          ),
+          logParams: LoggingMessageNotification(level: LoggingLevel.info, data: 'Sending first greeting to $name'),
         ),
       );
 
@@ -134,18 +105,11 @@ McpServer getServer() {
       // Send second info notification
       await extra.sendNotification(
         JsonRpcLoggingMessageNotification(
-          logParams: LoggingMessageNotification(
-            level: LoggingLevel.info,
-            data: 'Sending second greeting to $name',
-          ),
+          logParams: LoggingMessageNotification(level: LoggingLevel.info, data: 'Sending second greeting to $name'),
         ),
       );
 
-      return CallToolResult.fromContent(
-        [
-          TextContent(text: 'Good morning, $name!'),
-        ],
-      );
+      return CallToolResult.fromContent([TextContent(text: 'Good morning, $name!')]);
     },
   );
 
@@ -153,21 +117,14 @@ McpServer getServer() {
   server.registerPrompt(
     'greeting-template',
     description: 'A simple greeting prompt template',
-    argsSchema: {
-      'name': const PromptArgumentDefinition(
-        description: 'Name to include in greeting',
-        required: true,
-      ),
-    },
+    argsSchema: {'name': const PromptArgumentDefinition(description: 'Name to include in greeting', required: true)},
     callback: (args, extra) async {
       final name = args?['name'] as String;
       return GetPromptResult(
         messages: [
           PromptMessage(
             role: PromptMessageRole.user,
-            content: TextContent(
-              text: 'Please greet $name in a friendly manner.',
-            ),
+            content: TextContent(text: 'Please greet $name in a friendly manner.'),
           ),
         ],
       );
@@ -177,18 +134,11 @@ McpServer getServer() {
   // Register a tool specifically for testing resumability
   server.registerTool(
     'start-notification-stream',
-    description:
-        'Starts sending periodic notifications for testing resumability',
+    description: 'Starts sending periodic notifications for testing resumability',
     inputSchema: JsonSchema.object(
       properties: {
-        'interval': JsonSchema.number(
-          description: 'Interval in milliseconds between notifications',
-          defaultValue: 100,
-        ),
-        'count': JsonSchema.number(
-          description: 'Number of notifications to send (0 for 100)',
-          defaultValue: 50,
-        ),
+        'interval': JsonSchema.number(description: 'Interval in milliseconds between notifications', defaultValue: 100),
+        'count': JsonSchema.number(description: 'Number of notifications to send (0 for 100)', defaultValue: 50),
       },
       required: [],
     ),
@@ -208,8 +158,7 @@ McpServer getServer() {
             JsonRpcLoggingMessageNotification(
               logParams: LoggingMessageNotification(
                 level: LoggingLevel.info,
-                data:
-                    'Periodic notification #$counter at ${DateTime.now().toIso8601String()}',
+                data: 'Periodic notification #$counter at ${DateTime.now().toIso8601String()}',
               ),
             ),
           );
@@ -221,13 +170,9 @@ McpServer getServer() {
         await sleep(interval.toInt());
       }
 
-      return CallToolResult.fromContent(
-        [
-          TextContent(
-            text: 'Started sending periodic notifications every ${interval}ms',
-          ),
-        ],
-      );
+      return CallToolResult.fromContent([
+        TextContent(text: 'Started sending periodic notifications every ${interval}ms'),
+      ]);
     },
   );
 
@@ -255,18 +200,15 @@ McpServer getServer() {
 void setCorsHeaders(HttpRequest request) {
   // Echo the Origin header to support Allow-Credentials
   final origin = request.headers.value('Origin') ?? '*';
-  request.response.headers
-      .set('Access-Control-Allow-Origin', origin); // Allow the specific origin
-  request.response.headers
-      .set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  request.response.headers.set('Access-Control-Allow-Origin', origin); // Allow the specific origin
+  request.response.headers.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   request.response.headers.set(
     'Access-Control-Allow-Headers',
     'Origin, X-Requested-With, Content-Type, Accept, mcp-session-id, Last-Event-ID, Authorization',
   );
   request.response.headers.set('Access-Control-Allow-Credentials', 'true');
   request.response.headers.set('Access-Control-Max-Age', '86400'); // 24 hours
-  request.response.headers
-      .set('Access-Control-Expose-Headers', 'mcp-session-id');
+  request.response.headers.set('Access-Control-Expose-Headers', 'mcp-session-id');
 }
 
 void main() async {
@@ -326,19 +268,14 @@ void main() async {
 
 // Function to check if a request is an initialization request
 bool isInitializeRequest(dynamic body) {
-  if (body is Map<String, dynamic> &&
-      body.containsKey('method') &&
-      body['method'] == 'initialize') {
+  if (body is Map<String, dynamic> && body.containsKey('method') && body['method'] == 'initialize') {
     return true;
   }
   return false;
 }
 
 // Handle POST requests
-Future<void> handlePostRequest(
-  HttpRequest request,
-  Map<String, StreamableHTTPServerTransport> transports,
-) async {
+Future<void> handlePostRequest(HttpRequest request, Map<String, StreamableHTTPServerTransport> transports) async {
   print('Received MCP request');
 
   try {
@@ -373,9 +310,7 @@ Future<void> handlePostRequest(
       transport.onclose = () {
         final sid = transport!.sessionId;
         if (sid != null && transports.containsKey(sid)) {
-          print(
-            'Transport closed for session $sid, removing from transports map',
-          );
+          print('Transport closed for session $sid, removing from transports map');
           transports.remove(sid);
         }
       };
@@ -400,8 +335,7 @@ Future<void> handlePostRequest(
             id: null,
             error: JsonRpcErrorData(
               code: ErrorCode.connectionClosed.value,
-              message:
-                  'Bad Request: No valid session ID provided or not an initialization request',
+              message: 'Bad Request: No valid session ID provided or not an initialization request',
             ),
           ).toJson(),
         ),
@@ -417,9 +351,7 @@ Future<void> handlePostRequest(
     // Check if headers are already sent
     bool headersSent = false;
     try {
-      headersSent = request.response.headers.contentType
-          .toString()
-          .startsWith('text/event-stream');
+      headersSent = request.response.headers.contentType.toString().startsWith('text/event-stream');
     } catch (_) {
       // Ignore errors when checking headers
     }
@@ -434,10 +366,7 @@ Future<void> handlePostRequest(
         jsonEncode(
           JsonRpcError(
             id: null,
-            error: JsonRpcErrorData(
-              code: ErrorCode.internalError.value,
-              message: 'Internal Server Error',
-            ),
+            error: JsonRpcErrorData(code: ErrorCode.internalError.value, message: 'Internal Server Error'),
           ).toJson(),
         ),
       );
@@ -447,10 +376,7 @@ Future<void> handlePostRequest(
 }
 
 // Handle GET requests for SSE streams
-Future<void> handleGetRequest(
-  HttpRequest request,
-  Map<String, StreamableHTTPServerTransport> transports,
-) async {
+Future<void> handleGetRequest(HttpRequest request, Map<String, StreamableHTTPServerTransport> transports) async {
   final sessionId = request.headers.value('mcp-session-id');
   if (sessionId == null || !transports.containsKey(sessionId)) {
     request.response.statusCode = HttpStatus.badRequest;
@@ -475,10 +401,7 @@ Future<void> handleGetRequest(
 }
 
 // Handle DELETE requests for session termination
-Future<void> handleDeleteRequest(
-  HttpRequest request,
-  Map<String, StreamableHTTPServerTransport> transports,
-) async {
+Future<void> handleDeleteRequest(HttpRequest request, Map<String, StreamableHTTPServerTransport> transports) async {
   final sessionId = request.headers.value('mcp-session-id');
   if (sessionId == null || !transports.containsKey(sessionId)) {
     request.response.statusCode = HttpStatus.badRequest;
@@ -500,9 +423,7 @@ Future<void> handleDeleteRequest(
     // Check if headers are already sent
     bool headersSent = false;
     try {
-      headersSent = request.response.headers.contentType
-          .toString()
-          .startsWith('text/event-stream');
+      headersSent = request.response.headers.contentType.toString().startsWith('text/event-stream');
     } catch (_) {
       // Ignore errors when checking headers
     }
