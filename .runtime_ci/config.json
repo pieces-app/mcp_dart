@@ -8,7 +8,7 @@
   },
   "ci": {
     "dart_sdk": "3.9.2",
-    "personal_access_token_secret": "GITHUB_TOKEN",
+    "personal_access_token_secret": "TSAVO_AT_PIECES_PERSONAL_ACCESS_TOKEN",
     "line_length": 120,
     "artifact_retention_days": 7,
     "features": {
@@ -62,7 +62,8 @@
     },
     "rust": {
       "toolchain": "stable"
-    }
+    },
+    "activate_runtime_ci_tooling_from_path": false
   },
   "gcp": {
     "project": ""

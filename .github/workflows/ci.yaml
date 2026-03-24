@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref || github.ref }}
-          token: ${{ secrets.GITHUB_TOKEN || github.token }}
+          token: ${{ secrets.TSAVO_AT_PIECES_PERSONAL_ACCESS_TOKEN || github.token }}
           persist-credentials: true
 
       - uses: dart-lang/setup-dart@v1.7.1
@@ -97,7 +97,7 @@ jobs:
       - name: Configure Git for HTTPS with Token
         shell: bash
         env:
-          GH_PAT: ${{ secrets.GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.TSAVO_AT_PIECES_PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           echo "::add-mask::${GH_PAT}"
           git config --global url."https://x-access-token:${GH_PAT}@github.com/".insteadOf "git@github.com:"
@@ -172,7 +172,7 @@ jobs:
       - name: Configure Git for HTTPS with Token
         shell: bash
         env:
-          GH_PAT: ${{ secrets.GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.TSAVO_AT_PIECES_PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           echo "::add-mask::${GH_PAT}"
           git config --global url."https://x-access-token:${GH_PAT}@github.com/".insteadOf "git@github.com:"
@@ -203,11 +203,30 @@ jobs:
       - name: Activate runtime_ci_tooling (pub global)
         run: dart pub global activate --source git https://github.com/open-runtime/runtime_ci_tooling.git --git-ref v0.23.10
 
+
+      - name: Check test enabled in config
+        id: check-test
+        shell: bash
+        run: |
+          if [ -f .runtime_ci/config.json ]; then
+            enabled=$(jq -r '.ci.features.test' .runtime_ci/config.json)
+            if [ "$enabled" = "null" ]; then
+              enabled="true"
+            fi
+          else
+            enabled="true"
+          fi
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+          if [ "$enabled" != "true" ]; then
+            echo "::notice::Tests disabled in .runtime_ci/config.json — skipping test steps."
+          fi
+
 # --- BEGIN USER: pre-test ---
 # --- END USER: pre-test ---
 
       # ── shared:test ──
       - name: Test
+        if: steps.check-test.outputs.enabled == 'true'
         shell: bash
         run: |
           set -o pipefail
@@ -218,7 +237,7 @@ jobs:
           PLATFORM_ID: ${{ matrix.platform_id }}
 
       - name: Upload test logs
-        if: success() || failure()
+        if: steps.check-test.outputs.enabled == 'true' && (success() || failure())
         uses: actions/upload-artifact@v7
         with:
           name: test-logs-${{ matrix.platform_id }}
@@ -271,7 +290,7 @@ jobs:
         if: steps.check-autodoc.outputs.enabled == 'true'
         shell: bash
         env:
-          GH_PAT: ${{ secrets.GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.TSAVO_AT_PIECES_PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           echo "::add-mask::${GH_PAT}"
           git config --global url."https://x-access-token:${GH_PAT}@github.com/".insteadOf "git@github.com:"
