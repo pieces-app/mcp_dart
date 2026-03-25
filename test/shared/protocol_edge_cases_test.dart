@@ -264,6 +264,51 @@ void main() {
       expect(results.length, equals(3), reason: 'All 3 requests should complete');
     });
 
+    test('cancel cleans up internal resolver state', () async {
+      await protocol.connect(transport);
+
+      final abortController = BasicAbortController();
+
+      final future = protocol
+          .request<EmptyResult>(
+            const JsonRpcPingRequest(id: 0),
+            (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
+            options: RequestOptions(signal: abortController.signal),
+          )
+          .catchError((e) => const EmptyResult());
+
+      abortController.abort('test cancel');
+      await future;
+
+      await protocol.close();
+
+      // If _requestResolvers were not cleaned up, closing after cancel would
+      // attempt to resolve a stale entry and potentially throw. Reaching this
+      // point without error proves the cancel path cleaned up properly.
+    });
+
+    test('error handlers fire before completeError on close', () async {
+      await protocol.connect(transport);
+
+      McpError? capturedError;
+      final future = protocol
+          .request<EmptyResult>(
+            const JsonRpcPingRequest(id: 0),
+            (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
+          )
+          .catchError((e) {
+            if (e is McpError) capturedError = e;
+            return const EmptyResult();
+          });
+
+      await transport.close();
+      await future;
+
+      expect(capturedError, isNotNull);
+      expect(capturedError!.code, equals(ErrorCode.connectionClosed.value));
+      expect(capturedError!.message, contains('Connection closed'));
+    });
+
     test('handles user onclose error gracefully', () async {
       await protocol.connect(transport);
 

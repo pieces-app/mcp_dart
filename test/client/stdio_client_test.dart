@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' as io;
 
 import 'package:mcp_dart/src/client/stdio.dart';
@@ -101,12 +102,17 @@ void main() {
         const StdioServerParameters(command: 'sleep', args: ['5'], stderrMode: io.ProcessStartMode.normal),
       );
 
+      int oncloseCount = 0;
+      transport.onclose = () {
+        oncloseCount++;
+      };
+
       await transport.start();
       await transport.close();
       await transport.close();
       await transport.close();
 
-      // Should not throw
+      expect(oncloseCount, equals(1));
     });
 
     test('send writes message to process stdin', () async {
@@ -154,6 +160,88 @@ void main() {
 
       await transport.start();
       await transport.close();
+    });
+
+    test('stdout close triggers onclose', () async {
+      final transport = StdioClientTransport(
+        const StdioServerParameters(command: 'echo', args: ['hello'], stderrMode: io.ProcessStartMode.normal),
+      );
+
+      final oncloseCompleter = Completer<void>();
+      transport.onclose = () {
+        if (!oncloseCompleter.isCompleted) oncloseCompleter.complete();
+      };
+
+      await transport.start();
+
+      await oncloseCompleter.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => fail('onclose was not called after process exited'),
+      );
+    });
+
+    test('restart after close', () async {
+      final transport = StdioClientTransport(
+        const StdioServerParameters(command: 'sleep', args: ['5'], stderrMode: io.ProcessStartMode.normal),
+      );
+
+      int oncloseCount = 0;
+      transport.onclose = () {
+        oncloseCount++;
+      };
+
+      await transport.start();
+      await transport.close();
+      expect(oncloseCount, equals(1));
+
+      await transport.start();
+      await transport.close();
+      expect(oncloseCount, equals(2));
+    });
+
+    test('send after process exit throws StateError and onclose fires', () async {
+      final transport = StdioClientTransport(
+        const StdioServerParameters(command: 'echo', args: ['hello'], stderrMode: io.ProcessStartMode.normal),
+      );
+
+      final oncloseCompleter = Completer<void>();
+      transport.onclose = () {
+        if (!oncloseCompleter.isCompleted) oncloseCompleter.complete();
+      };
+
+      await transport.start();
+
+      await oncloseCompleter.future.timeout(const Duration(seconds: 5));
+
+      expect(() => transport.send(const JsonRpcNotification(method: 'test', params: {})), throwsA(isA<StateError>()));
+    });
+
+    test('transport closes when process is killed with SIGKILL', () async {
+      final transport = StdioClientTransport(
+        const StdioServerParameters(
+          command: 'bash',
+          args: ['-c', r'sleep 0.5; kill -9 $$'],
+          stderrMode: io.ProcessStartMode.normal,
+        ),
+      );
+
+      final oncloseCompleter = Completer<void>();
+      final errors = <Error>[];
+
+      transport.onclose = () {
+        if (!oncloseCompleter.isCompleted) oncloseCompleter.complete();
+      };
+      transport.onerror = errors.add;
+
+      await transport.start();
+
+      // Process self-SIGKILLs after ~500ms; stdout closes → transport tears down
+      await oncloseCompleter.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => fail('onclose was not called after SIGKILL'),
+      );
+
+      expect(() => transport.send(const JsonRpcNotification(method: 'test', params: {})), throwsA(isA<StateError>()));
     });
   });
 }

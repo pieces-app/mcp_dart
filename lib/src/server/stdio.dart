@@ -76,7 +76,14 @@ class StdioServerTransport implements Transport {
     if (chunk is! Uint8List) {
       chunk = Uint8List.fromList(chunk);
     }
-    _readBuffer.append(chunk);
+    // FIX: Check append() return value — false means the buffer overflowed
+    // its size limit. Report the error and tear down the transport rather
+    // than silently processing a cleared (empty) buffer.
+    if (!_readBuffer.append(chunk)) {
+      onerror?.call(StateError('ReadBuffer overflow: exceeded ${_readBuffer.maxBufferSize} bytes. Closing transport.'));
+      close();
+      return;
+    }
     _processReadBuffer();
   }
 
@@ -111,6 +118,12 @@ class StdioServerTransport implements Transport {
           _logger.warn("Error within onmessage handler: $e");
           onerror?.call(StateError("Error in onmessage handler: $e"));
         }
+        // FIX 13: Catch MalformedLineException separately so a single garbled
+        // line (e.g. invalid UTF-8) is logged and skipped without escalating to
+        // onerror, which could tear down the transport. ReadBuffer already
+        // advances past the bad line, so we just continue to the next iteration.
+      } on MalformedLineException catch (e) {
+        _logger.warn("Skipping malformed line: $e");
       } catch (error) {
         final Error dartError = (error is Error) ? error : StateError("Message parsing error: $error");
         try {
@@ -119,6 +132,10 @@ class StdioServerTransport implements Transport {
           _logger.warn("Error within onerror handler during parsing: $e");
         }
         _logger.warn("StdioServerTransport: Error processing read buffer: $dartError. Attempting to continue.");
+        // FIX: readMessage() already advanced the buffer past the bad line
+        // before deserializeMessage() threw, so continuing is safe and
+        // prevents stranding valid messages that remain in the buffer.
+        continue;
       }
     }
   }
@@ -134,11 +151,15 @@ class StdioServerTransport implements Transport {
       return;
     }
 
+    // Set flag before cancelling subscriptions to prevent double-close race
+    // conditions: _onStdinDone or _onErrorCallback may re-enter close() during
+    // cancellation. This matches the pattern in client/stdio.dart.
+    _started = false;
+
     await _stdinSubscription?.cancel();
     _stdinSubscription = null;
 
     _readBuffer.clear();
-    _started = false;
 
     try {
       onclose?.call();
@@ -155,9 +176,10 @@ class StdioServerTransport implements Transport {
   /// immediate sending is required.
   @override
   Future<void> send(JsonRpcMessage message, {int? relatedRequestId}) async {
+    // Throw rather than silently dropping messages — matches the Transport
+    // contract enforced by StdioClientTransport and StreamableHTTPServerTransport.
     if (!_started) {
-      _logger.warn("Attempted to send message on stopped StdioServerTransport.");
-      return;
+      throw StateError('Cannot send message: StdioServerTransport is not running.');
     }
     try {
       final jsonString = serializeMessage(message);

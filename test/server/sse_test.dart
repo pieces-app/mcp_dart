@@ -424,6 +424,31 @@ void main() {
     client.close();
   });
 
+  test('SseServerTransport - double start throws StateError', () async {
+    final sseUrl = '$serverUrlBase/sse_test';
+    final client = HttpClient();
+
+    final request = await client.getUrl(Uri.parse(sseUrl));
+    request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
+    final response = await request.close();
+    final sseSub = response.listen((_) {});
+
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(activeTransports.length, 1);
+
+    final transport = activeTransports.values.first;
+
+    // Transport was already started during creation in testServerHandler.
+    // A second start() must throw StateError.
+    expect(
+      () => transport.start(),
+      throwsA(isA<StateError>().having((e) => e.message, 'message', contains('already started'))),
+    );
+
+    await sseSub.cancel();
+    client.close();
+  });
+
   test('SseServerTransport - multiple close calls are safe', () async {
     final sseUrl = '$serverUrlBase/sse_test';
     final client = HttpClient();

@@ -515,6 +515,79 @@ void main() {
       expect((message as JsonRpcNotification).method, equals('notifications/initialized'));
     }, timeout: const Timeout(Duration(seconds: 10)));
 
+    group('Close/Send/Reconnect Lifecycle', () {
+      test('double close is safe — no StateError, onclose fires once', () async {
+        transport = StreamableHttpClientTransport(serverUrl);
+        await transport.start();
+
+        var oncloseCount = 0;
+        transport.onclose = () {
+          oncloseCount++;
+        };
+
+        await transport.close();
+        await transport.close();
+
+        expect(oncloseCount, equals(1));
+      });
+
+      test('send after close throws StateError', () async {
+        transport = StreamableHttpClientTransport(serverUrl);
+        await transport.start();
+        await transport.close();
+
+        final request = const JsonRpcRequest(id: 999, method: 'test/afterClose', params: {'key': 'value'});
+
+        expect(
+          () => transport.send(request),
+          throwsA(
+            allOf(
+              isA<StateError>(),
+              predicate<StateError>((e) => e.message.contains('closed'), 'message mentions "closed"'),
+            ),
+          ),
+        );
+      });
+
+      test('close cancels reconnect timer — transport is inert', () async {
+        transport = StreamableHttpClientTransport(
+          serverUrl,
+          opts: const StreamableHttpClientTransportOptions(
+            reconnectionOptions: StreamableHttpReconnectionOptions(
+              initialReconnectionDelay: 50,
+              maxReconnectionDelay: 200,
+              reconnectionDelayGrowFactor: 1.5,
+              maxRetries: 5,
+            ),
+          ),
+        );
+        await transport.start();
+        await transport.close();
+
+        expect(() => transport.send(const JsonRpcRequest(id: 1, method: 'test/probe')), throwsStateError);
+
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+
+        expect(() => transport.send(const JsonRpcRequest(id: 2, method: 'test/probe2')), throwsStateError);
+      });
+
+      test('onclose fires exactly once across multiple close calls', () async {
+        transport = StreamableHttpClientTransport(serverUrl);
+        await transport.start();
+
+        var count = 0;
+        transport.onclose = () {
+          count++;
+        };
+
+        await transport.close();
+        await transport.close();
+        await transport.close();
+
+        expect(count, equals(1));
+      });
+    });
+
     group('Error Handling and Edge Cases', () {
       test('handles finishAuth without auth provider', () async {
         transport = StreamableHttpClientTransport(serverUrl);

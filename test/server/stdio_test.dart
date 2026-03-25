@@ -188,6 +188,21 @@ void main() {
 
       expect(() => transport.close(), returnsNormally);
     });
+
+    test('close ordering: _started=false before await prevents double-close', () async {
+      var oncloseCount = 0;
+      transport.onclose = () {
+        oncloseCount++;
+      };
+
+      await transport.start();
+      await transport.close();
+
+      expect(oncloseCount, equals(1), reason: 'onclose should fire exactly once');
+
+      await transport.close();
+      expect(oncloseCount, equals(1), reason: 'second close must be a no-op');
+    });
   });
 
   group('StdioServerTransport - Message Receiving', () {
@@ -323,6 +338,34 @@ void main() {
 
       expect(receivedError, isNotNull);
     });
+
+    test('MalformedLineException is skipped and subsequent valid message delivered', () async {
+      JsonRpcMessage? receivedMessage;
+      final errors = <Error>[];
+      transport.onmessage = (message) {
+        receivedMessage = message;
+      };
+      transport.onerror = (error) {
+        errors.add(error);
+      };
+
+      await transport.start();
+
+      // Invalid UTF-8 sequence (0xFF 0xFE are not valid in any UTF-8 sequence)
+      // followed by a newline so ReadBuffer treats it as a complete line.
+      stdin.addData([0xFF, 0xFE, 0x80, 0x0A]);
+
+      // Follow with a valid JSON-RPC message
+      final validMessage = const JsonRpcPingRequest(id: 42);
+      stdin.addString('${jsonEncode(validMessage.toJson())}\n');
+
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      expect(receivedMessage, isNotNull, reason: 'valid message after malformed line should be delivered');
+      expect(receivedMessage, isA<JsonRpcPingRequest>());
+      expect((receivedMessage as JsonRpcPingRequest).id, equals(42));
+      expect(errors, isEmpty, reason: 'MalformedLineException should be skipped, not routed to onerror');
+    });
   });
 
   group('StdioServerTransport - Message Sending', () {
@@ -371,14 +414,22 @@ void main() {
       expect(stdout.writtenData.length, equals(2));
     });
 
-    test('warns when sending before start', () async {
+    test('throws StateError when sending before start', () async {
       final response = const JsonRpcPingRequest(id: 1);
 
-      // Should not throw, but will log warning
-      await transport.send(response);
+      expect(() => transport.send(response), throwsA(isA<StateError>()));
 
-      // No data written because not started
       expect(stdout.writtenData.length, equals(0));
+    });
+
+    test('send after close throws StateError', () async {
+      await transport.start();
+      await transport.close();
+
+      expect(
+        () => transport.send(const JsonRpcPingRequest(id: 1)),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('not running'))),
+      );
     });
   });
 

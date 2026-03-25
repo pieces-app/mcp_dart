@@ -432,6 +432,20 @@ class McpClient extends Protocol {
     }
   }
 
+  /// Clears cached server state so a disconnected client does not
+  /// retain stale capabilities, version, instructions, or tool metadata
+  /// from a previous session. Without this, callers that reuse an
+  /// [McpClient] instance after a disconnect could act on outdated data.
+  @override
+  Future<void> close() async {
+    _serverCapabilities = null;
+    _serverVersion = null;
+    _instructions = null;
+    _cachedToolOutputSchemas.clear();
+    _cachedRequiredTaskTools.clear();
+    await super.close();
+  }
+
   /// Sends a `notifications/roots/list_changed` notification to the server.
   Future<void> sendRootsListChanged() {
     const notif = JsonRpcRootsListChangedNotification();

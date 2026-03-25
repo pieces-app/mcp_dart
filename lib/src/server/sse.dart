@@ -34,6 +34,12 @@ class SseServerTransport implements Transport {
   /// Controller for managing the SSE connection stream closing.
   final StreamController<void> _closeController = StreamController.broadcast();
 
+  /// Guards against calling start() more than once. Unlike close() which is
+  /// idempotent via _closeController.isClosed, start() has no built-in
+  /// protection against re-entry — a second call would reconfigure headers
+  /// and detach the socket again, corrupting the connection.
+  bool _started = false;
+
   /// Callback for when the connection is closed.
   @override
   void Function()? onclose;
@@ -74,6 +80,10 @@ class SseServerTransport implements Transport {
     if (_closeController.isClosed) {
       throw StateError("SseServerTransport cannot start: Transport is already closed.");
     }
+    if (_started) {
+      throw StateError('SseServerTransport already started.');
+    }
+    _started = true;
 
     try {
       _sseResponse.headers.chunkedTransferEncoding = false;
@@ -100,10 +110,17 @@ class SseServerTransport implements Transport {
       );
     } on UnimplementedError catch (e) {
       _logger.error('UnimplementedError during SSE transport setup: $e');
+      // Clean up any partially-initialized state (detached socket, _sink)
+      // without firing onclose — Protocol.connect() never completed, so there
+      // is no Protocol-level state to tear down via the callback chain.
+      _handleClosure(propagateToCallback: false);
       onerror?.call(e);
       rethrow;
     } catch (error) {
       _logger.error('Error starting SSE transport: $error');
+      // Same partial-teardown: if detachSocket() succeeded before this error,
+      // the raw socket and _sink would leak without explicit cleanup.
+      _handleClosure(propagateToCallback: false);
       rethrow;
     }
   }

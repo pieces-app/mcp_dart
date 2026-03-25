@@ -146,8 +146,23 @@ class StdioClientTransport implements Transport {
         _stderrSubscription = _process!.stderr.listen((data) => io.stderr.add(data), onError: _onStreamError);
       }
 
-      // Handle process exit
-      _process!.exitCode.then(_onProcessExit).catchError(_onProcessExitError);
+      // FIX: Capture the completer and process in local closures at
+      // registration time. If start() is called again (restart), a previous
+      // process's exit callback would otherwise read the NEW _exitCompleter
+      // and corrupt the restarted transport's state.
+      final localCompleter = _exitCompleter;
+      final localProcess = _process!;
+      localProcess.exitCode
+          .then((exitCode) {
+            // Only act if this completer is still the active one — prevents
+            // a previous process's exit from corrupting a restarted transport.
+            if (_exitCompleter != localCompleter) return;
+            _onProcessExit(exitCode);
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            if (_exitCompleter != localCompleter) return;
+            _onProcessExitError(error, stackTrace);
+          });
 
       // Start successful
       return Future.value();
@@ -179,7 +194,14 @@ class StdioClientTransport implements Transport {
   /// Internal handler for data received from the process's stdout.
   void _onStdoutData(List<int> chunk) {
     if (chunk is! Uint8List) chunk = Uint8List.fromList(chunk);
-    _readBuffer.append(chunk);
+    // FIX: Check append() return value — false means the buffer overflowed
+    // its size limit. Report the error and tear down the transport rather
+    // than silently processing a cleared (empty) buffer.
+    if (!_readBuffer.append(chunk)) {
+      onerror?.call(StateError('ReadBuffer overflow: exceeded ${_readBuffer.maxBufferSize} bytes. Closing transport.'));
+      close();
+      return;
+    }
     _processReadBuffer();
   }
 
@@ -230,7 +252,10 @@ class StdioClientTransport implements Transport {
           _logger.warn("Error in onerror handler: $e");
         }
         _logger.error("StdioClientTransport: Error processing read buffer: $parseError. Skipping data.");
-        break; // Stop processing buffer on error
+        // FIX: Use continue instead of break. readMessage() already advanced
+        // the buffer past the bad line before deserializeMessage() threw, so
+        // breaking would strand any valid messages remaining in the buffer.
+        continue;
       }
     }
   }

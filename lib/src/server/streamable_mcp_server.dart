@@ -9,6 +9,16 @@ import 'package:mcp_dart/src/shared/uuid.dart';
 import 'package:mcp_dart/src/shared/logging.dart';
 import 'package:mcp_dart/src/types.dart';
 
+const int _defaultMaxBodySize = 10 * 1024 * 1024; // 10 MB
+
+class _PayloadTooLargeException implements Exception {
+  final int maxBytes;
+  _PayloadTooLargeException(this.maxBytes);
+
+  @override
+  String toString() => 'Request body exceeded maximum allowed size of $maxBytes bytes';
+}
+
 /// A high-level server implementation that manages multiple MCP sessions over Streamable HTTP.
 ///
 /// This server handles:
@@ -63,6 +73,10 @@ class StreamableMcpServer {
   /// Explicit origin allowlist used when DNS rebinding protection is enabled.
   final Set<String>? allowedOrigins;
 
+  /// Maximum allowed request body size in bytes.
+  /// Requests exceeding this limit receive HTTP 413 Payload Too Large.
+  final int maxBodySize;
+
   HttpServer? _httpServer;
   final Map<String, StreamableHTTPServerTransport> _transports = {};
   // Keep track of servers to close them if needed, though closing transport usually suffices
@@ -78,6 +92,7 @@ class StreamableMcpServer {
     this.enableDnsRebindingProtection = false,
     this.allowedHosts,
     this.allowedOrigins,
+    this.maxBodySize = _defaultMaxBodySize,
   }) : _requestedPort = port,
        _serverFactory = serverFactory;
 
@@ -197,7 +212,28 @@ class StreamableMcpServer {
     // OR be passed the parsed body.
     // To support the routing logic (new vs existing session), we must read it here.
 
-    final bodyBytes = await _collectBytes(request);
+    Uint8List bodyBytes;
+    try {
+      bodyBytes = await _collectBytes(request);
+    } on _PayloadTooLargeException catch (e) {
+      request.response
+        ..statusCode = HttpStatus.requestEntityTooLarge
+        ..write(
+          jsonEncode(
+            JsonRpcError(
+              id: null,
+              error: JsonRpcErrorData(
+                code: ErrorCode.invalidRequest.value,
+                message: 'Payload Too Large',
+                data: e.toString(),
+              ),
+            ).toJson(),
+          ),
+        )
+        ..close();
+      return;
+    }
+
     final bodyString = utf8.decode(bodyBytes);
     dynamic body;
     try {
@@ -335,12 +371,26 @@ class StreamableMcpServer {
     return false;
   }
 
+  /// Collects all bytes from an HTTP request, enforcing [maxBodySize].
+  /// Without this check a malicious client could send an unbounded body and
+  /// exhaust server memory — StreamableHTTPServerTransport already guards
+  /// against this but StreamableMcpServer reads the body before delegating.
   Future<Uint8List> _collectBytes(HttpRequest request) async {
     final completer = Completer<Uint8List>();
     final sink = BytesBuilder();
+    var totalBytes = 0;
+    late final StreamSubscription<List<int>> subscription;
 
-    request.listen(
-      sink.add,
+    subscription = request.listen(
+      (chunk) {
+        totalBytes += chunk.length;
+        if (totalBytes > maxBodySize) {
+          subscription.cancel();
+          completer.completeError(_PayloadTooLargeException(maxBodySize));
+          return;
+        }
+        sink.add(chunk);
+      },
       onDone: () => completer.complete(sink.takeBytes()),
       onError: completer.completeError,
       cancelOnError: true,
@@ -457,7 +507,12 @@ class StreamableMcpServer {
       'Access-Control-Allow-Headers',
       'Origin, X-Requested-With, Content-Type, Accept, mcp-session-id, Last-Event-ID, Authorization',
     );
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    // Intentionally omitting Access-Control-Allow-Credentials.
+    // Per the Fetch specification (§ 3.2.5), a wildcard Allow-Origin
+    // combined with Allow-Credentials: true is invalid — browsers will
+    // reject the preflight and block the request. If credential support
+    // is needed in the future, Allow-Origin must echo the specific
+    // request Origin instead of using '*'.
     response.headers.set('Access-Control-Max-Age', defaultCorsMaxAgeSeconds);
     response.headers.set('Access-Control-Expose-Headers', 'mcp-session-id');
   }

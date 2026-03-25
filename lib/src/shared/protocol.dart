@@ -455,7 +455,6 @@ abstract class Protocol {
     final errorHandlers = Map.of(_responseErrorHandlers);
     final pendingTimeouts = Map.of(_timeoutInfo);
     final pendingRequestHandlers = Map.of(_requestHandlerAbortControllers);
-    final resolvers = Map.of(_requestResolvers);
 
     _responseCompleters.clear();
     _responseErrorHandlers.clear();
@@ -472,18 +471,11 @@ abstract class Protocol {
 
     final error = McpError(ErrorCode.connectionClosed.value, "Connection closed");
 
-    for (final entry in resolvers.entries) {
-      try {
-        entry.value(
-          JsonRpcError(
-            id: entry.key,
-            error: JsonRpcErrorData(code: ErrorCode.connectionClosed.value, message: 'Connection closed'),
-          ),
-        );
-      } catch (e) {
-        _onerror(StateError("Error failing request resolver ${entry.key} during close: $e"));
-      }
-    }
+    // FIX 11: The previous resolver loop here was dead code. Each resolver
+    // callback invoked _onresponse(), which looked up the already-cleared
+    // _requestResolvers and _responseCompleters maps and therefore did nothing.
+    // The completers loop below already fails all pending requests with the
+    // connection-closed error, so the resolver loop was redundant and removed.
 
     for (final entry in completers.entries) {
       final handler = errorHandlers[entry.key];
@@ -843,6 +835,10 @@ abstract class Protocol {
       _responseCompleters.remove(messageId);
       _responseErrorHandlers.remove(messageId);
       _progressHandlers.remove(messageId);
+      // FIX 12: Clean up the side-channel resolver so cancelled task-related
+      // requests don't leave stale entries that would intercept future
+      // responses sharing the same message ID.
+      _requestResolvers.remove(messageId);
       _cleanupTimeout(messageId);
 
       final cancelReason = reason?.toString() ?? 'Request cancelled';
@@ -938,6 +934,9 @@ abstract class Protocol {
           _responseCompleters.remove(messageId);
           _responseErrorHandlers.remove(messageId);
           _progressHandlers.remove(messageId);
+          // FIX 12: Also clean up the resolver on normal completion to prevent
+          // stale entries from accumulating in _requestResolvers.
+          _requestResolvers.remove(messageId);
         })
         .catchError((error) {
           throw capturedError ?? error;

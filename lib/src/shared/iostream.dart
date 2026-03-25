@@ -90,7 +90,14 @@ class IOStreamTransport implements Transport {
   /// Internal handler for data received from the input stream
   void _onStreamData(List<int> chunk) {
     if (chunk is! Uint8List) chunk = Uint8List.fromList(chunk);
-    _readBuffer.append(chunk);
+    // FIX: Check append() return value — false means the buffer overflowed
+    // its size limit. Report the error and tear down the transport rather
+    // than silently processing a cleared (empty) buffer.
+    if (!_readBuffer.append(chunk)) {
+      onerror?.call(StateError('ReadBuffer overflow: exceeded ${_readBuffer.maxBufferSize} bytes. Closing transport.'));
+      close();
+      return;
+    }
     _processReadBuffer();
   }
 
@@ -134,7 +141,10 @@ class IOStreamTransport implements Transport {
           _logger.warn("Error in onerror handler: $e");
         }
         _logger.warn("IOStreamTransport: Error processing read buffer: $parseError. Skipping data.");
-        break; // Stop processing buffer on error
+        // FIX: Use continue instead of break. readMessage() already advanced
+        // the buffer past the bad line before deserializeMessage() threw, so
+        // breaking would strand any valid messages remaining in the buffer.
+        continue;
       }
     }
   }

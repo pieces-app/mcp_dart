@@ -80,16 +80,22 @@ class SseServerManager {
       activeSseTransports[sessionId] = transport;
       _logger.debug("Stored new SSE transport for session: $sessionId");
 
-      transport.onclose = () {
-        _logger.debug("SSE transport closed (Session: $sessionId). Removing from active list.");
-        activeSseTransports.remove(sessionId);
-      };
-
       transport.onerror = (error) {
         _logger.warn("Error on SSE transport (Session: $sessionId): $error");
       };
 
+      // NOTE: We intentionally do NOT set transport.onclose here because
+      // Protocol.connect() overwrites it with its internal _onclose handler.
+      // Instead, we register cleanup on Protocol's public onclose field below,
+      // which _onclose invokes after its own teardown completes.
       await mcpServer.connect(transport);
+
+      // Protocol._onclose() runs first (clears pending requests, nulls
+      // transport, etc.), then calls this callback at the very end.
+      mcpServer.server.onclose = () {
+        _logger.debug("SSE transport closed (Session: $sessionId). Removing from active list.");
+        activeSseTransports.remove(sessionId);
+      };
       _logger.debug("SSE transport connected, session ID: $sessionId");
     } catch (e) {
       _logger.warn("Error setting up SSE connection: $e");

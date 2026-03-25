@@ -733,8 +733,10 @@ class StreamableHTTPServerTransport implements Transport {
       }
 
       // Validate Content-Type
+      // Exact MIME type match — contains() would false-positive on types
+      // like "application/json-seq" or "application/json-patch+json".
       final contentType = adapter.contentType;
-      if (contentType == null || !contentType.mimeType.contains("application/json")) {
+      if (contentType == null || contentType.mimeType.toLowerCase() != 'application/json') {
         res.statusCode = HttpStatus.unsupportedMediaType;
         res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
         res.write(
@@ -1027,8 +1029,11 @@ class StreamableHTTPServerTransport implements Transport {
         return;
       }
 
-      final contentType = req.headers.contentType?.value ?? '';
-      if (!contentType.contains("application/json")) {
+      // Extract the MIME type (stripping parameters like charset) and compare
+      // exactly. Using contains() would false-positive on similar types such
+      // as "application/json-seq" or "application/json-patch+json".
+      final mimeType = (req.headers.contentType?.value ?? '').split(';').first.trim().toLowerCase();
+      if (mimeType != 'application/json') {
         req.response.statusCode = HttpStatus.unsupportedMediaType;
         req.response.write(
           jsonEncode(
