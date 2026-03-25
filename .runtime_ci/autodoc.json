@@ -13,13 +13,13 @@
       "lib_paths": [
         "lib/src/client/"
       ],
-      "output_path": "docs/client/",
+      "output_path": "docs/client",
       "generate": [
         "quickstart",
         "api_reference"
       ],
-      "hash": "",
-      "last_updated": null
+      "hash": "b723074439c8faea154366d371c20bc57431c2148710c5ed79eba11a8f42a526",
+      "last_updated": "2026-03-25T02:21:54.344471Z"
     },
     {
       "id": "server",
@@ -30,13 +30,13 @@
       "lib_paths": [
         "lib/src/server/"
       ],
-      "output_path": "docs/server/",
+      "output_path": "docs/server",
       "generate": [
         "quickstart",
         "api_reference"
       ],
-      "hash": "",
-      "last_updated": null
+      "hash": "e87806f82896b8a5dc31c3911755034a1624accce42108cf4304291bb751dff9",
+      "last_updated": "2026-03-25T02:21:54.344704Z"
     },
     {
       "id": "shared",
@@ -47,13 +47,13 @@
       "lib_paths": [
         "lib/src/shared/"
       ],
-      "output_path": "docs/shared/",
+      "output_path": "docs/shared",
       "generate": [
         "quickstart",
         "api_reference"
       ],
-      "hash": "",
-      "last_updated": null
+      "hash": "93b33ed1bf78cbdd5735c74c1a30478d65a6d6bfac756a0f0005eb12b628ab44",
+      "last_updated": "2026-03-25T02:21:54.344709Z"
     },
     {
       "id": "types",
@@ -64,13 +64,13 @@
       "lib_paths": [
         "lib/src/types/"
       ],
-      "output_path": "docs/types/",
+      "output_path": "docs/types",
       "generate": [
         "quickstart",
         "api_reference"
       ],
-      "hash": "",
-      "last_updated": null
+      "hash": "1eee7bc9345c5b8302a43be40d5287477c585ec0b5cbceed7eff6ff987f132ab",
+      "last_updated": "2026-03-25T02:21:54.344713Z"
     },
     {
       "id": "top_level",
@@ -79,12 +79,12 @@
         "lib/"
       ],
       "lib_paths": [],
-      "output_path": "docs/",
+      "output_path": "docs",
       "generate": [
         "quickstart"
       ],
-      "hash": "",
-      "last_updated": null
+      "hash": "497f5953fd6e495dfd0f355d790fc51046e6021dd093b10313393047ebeea614",
+      "last_updated": "2026-03-25T02:21:54.344716Z"
     }
   ],
   "templates": {
