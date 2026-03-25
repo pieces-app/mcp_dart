@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:mcp_dart/src/server/mcp_server.dart';
+import 'package:mcp_dart/src/server/tasks/handler.dart';
+import 'package:mcp_dart/src/shared/protocol.dart';
 import 'package:mcp_dart/src/shared/transport.dart';
 import 'package:mcp_dart/src/types.dart';
 import 'package:test/test.dart';
@@ -461,4 +463,92 @@ void main() {
       expect(server.isConnected, isFalse);
     });
   });
+
+  group('McpServer Task Tool Polling', () {
+    late McpServer server;
+    late McpServerTestTransport transport;
+
+    setUp(() {
+      server = McpServer(const Implementation(name: 'test-server', version: '1.0.0'));
+      transport = McpServerTestTransport();
+    });
+
+    tearDown(() async {
+      try {
+        await server.close();
+      } catch (_) {}
+    });
+
+    test('tool with optional task support returns result via automatic polling', () async {
+      server.experimental.registerToolTask(
+        'task-tool',
+        description: 'A task-based tool',
+        execution: const ToolExecution(taskSupport: 'optional'),
+        handler: _ImmediateTaskHandler(),
+      );
+
+      await server.connect(transport);
+
+      final callRequest = const JsonRpcCallToolRequest(
+        id: 10,
+        params: {
+          'name': 'task-tool',
+          'arguments': {'input': 'hello'},
+        },
+      );
+      transport.receiveMessage(callRequest);
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final responses = transport.sentMessages.where((m) => m is JsonRpcResponse).toList();
+      expect(responses, isNotEmpty, reason: 'should receive a response from automatic task polling');
+
+      final response = responses.last as JsonRpcResponse;
+      final content = response.result['content'] as List;
+      expect(content.first['text'], equals('Task completed: hello'));
+    });
+
+    test('tool with optional task support lists in tools/list', () async {
+      server.experimental.registerToolTask(
+        'listable-task-tool',
+        description: 'A listable task tool',
+        execution: const ToolExecution(taskSupport: 'optional'),
+        handler: _ImmediateTaskHandler(),
+      );
+
+      await server.connect(transport);
+
+      final listRequest = const JsonRpcListToolsRequest(id: 20);
+      transport.receiveMessage(listRequest);
+
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      final response = transport.sentMessages.last as JsonRpcResponse;
+      final tools = response.result['tools'] as List;
+      final taskTool = tools.firstWhere((t) => t['name'] == 'listable-task-tool');
+      expect(taskTool['description'], equals('A listable task tool'));
+    });
+  });
+}
+
+class _ImmediateTaskHandler implements ToolTaskHandler {
+  @override
+  Future<CreateTaskResult> createTask(Map<String, dynamic>? args, RequestHandlerExtra? extra) async {
+    return CreateTaskResult(
+      task: Task(taskId: 'immediate-task-1', status: TaskStatus.completed, pollInterval: 50),
+    );
+  }
+
+  @override
+  Future<Task> getTask(String taskId, RequestHandlerExtra? extra) async {
+    return Task(taskId: taskId, status: TaskStatus.completed);
+  }
+
+  @override
+  Future<void> cancelTask(String taskId, RequestHandlerExtra? extra) async {}
+
+  @override
+  Future<CallToolResult> getTaskResult(String taskId, RequestHandlerExtra? extra) async {
+    return const CallToolResult(content: [TextContent(text: 'Task completed: hello')]);
+  }
 }

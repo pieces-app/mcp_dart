@@ -34,6 +34,10 @@ class SseServerTransport implements Transport {
   /// Controller for managing the SSE connection stream closing.
   final StreamController<void> _closeController = StreamController.broadcast();
 
+  /// FIX 4: Subscription from the raw socket's listen() call. Stored so
+  /// _handleClosure() can cancel it, preventing callbacks on a dead socket.
+  StreamSubscription? _socketSubscription;
+
   /// Guards against calling start() more than once. Unlike close() which is
   /// idempotent via _closeController.isClosed, start() has no built-in
   /// protection against re-entry — a second call would reconfigure headers
@@ -96,7 +100,7 @@ class SseServerTransport implements Transport {
       final endpointUrl = '$_messageEndpointPath?sessionId=${Uri.encodeComponent(sessionId)}';
       await _sendSseEvent(name: 'endpoint', data: endpointUrl);
 
-      socket.listen(
+      _socketSubscription = socket.listen(
         (_) {},
         onDone: () {
           _logger.debug('Client disconnected');
@@ -266,6 +270,17 @@ class SseServerTransport implements Transport {
 
     _closeController.add(null);
     _closeController.close();
+
+    // FIX 4: Cancel the socket subscription to stop receiving data/done/error
+    // callbacks after the transport is torn down. Wrapped in try-catch because
+    // the underlying socket may already be closed or in an error state,
+    // causing cancel() to throw.
+    try {
+      _socketSubscription?.cancel();
+    } catch (e) {
+      _logger.warn("Error cancelling socket subscription: $e");
+    }
+    _socketSubscription = null;
 
     try {
       _sink?.close();

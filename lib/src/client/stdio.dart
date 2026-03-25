@@ -3,12 +3,9 @@ import 'dart:async';
 import 'dart:io' as io; // Use 'io' prefix
 import 'dart:typed_data'; // For Uint8List
 
-// Assume shared stdio helpers are defined in shared/stdio.dart
-import 'package:mcp_dart/src/shared/stdio.dart'; // Adjust import path as needed
-// Assume Transport interface is defined in shared/transport.dart
-import 'package:mcp_dart/src/shared/transport.dart'; // Adjust import path as needed
-// Assume types are defined in types.dart
-import 'package:mcp_dart/src/types.dart'; // Adjust import path as needed
+import 'package:mcp_dart/src/shared/stdio.dart';
+import 'package:mcp_dart/src/shared/transport.dart';
+import 'package:mcp_dart/src/types.dart';
 import 'package:mcp_dart/src/shared/logging.dart';
 
 final _logger = Logger("mcp_dart.client.stdio");
@@ -43,14 +40,6 @@ class StdioServerParameters {
     this.workingDirectory,
   });
 }
-
-// Note: DEFAULT_INHERITED_ENV_VARS and getDefaultEnvironment from the TS code
-// provide a mechanism to create a restricted default environment.
-// This can be complex to replicate perfectly across platforms in Dart.
-// For simplicity, this conversion allows passing a custom environment or
-// defaulting to inheriting the parent's environment (which is dart:io's default).
-// If strict environment control is needed, implement a Dart equivalent of
-// getDefaultEnvironment() based on io.Platform.environment.
 
 /// Client transport for stdio: connects to a server by spawning a process
 /// and communicating with it over stdin/stdout pipes.
@@ -297,9 +286,20 @@ class StdioClientTransport implements Transport {
     // Mark as closing immediately to prevent further sends/starts
     _started = false;
 
-    // Cancel stream subscriptions
-    await _stdoutSubscription?.cancel();
-    await _stderrSubscription?.cancel();
+    // Cancel stream subscriptions — try-caught individually so a
+    // throwing cancel() (e.g. from an already-errored stream) doesn't
+    // prevent the remaining cleanup (buffer clear, process kill,
+    // onclose) from running.
+    try {
+      await _stdoutSubscription?.cancel();
+    } catch (e) {
+      _logger.warn('Error cancelling stdout subscription: $e');
+    }
+    try {
+      await _stderrSubscription?.cancel();
+    } catch (e) {
+      _logger.warn('Error cancelling stderr subscription: $e');
+    }
     _stdoutSubscription = null;
     _stderrSubscription = null;
 
@@ -361,7 +361,6 @@ class StdioClientTransport implements Transport {
     try {
       final jsonString = serializeMessage(message);
       currentProcess.stdin.write(jsonString);
-      // Flushing stdin might be necessary depending on the server's reading behavior.
       await currentProcess.stdin.flush();
     } catch (error, stackTrace) {
       _logger.warn("StdioClientTransport: Error writing to process stdin: $error");

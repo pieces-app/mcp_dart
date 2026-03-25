@@ -86,6 +86,7 @@ class MockHttpResponse implements HttpResponse {
   int statusCode = HttpStatus.ok;
   final List<String> writtenData = [];
   bool isClosed = false;
+  final MockHttpHeaders _headers = MockHttpHeaders();
 
   @override
   Future<void> close() async {
@@ -115,7 +116,7 @@ class MockHttpResponse implements HttpResponse {
   }
 
   @override
-  HttpHeaders get headers => MockHttpHeaders();
+  HttpHeaders get headers => _headers;
 
   @override
   Future<void> flush() async {}
@@ -349,11 +350,15 @@ class MockHttpHeaders implements HttpHeaders {
   @override
   set ifModifiedSince(DateTime? ifModifiedSince) {}
 
-  @override
-  bool get persistentConnection => true;
+  bool _persistentConnection = true;
 
   @override
-  set persistentConnection(bool persistentConnection) {}
+  bool get persistentConnection => _persistentConnection;
+
+  @override
+  set persistentConnection(bool value) {
+    _persistentConnection = value;
+  }
 
   @override
   int? get port => null;
@@ -623,6 +628,55 @@ void main() {
 
       // Trigger error should not throw
       expect(() => transport.onerror?.call(StateError('Test error')), returnsNormally);
+    });
+  });
+
+  group('SseServerManager - Connect Failure Cleanup', () {
+    test('removes transport from activeSseTransports when connect fails', () async {
+      final mcpServer = McpServer(const Implementation(name: 'TestServer', version: '1.0.0'));
+      final manager = SseServerManager(mcpServer);
+
+      // First connection succeeds
+      final request1 = MockHttpRequest('GET', '/sse');
+      await manager.handleRequest(request1);
+      expect(manager.activeSseTransports.length, equals(1));
+      final firstSessionId = manager.activeSseTransports.keys.first;
+
+      // Second connection on the same manager/mcpServer should fail because
+      // McpServer can only connect to one transport at a time.
+      final request2 = MockHttpRequest('GET', '/sse');
+      await manager.handleRequest(request2);
+
+      // The failed transport must NOT remain in activeSseTransports.
+      // Only the original successful transport should be present.
+      expect(manager.activeSseTransports.length, equals(1), reason: 'failed transport must be removed from active map');
+      expect(
+        manager.activeSseTransports.containsKey(firstSessionId),
+        isTrue,
+        reason: 'original transport must survive',
+      );
+    });
+
+    test('returns 500 when connect fails and response is writable', () async {
+      final mcpServer = McpServer(const Implementation(name: 'TestServer', version: '1.0.0'));
+      final manager = SseServerManager(mcpServer);
+
+      // First connection succeeds
+      final request1 = MockHttpRequest('GET', '/sse');
+      await manager.handleRequest(request1);
+
+      // Second connection should fail
+      final request2 = MockHttpRequest('GET', '/sse');
+      request2.response.headers.persistentConnection = false;
+      await manager.handleRequest(request2);
+
+      // The failed request's response should indicate failure
+      expect(request2.response.statusCode, equals(HttpStatus.internalServerError));
+      expect(
+        request2.response.writtenData.any((d) => d.contains('Failed')),
+        isTrue,
+        reason: 'error response body must mention failure',
+      );
     });
   });
 }

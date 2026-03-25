@@ -149,6 +149,11 @@ class StreamableHTTPServerTransport implements Transport {
   // when sessionId is not set (null), it means the transport is in stateless mode
   final String? Function()? _sessionIdGenerator;
   bool _started = false;
+
+  /// FIX 1: Guard against redundant close() calls — close() can be triggered
+  /// by both DELETE requests and internal error handlers concurrently.
+  bool _closed = false;
+
   final Map<String, HttpResponse> _streamMapping = {};
   final Map<String, HttpResponseAdapter> _adapterStreamMapping = {}; // For shelf adapters
   final Map<dynamic, String> _requestToStreamMapping = {};
@@ -687,6 +692,22 @@ class StreamableHTTPServerTransport implements Transport {
       return;
     }
 
+    // FIX: reject concurrent GET SSE streams, matching the dart:io guard.
+    // Only one standalone SSE stream is allowed per session.
+    if (_adapterStreamMapping[_standaloneSseStreamId] != null || _streamMapping[_standaloneSseStreamId] != null) {
+      res.statusCode = HttpStatus.conflict;
+      res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+      res.write(
+        jsonEncode({
+          "jsonrpc": "2.0",
+          "error": {"code": -32000, "message": "Conflict: Only one SSE stream is allowed per session"},
+          "id": null,
+        }),
+      );
+      await res.close();
+      return;
+    }
+
     // Set SSE headers
     res.statusCode = HttpStatus.ok;
     res.setHeader(HttpHeaders.contentTypeHeader, "text/event-stream");
@@ -704,6 +725,21 @@ class StreamableHTTPServerTransport implements Transport {
 
     // Start keep-alive timer for this SSE connection
     _startKeepAliveTimerAdapter(_standaloneSseStreamId, res);
+
+    // Wire cleanup to the adapter's done future. ShelfHttpResponseAdapter
+    // completes done when close() is called explicitly OR when shelf
+    // cancels the underlying stream subscription (client disconnect),
+    // mirroring the dart:io response.done handler above.
+    res.done
+        .then((_) {
+          _adapterStreamMapping.remove(_standaloneSseStreamId);
+          _stopKeepAliveTimer(_standaloneSseStreamId);
+        })
+        .catchError((e) {
+          _adapterStreamMapping.remove(_standaloneSseStreamId);
+          _stopKeepAliveTimer(_standaloneSseStreamId);
+          onerror?.call(e is Error ? e : StateError(e.toString()));
+        });
   }
 
   /// Handles POST requests via adapter
@@ -1384,6 +1420,11 @@ class StreamableHTTPServerTransport implements Transport {
 
   @override
   Future<void> close() async {
+    // FIX 1: Prevent double-close — close() can be triggered by both DELETE
+    // requests and internal error/disconnect handlers concurrently.
+    if (_closed) return;
+    _closed = true;
+
     // Cancel all keep-alive timers
     for (final timer in _keepAliveTimers.values) {
       timer.cancel();
@@ -1411,7 +1452,14 @@ class StreamableHTTPServerTransport implements Transport {
     // Clear any pending responses
     _requestResponseMap.clear();
     _requestToStreamMapping.clear();
-    onclose?.call();
+
+    // FIX 1 (cont): Wrap onclose in try-catch to match all other transports
+    // (SSE, stdio) — a throwing callback must not break server teardown.
+    try {
+      onclose?.call();
+    } catch (_) {
+      // Best-effort — onclose callback errors must not break server teardown.
+    }
   }
 
   @override
@@ -1431,8 +1479,11 @@ class StreamableHTTPServerTransport implements Transport {
         throw StateError("Cannot send a response on a standalone SSE stream unless resuming a previous client request");
       }
 
+      // FIX: check both dart:io and shelf adapter stream maps — a shelf GET
+      // registers the standalone stream in _adapterStreamMapping, not _streamMapping.
       final standaloneSse = _streamMapping[_standaloneSseStreamId];
-      if (standaloneSse == null) {
+      final standaloneAdapter = _adapterStreamMapping[_standaloneSseStreamId];
+      if (standaloneSse == null && standaloneAdapter == null) {
         // The spec says the server MAY send messages on the stream, so it's ok to discard if no stream
         return;
       }
@@ -1444,8 +1495,12 @@ class StreamableHTTPServerTransport implements Transport {
         eventId = await _eventStore.storeEvent(_standaloneSseStreamId, message);
       }
 
-      // Send the message to the standalone SSE stream
-      await _writeSSEEvent(standaloneSse, message, eventId);
+      // Send the message to whichever standalone SSE stream is active
+      if (standaloneSse != null) {
+        await _writeSSEEvent(standaloneSse, message, eventId);
+      } else if (standaloneAdapter != null) {
+        _writeSSEEventAdapter(standaloneAdapter, message, eventId);
+      }
       return;
     }
 
@@ -1467,8 +1522,9 @@ class StreamableHTTPServerTransport implements Transport {
       }
 
       if (response != null) {
-        // Write the event to the response stream (dart:io)
-        _writeSSEEvent(response, message, eventId);
+        // FIX: await the SSE write so the final event in a batch is flushed
+        // before we check allResponsesReady and close the stream.
+        await _writeSSEEvent(response, message, eventId);
       } else if (adapterResponse != null) {
         // Write to adapter response (shelf)
         _writeSSEEventAdapter(adapterResponse, message, eventId);

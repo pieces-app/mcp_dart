@@ -445,19 +445,19 @@ void main() {
       transport = StreamableHttpClientTransport(serverUrl);
       await transport.start();
 
-      // Ensure we have a session ID
       final notification = const JsonRpcInitializedNotification();
       await transport.send(notification);
 
-      // Wait for session establishment
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Now terminate the session
+      expect(transport.sessionId, isNotNull, reason: 'Session should be established before termination');
+
+      Error? receivedError;
+      transport.onerror = (error) => receivedError = error;
+
       await transport.terminateSession();
 
-      // Since the session was terminated, a successful result implies the
-      // server received and processed our DELETE request
-      expect(true, isTrue);
+      expect(receivedError, isNull, reason: 'terminateSession should complete without errors');
     });
 
     test('handles CRLF line endings in SSE events', () async {
@@ -625,9 +625,15 @@ void main() {
         transport = StreamableHttpClientTransport(serverUrl);
         await transport.start();
 
-        // Should complete without error
+        expect(transport.sessionId, isNull, reason: 'No session should exist before any messages are sent');
+
+        Error? receivedError;
+        transport.onerror = (error) => receivedError = error;
+
         await transport.terminateSession();
-        expect(true, isTrue);
+
+        expect(transport.sessionId, isNull, reason: 'Session should remain null after no-op termination');
+        expect(receivedError, isNull, reason: 'No errors should occur when terminating a non-existent session');
       });
 
       test('handles error callback configuration', () async {

@@ -339,6 +339,10 @@ class StreamableMcpServer {
             _logger.error('Error connecting server to transport: $e');
             _transports.remove(sid);
             _servers.remove(sid);
+            // Close the transport to signal the client that the session failed.
+            // Without this, the client believes the session is alive but the server
+            // has no protocol handler — subsequent requests fail with confusing errors.
+            await transport.close();
           }
         },
       ),

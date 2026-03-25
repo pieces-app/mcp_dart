@@ -160,11 +160,26 @@ class IOStreamTransport implements Transport {
     _started = false;
     _closed = true;
 
-    // Cancel stream subscription
-    await _streamSubscription?.cancel();
+    // Cancel stream subscription — try-caught so a throwing cancel()
+    // (e.g. from an already-errored stream) doesn't prevent the rest
+    // of close() (buffer clear, sink close, onclose) from running.
+    try {
+      await _streamSubscription?.cancel();
+    } catch (e) {
+      _logger.warn('Error cancelling stream subscription: $e');
+    }
     _streamSubscription = null;
 
     _readBuffer.clear();
+
+    // Close the output sink so the downstream consumer sees EOF.
+    // Without this the sink stays open and the peer never learns the
+    // transport is gone.
+    try {
+      await sink.close();
+    } catch (e) {
+      _logger.warn('Error closing output sink: $e');
+    }
 
     // Invoke the onclose callback
     try {
@@ -196,7 +211,7 @@ class IOStreamTransport implements Transport {
       } catch (e) {
         _logger.warn("Error in onerror handler: $e");
       }
-      close();
+      await close();
       throw sendError; // Rethrow after cleanup attempt
     }
   }

@@ -156,7 +156,14 @@ class StdioServerTransport implements Transport {
     // cancellation. This matches the pattern in client/stdio.dart.
     _started = false;
 
-    await _stdinSubscription?.cancel();
+    // Try-caught so a throwing cancel() (e.g. from an already-errored
+    // stream) doesn't prevent the remaining cleanup (buffer clear,
+    // onclose) from running.
+    try {
+      await _stdinSubscription?.cancel();
+    } catch (e) {
+      _logger.warn('Error cancelling stdin subscription: $e');
+    }
     _stdinSubscription = null;
 
     _readBuffer.clear();
@@ -171,9 +178,8 @@ class StdioServerTransport implements Transport {
   /// Sends a [JsonRpcMessage] to the client by writing its serialized form
   /// (JSON string followed by newline) to stdout.
   ///
-  /// Returns a Future that completes when the message has been successfully
-  /// written to the output stream buffer. Use `await _stdout.flush()` if
-  /// immediate sending is required.
+  /// Returns a Future that completes when the message has been written and
+  /// flushed to the output stream.
   @override
   Future<void> send(JsonRpcMessage message, {int? relatedRequestId}) async {
     // Throw rather than silently dropping messages — matches the Transport

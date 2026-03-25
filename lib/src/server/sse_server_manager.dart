@@ -101,6 +101,14 @@ class SseServerManager {
       _logger.warn("Error setting up SSE connection: $e");
       if (transport != null) {
         activeSseTransports.remove(transport.sessionId);
+
+        // FIX 3: Close the transport when connect() fails — without this, the
+        // SSE socket/sink leak because no one ever calls transport.close().
+        try {
+          await transport.close();
+        } catch (_) {
+          // Best-effort — transport may already be partially torn down.
+        }
       }
       if (!request.response.headers.persistentConnection) {
         try {

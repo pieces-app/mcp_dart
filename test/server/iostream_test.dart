@@ -525,65 +525,71 @@ void main() {
   });
 
   group('IOStreamTransport edge cases', () {
+    late StreamController<List<int>> inputController;
+    late StreamController<List<int>> outputController;
+    late IOStreamTransport transport;
+    late List<JsonRpcMessage> messages;
+    late List<Error> errors;
+    late Completer<void> closedCompleter;
+
+    setUp(() {
+      inputController = StreamController<List<int>>.broadcast();
+      outputController = StreamController<List<int>>.broadcast();
+      transport = IOStreamTransport(stream: inputController.stream, sink: outputController.sink);
+      messages = [];
+      errors = [];
+      closedCompleter = Completer<void>();
+
+      transport.onmessage = (m) => messages.add(m);
+      transport.onerror = (e) => errors.add(e);
+      transport.onclose = () {
+        if (!closedCompleter.isCompleted) closedCompleter.complete();
+      };
+    });
+
+    tearDown(() async {
+      await transport.close();
+      await inputController.close();
+      await outputController.close();
+    });
+
     test('malformed UTF-8 line is skipped, valid message still delivered', () async {
-      final input = StreamController<List<int>>();
-      final output = StreamController<List<int>>();
-      final transport = IOStreamTransport(stream: input.stream, sink: output.sink);
-
-      final messages = <JsonRpcMessage>[];
-      final errors = <Error>[];
       final messageReceived = Completer<void>();
-
       transport.onmessage = (m) {
         messages.add(m);
         if (!messageReceived.isCompleted) messageReceived.complete();
       };
-      transport.onerror = (e) => errors.add(e);
 
       await transport.start();
 
-      // Invalid UTF-8 line followed by a valid JSON-RPC line.
-      final invalidUtf8 = [0xFF, 0xFE, 0x0A]; // bad bytes + \n
+      // Invalid UTF-8 bytes + \n, then a valid JSON-RPC + \n.
+      final invalidUtf8 = [0xFF, 0xFE, 0x0A];
       final validLine = utf8.encode('{"jsonrpc":"2.0","method":"ping","id":20}\n');
-      input.add(Uint8List.fromList([...invalidUtf8, ...validLine]));
+      inputController.add(Uint8List.fromList([...invalidUtf8, ...validLine]));
 
       await messageReceived.future.timeout(const Duration(seconds: 2));
 
-      // MalformedLineException is caught internally and logged — it should
-      // NOT propagate to onerror.
-      expect(errors, isEmpty);
+      expect(errors, isEmpty, reason: 'MalformedLineException is logged, not sent to onerror');
       expect(messages, hasLength(1));
       expect(messages.first, isA<JsonRpcPingRequest>());
       expect((messages.first as JsonRpcPingRequest).id, 20);
-
-      await transport.close();
-      await input.close();
-      await output.close();
     });
 
     test('FormatException fires onerror but continues to next message', () async {
-      final input = StreamController<List<int>>();
-      final output = StreamController<List<int>>();
-      final transport = IOStreamTransport(stream: input.stream, sink: output.sink);
-
-      final messages = <JsonRpcMessage>[];
-      final errors = <Error>[];
       final messageReceived = Completer<void>();
-
       transport.onmessage = (m) {
         messages.add(m);
         if (!messageReceived.isCompleted) messageReceived.complete();
       };
-      transport.onerror = (e) => errors.add(e);
 
       await transport.start();
 
-      // Invalid JSON line + valid JSON-RPC line in one chunk.
-      final chunk = utf8.encode(
-        'not valid json\n'
-        '{"jsonrpc":"2.0","method":"ping","id":30}\n',
+      inputController.add(
+        utf8.encode(
+          'not valid json\n'
+          '{"jsonrpc":"2.0","method":"ping","id":30}\n',
+        ),
       );
-      input.add(chunk);
 
       await messageReceived.future.timeout(const Duration(seconds: 2));
 
@@ -591,20 +597,10 @@ void main() {
       expect(errors.first.toString(), contains('Invalid JSON'));
       expect(messages, hasLength(1));
       expect((messages.first as JsonRpcPingRequest).id, 30);
-
-      await transport.close();
-      await input.close();
-      await output.close();
     });
 
     test('multiple messages in single chunk are all delivered', () async {
-      final input = StreamController<List<int>>();
-      final output = StreamController<List<int>>();
-      final transport = IOStreamTransport(stream: input.stream, sink: output.sink);
-
-      final messages = <JsonRpcMessage>[];
       final allReceived = Completer<void>();
-
       transport.onmessage = (m) {
         messages.add(m);
         if (messages.length >= 2 && !allReceived.isCompleted) {
@@ -614,7 +610,7 @@ void main() {
 
       await transport.start();
 
-      input.add(
+      inputController.add(
         utf8.encode(
           '{"jsonrpc":"2.0","method":"ping","id":40}\n'
           '{"jsonrpc":"2.0","method":"ping","id":41}\n',
@@ -626,20 +622,10 @@ void main() {
       expect(messages, hasLength(2));
       expect((messages[0] as JsonRpcPingRequest).id, 40);
       expect((messages[1] as JsonRpcPingRequest).id, 41);
-
-      await transport.close();
-      await input.close();
-      await output.close();
     });
 
     test('partial message buffered across chunks', () async {
-      final input = StreamController<List<int>>();
-      final output = StreamController<List<int>>();
-      final transport = IOStreamTransport(stream: input.stream, sink: output.sink);
-
-      final messages = <JsonRpcMessage>[];
       final received = Completer<void>();
-
       transport.onmessage = (m) {
         messages.add(m);
         if (!received.isCompleted) received.complete();
@@ -647,68 +633,33 @@ void main() {
 
       await transport.start();
 
-      final full = utf8.encode('{"jsonrpc":"2.0","method":"ping","id":50}\n');
+      final ping = const JsonRpcPingRequest(id: 50);
+      final full = utf8.encode('${jsonEncode(ping.toJson())}\n');
       final mid = full.length ~/ 2;
 
-      // First chunk: no newline yet.
-      input.add(full.sublist(0, mid));
+      inputController.add(full.sublist(0, mid));
       await Future.delayed(const Duration(milliseconds: 50));
       expect(messages, isEmpty);
 
-      // Second chunk: completes the line.
-      input.add(full.sublist(mid));
+      inputController.add(full.sublist(mid));
       await received.future.timeout(const Duration(seconds: 2));
 
       expect(messages, hasLength(1));
       expect((messages.first as JsonRpcPingRequest).id, 50);
-
-      await transport.close();
-      await input.close();
-      await output.close();
     });
 
     test('buffer overflow fires onerror and closes transport', () async {
-      final input = StreamController<List<int>>();
-      final output = StreamController<List<int>>();
-
-      // Construct a transport that wraps a tiny ReadBuffer. The default
-      // constructor uses ReadBuffer() internally, but _onStreamData checks
-      // append() return value. We feed >default-max bytes, but that's huge.
-      // Instead, we rely on the IOStreamTransport code path by sending a
-      // chunk that exceeds the default 10 MB — impractical. So we test the
-      // ReadBuffer directly for the size-limited case (covered in the
-      // ReadBuffer group) and here verify the transport's reaction to a
-      // stream error triggered by the overflow path.
-      //
-      // To actually hit the overflow in IOStreamTransport we'd need to
-      // supply a custom ReadBuffer, which the constructor doesn't expose.
-      // Instead, we verify the contract: if the stream itself errors, the
-      // transport fires onerror and closes.
-      final transport = IOStreamTransport(stream: input.stream, sink: output.sink);
-
-      final errors = <Error>[];
-      final closed = Completer<void>();
-
-      transport.onerror = (e) => errors.add(e);
-      transport.onclose = () {
-        if (!closed.isCompleted) closed.complete();
-      };
-
       await transport.start();
 
-      // Simulate a stream error (analogous to what the OS would emit on a
-      // broken pipe, which exercises the same onerror + close path as the
-      // buffer overflow branch).
-      input.addError(StateError('simulated overflow / broken pipe'));
+      // Stream-level errors exercise the same onerror → close path that
+      // ReadBuffer overflow uses inside _onStreamData.
+      inputController.addError(StateError('simulated overflow / broken pipe'));
 
-      await closed.future.timeout(const Duration(seconds: 2));
+      await closedCompleter.future.timeout(const Duration(seconds: 2));
 
       expect(errors, hasLength(1));
       expect(errors.first, isA<StateError>());
       expect(errors.first.toString(), contains('simulated overflow'));
-
-      await input.close();
-      await output.close();
     });
   });
 }

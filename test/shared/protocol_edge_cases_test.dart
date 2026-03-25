@@ -127,37 +127,37 @@ void main() {
     test('handles built-in cancelled notification correctly', () async {
       await protocol.connect(transport);
 
-      // Just verify that the cancelled notification handler is registered
-      // by sending a cancellation for a non-existent request (should be silently ignored)
+      final errors = <Error>[];
+      protocol.onerror = (error) => errors.add(error);
+
       transport.receiveMessage(
         JsonRpcCancelledNotification(
           cancelParams: const CancelledNotificationParams(requestId: 999, reason: 'Test cancellation'),
         ),
       );
 
-      // Wait for async operations
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Test passes if no exception is thrown
-      expect(true, isTrue);
+      expect(errors, isEmpty, reason: 'Cancelling a non-existent request should not trigger onerror');
+      expect(transport.sentMessages, isEmpty, reason: 'No response should be sent for a cancelled notification');
     });
 
     test('handles progress notification correctly', () async {
       await protocol.connect(transport);
 
-      // Just verify the progress notification handler is registered
-      // Send a progress notification for a non-existent request (should be silently ignored)
+      final errors = <Error>[];
+      protocol.onerror = (error) => errors.add(error);
+
       transport.receiveMessage(
         JsonRpcProgressNotification(
           progressParams: const ProgressNotificationParams(progressToken: 999, progress: 50, total: 100),
         ),
       );
 
-      // Wait for async operations
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Test passes if no exception is thrown
-      expect(true, isTrue);
+      expect(errors, isEmpty, reason: 'Progress for a non-existent token should not trigger onerror');
+      expect(transport.sentMessages, isEmpty, reason: 'No response should be sent for a progress notification');
     });
 
     test('handles malformed message and calls onerror', () async {

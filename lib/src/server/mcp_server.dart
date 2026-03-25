@@ -148,7 +148,6 @@ class ResourceTemplateRegistration {
 }
 
 /// Abstract interface for a registered resource.
-/// Abstract interface for a registered resource.
 abstract class RegisteredResource {
   /// The name of the resource.
   String get name;
@@ -190,10 +189,10 @@ class _RegisteredResourceImpl implements RegisteredResource {
   String name;
   @override
   String? title;
-  final String uri;
+  String uri;
   @override
   ResourceMetadata? metadata;
-  final ImageContent? icon; // Kept for legacy compatibility
+  final ImageContent? icon;
   @override
   ReadResourceCallback readCallback;
   @override
@@ -253,12 +252,13 @@ class _RegisteredResourceImpl implements RegisteredResource {
 
     if (name != null) this.name = name;
     if (title != null) this.title = title;
+    if (uri != null) this.uri = uri;
     if (metadata != null) this.metadata = metadata;
     if (callback != null) readCallback = callback;
     if (enabled != null) this.enabled = enabled;
 
-    if (uri != null && uri != this.uri) {
-      _server._updateResourceUri(this.uri, uri, this);
+    if (uri != null) {
+      _server._registeredResources[uri] = this;
     }
     _server.sendResourceListChanged();
   }
@@ -302,7 +302,7 @@ abstract class RegisteredResourceTemplate {
 }
 
 class _RegisteredResourceTemplateImpl implements RegisteredResourceTemplate {
-  final String name;
+  String name;
   @override
   ResourceTemplateRegistration resourceTemplate;
   @override
@@ -361,14 +361,16 @@ class _RegisteredResourceTemplateImpl implements RegisteredResourceTemplate {
     if (name != null && name != this.name) {
       _server._registeredResourceTemplates.remove(this.name);
     }
+
+    if (name != null) this.name = name;
     if (title != null) this.title = title;
     if (template != null) resourceTemplate = template;
     if (metadata != null) this.metadata = metadata;
     if (callback != null) readCallback = callback;
     if (enabled != null) this.enabled = enabled;
 
-    if (name != null && name != this.name) {
-      _server._updateResourceTemplateName(this.name, name, this);
+    if (name != null) {
+      _server._registeredResourceTemplates[name] = this;
     }
     _server.sendResourceListChanged();
   }
@@ -812,16 +814,6 @@ class McpServer {
 
   /// Gets the error handler for the server.
   void Function(Error)? get onError => server.onerror;
-
-  void _updateResourceUri(String oldUri, String newUri, _RegisteredResourceImpl resource) {
-    _registeredResources.remove(oldUri);
-    _registeredResources[newUri] = resource;
-  }
-
-  void _updateResourceTemplateName(String oldName, String newName, _RegisteredResourceTemplateImpl template) {
-    _registeredResourceTemplates.remove(oldName);
-    _registeredResourceTemplates[newName] = template;
-  }
 
   void sendResourceListChanged() {
     if (server.transport != null) {
@@ -1425,7 +1417,6 @@ class McpServer {
   }
 
   /// Registers a tool the client can invoke.
-  /// Registers a tool the client can invoke.
   @Deprecated('Use registerTool instead')
   RegisteredTool tool(
     String name, {
@@ -1511,6 +1502,15 @@ class McpServer {
       CompleteResult(completion: CompletionResultData(values: [], hasMore: false));
 
   /// Handles automatic task polling for tools with taskSupport 'optional'.
+  ///
+  /// FIX 2: The original while-loop could spin forever if the task never
+  /// reached a terminal state. This version adds four safety measures:
+  /// (a) abort-signal check at the top of each iteration,
+  /// (b) uses `task.status.isTerminal` instead of manually enumerating states,
+  /// (c) treats `inputRequired` as terminal for non-task-aware clients, and
+  /// (d) enforces a max iteration count as a hard safety net.
+  static const int _maxPollIterations = 1000;
+
   Future<CallToolResult> _handleAutomaticTaskPolling(
     _RegisteredToolImpl tool,
     Map<String, dynamic>? args,
@@ -1522,12 +1522,41 @@ class McpServer {
     final CreateTaskResult createTaskResult = await taskHandler.handler.createTask(args, extra);
     final String taskId = createTaskResult.task.taskId;
     Task task = createTaskResult.task;
-    final int pollInterval = task.pollInterval ?? 5000; // Default to 5000ms if not specified
+    final int pollInterval = task.pollInterval ?? 5000;
 
-    // Poll until completion
-    while (task.status != TaskStatus.completed &&
-        task.status != TaskStatus.failed &&
-        task.status != TaskStatus.cancelled) {
+    var iterations = 0;
+
+    // FIX 2(b): Use isTerminal instead of manually enumerating 3 states.
+    while (!task.status.isTerminal) {
+      // FIX 2(a): Respect the abort signal — if the request was cancelled
+      // upstream, stop polling immediately.
+      if (extra?.signal.aborted == true) {
+        throw McpError(ErrorCode.connectionClosed.value, "Task polling aborted: request was cancelled");
+      }
+
+      // FIX 2(c): inputRequired is non-terminal, but a non-task-aware client
+      // cannot provide input — break with an error instead of spinning.
+      if (task.status == TaskStatus.inputRequired) {
+        return CallToolResult(
+          content: [
+            TextContent(text: "Task '$taskId' requires user input, but this client does not support task interaction."),
+          ],
+          isError: true,
+        );
+      }
+
+      // FIX 2(d): Hard safety net — prevent runaway loops from a misbehaving
+      // task handler that never transitions to a terminal state.
+      iterations++;
+      if (iterations >= _maxPollIterations) {
+        return CallToolResult(
+          content: [
+            TextContent(text: "Task '$taskId' exceeded maximum poll iterations ($_maxPollIterations). Aborting."),
+          ],
+          isError: true,
+        );
+      }
+
       await Future.delayed(Duration(milliseconds: pollInterval));
       final updatedTask = await taskHandler.handler.getTask(taskId, extra);
       task = updatedTask;

@@ -54,12 +54,13 @@ class ReadBuffer {
   /// Returns the parsed [JsonRpcMessage] if a complete message is found,
   /// otherwise returns null.
   ///
+  /// Throws [MalformedLineException] if the line bytes are not valid UTF-8.
   /// Throws [FormatException] if the extracted line is not valid JSON or
   /// if the JSON does not represent a known [JsonRpcMessage] structure.
   JsonRpcMessage? readMessage() {
     _bufferCache ??= _builder.toBytes();
 
-    if (_bufferCache == null || _bufferCache!.isEmpty) {
+    if (_bufferCache!.isEmpty) {
       return null;
     }
 
