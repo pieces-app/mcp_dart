@@ -16,11 +16,10 @@ dependencies:
   shelf: ^1.4.0
 
 dev_dependencies:
+  # runtime_ci_tooling — use global activation (do not add as a dev_dependency). Example:
+  #   dart pub global activate --source git https://github.com/open-runtime/runtime_ci_tooling.git --git-ref vX.Y.Z
+  #   dart pub global run runtime_ci_tooling:manage_cicd --help
+
   lints: ^6.0.0
   path: ^1.9.1
-  runtime_ci_tooling:
-    git:
-      url: git@github.com:open-runtime/runtime_ci_tooling.git
-      tag_pattern: v{{version}}
-    version: ^0.23.0
   test: ^1.24.0
