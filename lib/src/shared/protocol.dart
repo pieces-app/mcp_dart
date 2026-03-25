@@ -455,6 +455,7 @@ abstract class Protocol {
     final errorHandlers = Map.of(_responseErrorHandlers);
     final pendingTimeouts = Map.of(_timeoutInfo);
     final pendingRequestHandlers = Map.of(_requestHandlerAbortControllers);
+    final resolvers = Map.of(_requestResolvers);
 
     _responseCompleters.clear();
     _responseErrorHandlers.clear();
@@ -471,21 +472,32 @@ abstract class Protocol {
 
     final error = McpError(ErrorCode.connectionClosed.value, "Connection closed");
 
-    completers.forEach((id, completer) {
-      if (!completer.isCompleted) {
-        completer.completeError(error);
+    for (final entry in resolvers.entries) {
+      try {
+        entry.value(
+          JsonRpcError(
+            id: entry.key,
+            error: JsonRpcErrorData(code: ErrorCode.connectionClosed.value, message: 'Connection closed'),
+          ),
+        );
+      } catch (e) {
+        _onerror(StateError("Error failing request resolver ${entry.key} during close: $e"));
       }
-    });
+    }
 
-    errorHandlers.forEach((id, handler) {
-      if (!completers[id]!.isCompleted) {
+    for (final entry in completers.entries) {
+      final handler = errorHandlers[entry.key];
+      if (handler != null && !entry.value.isCompleted) {
         try {
           handler(error);
         } catch (e) {
           _onerror(StateError("Error in response error handler during close: $e"));
         }
       }
-    });
+      if (!entry.value.isCompleted) {
+        entry.value.completeError(error);
+      }
+    }
 
     try {
       onclose?.call();

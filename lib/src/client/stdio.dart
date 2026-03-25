@@ -65,7 +65,8 @@ class StdioClientTransport implements Transport {
   io.Process? _process;
 
   /// Used to signal process termination during [close].
-  final Completer<void> _exitCompleter = Completer<void>();
+  /// Recreated on each [start] call so the transport can be restarted.
+  Completer<void> _exitCompleter = Completer<void>();
 
   /// Buffer for incoming data from the process's stdout.
   final ReadBuffer _readBuffer = ReadBuffer();
@@ -111,6 +112,7 @@ class StdioClientTransport implements Transport {
         "StdioClientTransport already started! If using Client class, note that connect() calls start() automatically.",
       );
     }
+    _exitCompleter = Completer<void>();
     _started = true;
     try {
       // Start the process.
@@ -182,14 +184,19 @@ class StdioClientTransport implements Transport {
   }
 
   /// Internal handler for when the process's stdout stream closes.
+  ///
+  /// Stdout closing means no more JSON-RPC messages can arrive. Without this
+  /// teardown, pending request futures would hang until their individual
+  /// timeouts, leaving the client in a half-open / zombie state.
   void _onStdoutDone() {
-    _logger.debug("StdioClientTransport: Process stdout closed.");
-    // Consider if this should trigger close() - depends if server exiting is expected.
-    // Maybe only close if the process has also exited?
-    // close(); // Optionally close transport when stdout ends
+    _logger.debug("StdioClientTransport: Process stdout closed — triggering transport close.");
+    close();
   }
 
   /// Internal handler for errors on process stdout/stderr streams.
+  ///
+  /// Stream errors indicate a broken pipe or similar — the transport is no
+  /// longer usable, so we tear down after reporting the error.
   void _onStreamError(dynamic error, StackTrace stackTrace) {
     final Error streamError = (error is Error) ? error : StateError("Process stream error: $error\n$stackTrace");
     try {
@@ -197,8 +204,7 @@ class StdioClientTransport implements Transport {
     } catch (e) {
       _logger.warn("Error in onerror handler: $e");
     }
-    // Consider if stream errors should trigger close()
-    // close();
+    close();
   }
 
   /// Internal handler processing buffered stdout data for messages.
@@ -340,9 +346,8 @@ class StdioClientTransport implements Transport {
       } catch (e) {
         _logger.warn("Error in onerror handler: $e");
       }
-      // Consider closing the transport on stdin write failure
-      close();
-      throw sendError; // Rethrow after cleanup attempt
+      await close();
+      throw sendError;
     }
   }
 }
