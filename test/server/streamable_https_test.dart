@@ -657,5 +657,28 @@ void main() {
 
       await transport.close();
     });
+
+    test('body size limit enforcement returns 413 for oversized POST', () async {
+      final transport = StreamableHTTPServerTransport(
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => 'body-limit-session', maxBodySize: 100),
+      );
+      await transport.start();
+      transports['/mcp'] = transport;
+
+      final client = HttpClient();
+      try {
+        final req = await client.postUrl(Uri.parse('$serverUrlBase/mcp'));
+        req.headers.contentType = ContentType.json;
+        req.headers.set('Accept', 'application/json, text/event-stream');
+        req.write('a' * 200);
+        final res = await req.close();
+
+        expect(res.statusCode, HttpStatus.requestEntityTooLarge);
+        await res.drain();
+      } finally {
+        client.close(force: true);
+        await transport.close();
+      }
+    }, timeout: const Timeout(Duration(seconds: 5)));
   });
 }

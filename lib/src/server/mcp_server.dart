@@ -229,7 +229,14 @@ class _RegisteredResourceImpl implements RegisteredResource {
   void disable() => update(enabled: false);
 
   @override
-  void remove() => update(uri: null);
+  void remove() {
+    // Directly remove from the map rather than delegating to update().
+    // update() treats null parameters as "no change" (standard Dart optional
+    // parameter semantics), so passing uri: null was a no-op — the entry
+    // stayed in the map and the resource was never actually unregistered.
+    _server._registeredResources.remove(uri);
+    _server.sendResourceListChanged();
+  }
 
   @override
   void update({
@@ -334,7 +341,13 @@ class _RegisteredResourceTemplateImpl implements RegisteredResourceTemplate {
   void disable() => update(enabled: false);
 
   @override
-  void remove() => update(name: null);
+  void remove() {
+    // Directly remove from the map rather than delegating to update().
+    // update() treats null parameters as "no change", so passing name: null
+    // was a no-op — the template stayed in the map.
+    _server._registeredResourceTemplates.remove(name);
+    _server.sendResourceListChanged();
+  }
 
   @override
   void update({
@@ -474,7 +487,13 @@ class _RegisteredToolImpl implements RegisteredTool {
   void disable() => update(enabled: false);
 
   @override
-  void remove() => update(name: null);
+  void remove() {
+    // Directly remove from the map rather than delegating to update().
+    // update() treats null parameters as "no change", so passing name: null
+    // was a no-op — the tool stayed in the map.
+    _server._registeredTools.remove(name);
+    _server.sendToolListChanged();
+  }
 
   @override
   void update({
@@ -595,7 +614,13 @@ class _RegisteredPromptImpl implements RegisteredPrompt {
   void disable() => update(enabled: false);
 
   @override
-  void remove() => update(name: null);
+  void remove() {
+    // Directly remove from the map rather than delegating to update().
+    // update() treats null parameters as "no change", so passing name: null
+    // was a no-op — the prompt stayed in the map.
+    _server._registeredPrompts.remove(name);
+    _server.sendPromptListChanged();
+  }
 
   @override
   void update({
@@ -748,6 +773,18 @@ class McpServer {
   McpServer(Implementation serverInfo, {McpServerOptions? options}) {
     // ignore: deprecated_member_use_from_same_package
     server = Server(serverInfo, options: options);
+
+    // Eagerly register capabilities and request handlers before any
+    // connect() call. Server.registerCapabilities() throws a StateError
+    // if called after a transport is connected (capabilities are frozen
+    // at initialization handshake time). By initializing here, tools,
+    // resources, and prompts registered post-connect will still work —
+    // the _ensure* guard returns immediately, and the new entry is simply
+    // added to the map that the already-registered handler reads from.
+    _ensureResourceHandlersInitialized();
+    _ensureToolHandlersInitialized();
+    _ensurePromptHandlersInitialized();
+    _ensureTaskHandlersInitialized();
   }
 
   /// Connects the server to a communication [transport].

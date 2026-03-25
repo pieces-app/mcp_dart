@@ -471,4 +471,29 @@ void main() {
     await sseSub.cancel();
     client.close();
   });
+
+  test('SseServerTransport - start() on closed transport throws and is not in started state', () async {
+    final sseUrl = '$serverUrlBase/sse_test';
+    final client = HttpClient();
+
+    final request = await client.getUrl(Uri.parse(sseUrl));
+    request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
+    final response = await request.close();
+    final sseSub = response.listen((_) {});
+
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(activeTransports.length, 1);
+
+    final transport = activeTransports.values.first;
+
+    await transport.close();
+
+    expect(
+      () => transport.start(),
+      throwsA(isA<StateError>().having((e) => e.message, 'message', contains('already closed'))),
+    );
+
+    await sseSub.cancel();
+    client.close();
+  });
 } // End of main test group

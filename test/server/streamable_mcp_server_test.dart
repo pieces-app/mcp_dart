@@ -398,5 +398,26 @@ void main() {
       expect(server.port, isPositive);
       expect(server.port, lessThan(65536));
     });
+
+    test('body size limit enforcement returns 413 for oversized POST', () async {
+      await server.stop();
+
+      server = StreamableMcpServer(
+        serverFactory: (sid) => McpServer(const Implementation(name: 'TestServer', version: '1.0.0')),
+        host: host,
+        port: 0,
+        maxBodySize: 100,
+      );
+      await server.start();
+      baseUrl = 'http://$host:${server.port}/mcp';
+
+      final res = await http.post(
+        Uri.parse(baseUrl),
+        body: 'a' * 200,
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'},
+      );
+
+      expect(res.statusCode, HttpStatus.requestEntityTooLarge);
+    });
   });
 }

@@ -273,7 +273,7 @@ void main() {
           .request<EmptyResult>(
             const JsonRpcPingRequest(id: 0),
             (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
-            options: RequestOptions(signal: abortController.signal),
+            RequestOptions(signal: abortController.signal),
           )
           .catchError((e) => const EmptyResult());
 
