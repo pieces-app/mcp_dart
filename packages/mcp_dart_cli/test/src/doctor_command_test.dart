@@ -47,15 +47,15 @@ dependencies:
       File(p.join(tempDir.path, 'analysis_options.yaml')).writeAsStringSync('');
 
       final runner = CommandRunner<int>('mcp_dart', 'CLI')..addCommand(command);
-      // We expect software code (attempting connection) or config error if static fails.
-      // Since it's a dummy project, dynamic check will fail to connect/run runner, so it likely returns software error or connection error.
-      // But we verify static checks printed success.
+      // Static checks pass but dynamic verification will fail (dummy project with
+      // no real MCP server). The connection attempt can be slow on ARM emulation
+      // runners, so use a generous timeout.
       await runner.run(['doctor']);
 
       verify(() => logger.success('[✓] pubspec.yaml exists')).called(1);
       verify(() => logger.success('[✓] mcp dependency found')).called(1);
       verify(() => logger.success('[✓] lib/mcp/mcp.dart exists')).called(1);
-    });
+    }, timeout: Timeout(Duration(minutes: 2)));
 
     test('fails if pubspec.yaml is missing', () async {
       final runner = CommandRunner<int>('mcp_dart', 'CLI')..addCommand(command);
