@@ -88,6 +88,7 @@ class StdioServerTransport implements Transport {
     } catch (e) {
       _logger.warn("Error within onerror handler: $e");
     }
+    close();
   }
 
   /// Internal callback for when the stdin stream is closed.
@@ -153,15 +154,15 @@ class StdioServerTransport implements Transport {
   /// written to the output stream buffer. Use `await _stdout.flush()` if
   /// immediate sending is required.
   @override
-  Future<void> send(JsonRpcMessage message, {int? relatedRequestId}) {
+  Future<void> send(JsonRpcMessage message, {int? relatedRequestId}) async {
     if (!_started) {
       _logger.warn("Attempted to send message on stopped StdioServerTransport.");
-      return Future.value();
+      return;
     }
     try {
       final jsonString = serializeMessage(message);
       _stdout.write(jsonString);
-      return Future.value();
+      await _stdout.flush();
     } catch (error) {
       final Error dartError = (error is Error) ? error : StateError("Failed to send message: $error");
       try {
@@ -169,7 +170,7 @@ class StdioServerTransport implements Transport {
       } catch (e) {
         _logger.warn("Error within onerror handler during send: $e");
       }
-      return Future.error(dartError);
+      throw dartError;
     }
   }
 }

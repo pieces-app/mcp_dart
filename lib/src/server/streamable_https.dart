@@ -11,6 +11,16 @@ import '../types.dart';
 import 'http_adapter.dart';
 import 'shelf_http_adapter.dart';
 
+const int _defaultMaxBodySize = 10 * 1024 * 1024; // 10 MB
+
+class _PayloadTooLargeException implements Exception {
+  final int maxBytes;
+  _PayloadTooLargeException(this.maxBytes);
+
+  @override
+  String toString() => 'Request body exceeded maximum allowed size of $maxBytes bytes';
+}
+
 /// ID for SSE streams
 typedef StreamId = String;
 
@@ -77,6 +87,11 @@ class StreamableHTTPServerTransportOptions {
   /// Default is 25 seconds (recommended to prevent client timeouts).
   final int? keepAliveInterval;
 
+  /// Maximum allowed POST body size in bytes.
+  /// Requests exceeding this limit receive HTTP 413 Payload Too Large.
+  /// Default is 10 MB.
+  final int maxBodySize;
+
   /// Creates configuration options for StreamableHTTPServerTransport
   StreamableHTTPServerTransportOptions({
     this.sessionIdGenerator,
@@ -87,6 +102,7 @@ class StreamableHTTPServerTransportOptions {
     this.allowedHosts,
     this.allowedOrigins,
     this.keepAliveInterval = 25,
+    this.maxBodySize = _defaultMaxBodySize,
   });
 }
 
@@ -146,6 +162,7 @@ class StreamableHTTPServerTransport implements Transport {
   final Set<String>? _allowedHosts;
   final Set<String>? _allowedOrigins;
   final int? _keepAliveInterval;
+  final int _maxBodySize;
   final Map<String, Timer> _keepAliveTimers = {};
 
   @override
@@ -169,7 +186,8 @@ class StreamableHTTPServerTransport implements Transport {
       _enableDnsRebindingProtection = options.enableDnsRebindingProtection,
       _allowedHosts = options.allowedHosts,
       _allowedOrigins = options.allowedOrigins,
-      _keepAliveInterval = options.keepAliveInterval;
+      _keepAliveInterval = options.keepAliveInterval,
+      _maxBodySize = options.maxBodySize;
 
   /// Starts the transport. This is required by the Transport interface but is a no-op
   /// for the Streamable HTTP transport as connections are managed per-request.
@@ -416,10 +434,16 @@ class StreamableHTTPServerTransport implements Transport {
     await req.response.flush();
 
     // Set up close handler for client disconnects
-    req.response.done.then((_) {
-      _streamMapping.remove(_standaloneSseStreamId);
-      _stopKeepAliveTimer(_standaloneSseStreamId);
-    });
+    req.response.done
+        .then((_) {
+          _streamMapping.remove(_standaloneSseStreamId);
+          _stopKeepAliveTimer(_standaloneSseStreamId);
+        })
+        .catchError((e) {
+          _streamMapping.remove(_standaloneSseStreamId);
+          _stopKeepAliveTimer(_standaloneSseStreamId);
+          onerror?.call(e is Error ? e : StateError(e.toString()));
+        });
   }
 
   /// Replays events that would have been sent after the specified event ID
@@ -462,10 +486,18 @@ class StreamableHTTPServerTransport implements Transport {
       _startKeepAliveTimer(streamId, res);
 
       // Set up close handler for client disconnects
-      res.done.then((_) {
-        _streamMapping.remove(streamId);
-        _stopKeepAliveTimer(streamId);
-      });
+      res.done
+          .then((_) {
+            _streamMapping.remove(streamId);
+            _requestToStreamMapping.removeWhere((_, v) => v == streamId);
+            _stopKeepAliveTimer(streamId);
+          })
+          .catchError((e) {
+            _streamMapping.remove(streamId);
+            _requestToStreamMapping.removeWhere((_, v) => v == streamId);
+            _stopKeepAliveTimer(streamId);
+            onerror?.call(e is Error ? e : StateError(e.toString()));
+          });
     } catch (error) {
       onerror?.call(error is Error ? error : StateError(error.toString()));
     }
@@ -721,7 +753,22 @@ class StreamableHTTPServerTransport implements Transport {
       if (parsedBody != null) {
         rawMessage = parsedBody;
       } else {
-        final bodyBytes = await _collectBytesFromStream(adapter.bodyStream);
+        Uint8List bodyBytes;
+        try {
+          bodyBytes = await _collectBytesFromStream(adapter.bodyStream);
+        } on _PayloadTooLargeException catch (e) {
+          res.statusCode = HttpStatus.requestEntityTooLarge;
+          res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+          res.write(
+            jsonEncode({
+              "jsonrpc": "2.0",
+              "error": {"code": ErrorCode.invalidRequest.value, "message": "Payload Too Large", "data": e.toString()},
+              "id": null,
+            }),
+          );
+          await res.close();
+          return;
+        }
         final bodyString = utf8.decode(bodyBytes);
         rawMessage = jsonDecode(bodyString);
       }
@@ -932,13 +979,23 @@ class StreamableHTTPServerTransport implements Transport {
     return true;
   }
 
-  /// Collects all bytes from a stream
+  /// Collects all bytes from a stream, enforcing [_maxBodySize].
   Future<Uint8List> _collectBytesFromStream(Stream<List<int>> stream) async {
     final completer = Completer<Uint8List>();
     final sink = BytesBuilder();
+    var totalBytes = 0;
+    late final StreamSubscription<List<int>> subscription;
 
-    stream.listen(
-      sink.add,
+    subscription = stream.listen(
+      (chunk) {
+        totalBytes += chunk.length;
+        if (totalBytes > _maxBodySize) {
+          subscription.cancel();
+          completer.completeError(_PayloadTooLargeException(_maxBodySize));
+          return;
+        }
+        sink.add(chunk);
+      },
       onDone: () => completer.complete(sink.takeBytes()),
       onError: completer.completeError,
       cancelOnError: true,
@@ -993,7 +1050,26 @@ class StreamableHTTPServerTransport implements Transport {
         rawMessage = parsedBody;
       } else {
         // Read and parse request body
-        final bodyBytes = await _collectBytes(req);
+        Uint8List bodyBytes;
+        try {
+          bodyBytes = await _collectBytes(req);
+        } on _PayloadTooLargeException catch (e) {
+          req.response.statusCode = HttpStatus.requestEntityTooLarge;
+          req.response.write(
+            jsonEncode(
+              JsonRpcError(
+                id: null,
+                error: JsonRpcErrorData(
+                  code: ErrorCode.invalidRequest.value,
+                  message: 'Payload Too Large',
+                  data: e.toString(),
+                ),
+              ).toJson(),
+            ),
+          );
+          await _safeClose(req.response);
+          return;
+        }
         final bodyString = utf8.decode(bodyBytes);
         rawMessage = jsonDecode(bodyString);
       }
@@ -1151,10 +1227,18 @@ class StreamableHTTPServerTransport implements Transport {
         }
 
         // Set up close handler for client disconnects
-        req.response.done.then((_) {
-          _streamMapping.remove(streamId);
-          _stopKeepAliveTimer(streamId);
-        });
+        req.response.done
+            .then((_) {
+              _streamMapping.remove(streamId);
+              _requestToStreamMapping.removeWhere((_, v) => v == streamId);
+              _stopKeepAliveTimer(streamId);
+            })
+            .catchError((e) {
+              _streamMapping.remove(streamId);
+              _requestToStreamMapping.removeWhere((_, v) => v == streamId);
+              _stopKeepAliveTimer(streamId);
+              onerror?.call(e is Error ? e : StateError(e.toString()));
+            });
 
         // Flush headers immediately so client receives status and mcp-session-id
         // before we process messages (which may be async)
@@ -1195,13 +1279,23 @@ class StreamableHTTPServerTransport implements Transport {
     }
   }
 
-  /// Collects all bytes from an HTTP request
+  /// Collects all bytes from an HTTP request, enforcing [_maxBodySize].
   Future<Uint8List> _collectBytes(HttpRequest request) async {
     final completer = Completer<Uint8List>();
     final sink = BytesBuilder();
+    var totalBytes = 0;
+    late final StreamSubscription<List<int>> subscription;
 
-    request.listen(
-      sink.add,
+    subscription = request.listen(
+      (chunk) {
+        totalBytes += chunk.length;
+        if (totalBytes > _maxBodySize) {
+          subscription.cancel();
+          completer.completeError(_PayloadTooLargeException(_maxBodySize));
+          return;
+        }
+        sink.add(chunk);
+      },
       onDone: () => completer.complete(sink.takeBytes()),
       onError: completer.completeError,
       cancelOnError: true,

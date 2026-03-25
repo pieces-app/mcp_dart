@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:mcp_dart/src/types.dart';
 import 'package:mcp_dart/src/server/mcp_server.dart';
@@ -39,7 +40,10 @@ class TaskSession {
             ),
           )
           .catchError((e) {
-            // Ignore errors broadcasting
+            stderr.writeln(
+              'Warning: failed to broadcast task status notification '
+              'for task $taskId: $e',
+            );
           });
     }
   }

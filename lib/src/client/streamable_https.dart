@@ -366,6 +366,8 @@ class StreamableHttpClientTransport implements Transport {
     // Convert the stream to a broadcast stream to allow multiple listeners if needed
     final broadcastStream = stream.stream;
 
+    StreamSubscription<bool>? abortSubscription;
+
     // Create a subscription to the stream
     final subscription = broadcastStream
         .transform(utf8.decoder)
@@ -417,6 +419,7 @@ class StreamableHttpClientTransport implements Transport {
             }
           },
           onDone: () {
+            abortSubscription?.cancel();
             // Process any final event
             processEvent();
 
@@ -424,6 +427,7 @@ class StreamableHttpClientTransport implements Transport {
             handleReconnection(lastEventId, "Stream closed");
           },
           onError: (error) {
+            abortSubscription?.cancel();
             final errorMessage = error is Error ? error.toString() : error.toString();
             onerror?.call(McpError(0, "SSE stream disconnected: $errorMessage"));
 
@@ -433,7 +437,7 @@ class StreamableHttpClientTransport implements Transport {
         );
 
     // Register the subscription cleanup when the abort controller is triggered
-    _abortController?.stream.listen((_) {
+    abortSubscription = _abortController?.stream.listen((_) {
       subscription.cancel();
     });
   }
