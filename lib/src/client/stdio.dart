@@ -219,6 +219,9 @@ class StdioClientTransport implements Transport {
           _logger.warn("Error in onmessage handler: $e");
           onerror?.call(StateError("Error in onmessage handler: $e"));
         }
+      } on MalformedLineException catch (e) {
+        _logger.warn("StdioClientTransport: Skipping malformed line: $e");
+        continue;
       } catch (error) {
         final Error parseError = (error is Error) ? error : StateError("Message parsing error: $error");
         try {
@@ -227,10 +230,7 @@ class StdioClientTransport implements Transport {
           _logger.warn("Error in onerror handler: $e");
         }
         _logger.error("StdioClientTransport: Error processing read buffer: $parseError. Skipping data.");
-        // Consider clearing buffer or attempting recovery depending on error type.
-        // Clearing might be safest for unknown parsing errors.
-        // _readBuffer.clear();
-        break; // Stop processing buffer on error for now
+        break; // Stop processing buffer on error
       }
     }
   }

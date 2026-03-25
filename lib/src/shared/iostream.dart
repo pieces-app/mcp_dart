@@ -123,6 +123,9 @@ class IOStreamTransport implements Transport {
           _logger.warn("Error in onmessage handler: $e");
           onerror?.call(StateError("Error in onmessage handler: $e"));
         }
+      } on MalformedLineException catch (e) {
+        _logger.warn("IOStreamTransport: Skipping malformed line: $e");
+        continue;
       } catch (error) {
         final Error parseError = (error is Error) ? error : StateError("Message parsing error: $error");
         try {

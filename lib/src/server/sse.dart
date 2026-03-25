@@ -95,6 +95,7 @@ class SseServerTransport implements Transport {
         onError: (error) {
           _logger.warn('Socket error: $error');
           onerror?.call(error is Error ? error : StateError("Socket error: $error"));
+          close();
         },
       );
     } on UnimplementedError catch (e) {
@@ -103,6 +104,7 @@ class SseServerTransport implements Transport {
       rethrow;
     } catch (error) {
       _logger.error('Error starting SSE transport: $error');
+      rethrow;
     }
   }
 

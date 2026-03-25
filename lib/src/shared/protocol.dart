@@ -1005,7 +1005,9 @@ abstract class Protocol {
       Future.microtask(() {
         _pendingDebouncedNotifications.remove(notificationData.method);
         if (_transport == null) return;
-        _transport!.send(jsonrpcNotification, relatedRequestId: relatedRequestId).catchError((e) => _onerror(e));
+        _transport!
+            .send(jsonrpcNotification, relatedRequestId: relatedRequestId)
+            .catchError((e) => _onerror(e is Error ? e : StateError('$e')));
       });
       return;
     }

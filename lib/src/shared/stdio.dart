@@ -6,16 +6,46 @@ import 'package:mcp_dart/src/types.dart';
 
 final _logger = Logger("mcp_dart.shared.stdio");
 
+/// Thrown when a complete line was found in the buffer but could not be
+/// decoded as valid UTF-8. Callers should skip the malformed line and
+/// continue processing subsequent data.
+class MalformedLineException implements Exception {
+  final String message;
+  const MalformedLineException(this.message);
+
+  @override
+  String toString() => 'MalformedLineException: $message';
+}
+
 /// Buffers a continuous stdio stream (like stdin) and parses discrete,
 /// newline-terminated JSON-RPC messages.
 class ReadBuffer {
+  /// 10 MB default cap to prevent unbounded memory growth.
+  static const int defaultMaxBufferSize = 10 * 1024 * 1024;
+
+  final int maxBufferSize;
   final BytesBuilder _builder = BytesBuilder();
   Uint8List? _bufferCache;
 
+  ReadBuffer({this.maxBufferSize = defaultMaxBufferSize});
+
   /// Appends a chunk of binary data (received from the stream) to the buffer.
-  void append(Uint8List chunk) {
+  ///
+  /// Returns `true` on success. Returns `false` and clears the buffer if the
+  /// accumulated data would exceed [maxBufferSize].
+  bool append(Uint8List chunk) {
     _builder.add(chunk);
     _bufferCache = null;
+
+    if (_builder.length > maxBufferSize) {
+      _logger.warn(
+        'ReadBuffer exceeded max size of $maxBufferSize bytes '
+        '(${_builder.length} bytes). Clearing buffer.',
+      );
+      clear();
+      return false;
+    }
+    return true;
   }
 
   /// Attempts to read a complete, newline-terminated JSON-RPC message
@@ -46,7 +76,7 @@ class ReadBuffer {
     } catch (e) {
       _logger.warn("Error decoding UTF-8 line: $e");
       _updateBufferAfterRead(newlineIndex);
-      return null;
+      throw MalformedLineException('Failed to decode UTF-8 line: $e');
     }
 
     _updateBufferAfterRead(newlineIndex);

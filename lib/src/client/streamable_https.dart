@@ -132,6 +132,7 @@ class StreamableHttpClientTransport implements Transport {
   String? _sessionId;
   final StreamableHttpReconnectionOptions _reconnectionOptions;
   bool _isClosed = false;
+  Timer? _reconnectTimer;
 
   @override
   void Function()? onclose;
@@ -201,6 +202,8 @@ class StreamableHttpClientTransport implements Transport {
   }
 
   Future<void> _startOrAuthSse(StartSseOptions options) async {
+    if (_isClosed) return;
+
     final resumptionToken = options.resumptionToken;
     try {
       // Try to open an initial SSE stream with GET to listen for server messages
@@ -267,7 +270,7 @@ class StreamableHttpClientTransport implements Transport {
     final maxRetries = _reconnectionOptions.maxRetries;
 
     // Check if we've exceeded maximum retry attempts
-    if (maxRetries > 0 && attemptCount >= maxRetries) {
+    if (maxRetries >= 0 && attemptCount >= maxRetries) {
       onerror?.call(McpError(0, "Maximum reconnection attempts ($maxRetries) exceeded."));
       return;
     }
@@ -275,17 +278,16 @@ class StreamableHttpClientTransport implements Transport {
     // Calculate next delay based on current attempt count
     final delay = _getNextReconnectionDelay(attemptCount);
 
-    // Schedule the reconnection
-    Future.delayed(Duration(milliseconds: delay), () {
-      // Use the last event ID to resume where we left off
+    // Schedule the reconnection via a cancellable Timer
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(milliseconds: delay), () {
+      _reconnectTimer = null;
       _startOrAuthSse(options).catchError((error) {
         final errorMessage = error is Error ? error.toString() : error.toString();
         onerror?.call(McpError(0, "Failed to reconnect SSE stream: $errorMessage"));
 
-        // Schedule another attempt if this one failed, incrementing the attempt counter
         _scheduleReconnection(options, attemptCount + 1);
 
-        // Ensure the Future completes
         return null;
       });
     });
@@ -465,6 +467,8 @@ class StreamableHttpClientTransport implements Transport {
   @override
   Future<void> close() async {
     _isClosed = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     // Abort any pending requests
     _abortController?.add(true);
     _abortController?.close();
