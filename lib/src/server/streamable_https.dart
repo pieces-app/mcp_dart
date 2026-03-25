@@ -229,7 +229,14 @@ class StreamableHTTPServerTransport implements Transport {
   }
 
   bool _isRequestAllowedByDnsRebindingProtection(HttpRequest request) {
-    final hostHeader = request.headers.value(HttpHeaders.hostHeader);
+    return _isDnsRebindingAllowedByHeaders(
+      request.headers.value(HttpHeaders.hostHeader),
+      request.headers.value('origin'),
+    );
+  }
+
+  /// Core DNS rebinding validation shared by dart:io and shelf code paths.
+  bool _isDnsRebindingAllowedByHeaders(String? hostHeader, String? originHeader) {
     if (hostHeader == null || hostHeader.trim().isEmpty) {
       return false;
     }
@@ -239,7 +246,6 @@ class StreamableHTTPServerTransport implements Transport {
       return false;
     }
 
-    final originHeader = request.headers.value('origin');
     if (originHeader == null || originHeader.trim().isEmpty) {
       return true;
     }
@@ -336,6 +342,11 @@ class StreamableHTTPServerTransport implements Transport {
   ///
   /// For dart:io HttpRequest, use handleRequest() instead.
   Future<Response> handleShelfRequest(Request req, [dynamic parsedBody]) async {
+    // FIX 3: DNS rebinding protection — matching the dart:io handleRequest guard.
+    if (_enableDnsRebindingProtection && !_isDnsRebindingAllowedByHeaders(req.headers['host'], req.headers['origin'])) {
+      return Response.forbidden('Forbidden: blocked by DNS rebinding protection');
+    }
+
     final responseCompleter = Completer<Response>();
     final adapter = ShelfHttpAdapter(req, responseCompleter);
 
@@ -403,8 +414,9 @@ class StreamableHTTPServerTransport implements Transport {
       headers["mcp-session-id"] = sessionId!;
     }
 
-    // Check if there's already an active standalone SSE stream for this session
-    if (_streamMapping[_standaloneSseStreamId] != null) {
+    // FIX 2: Check both dart:io and shelf adapter maps — a shelf GET registers
+    // in _adapterStreamMapping, not _streamMapping.
+    if (_streamMapping[_standaloneSseStreamId] != null || _adapterStreamMapping[_standaloneSseStreamId] != null) {
       // Only one GET SSE stream is allowed per session
       req.response
         ..statusCode = HttpStatus.conflict
@@ -867,6 +879,22 @@ class StreamableHTTPServerTransport implements Transport {
           return;
         }
 
+        // FIX 4: Reject batched init requests — an initialize request must be
+        // the sole message in the batch, matching the dart:io guard.
+        if (messages.length > 1) {
+          res.statusCode = HttpStatus.badRequest;
+          res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+          res.write(
+            jsonEncode({
+              "jsonrpc": "2.0",
+              "error": {"code": -32600, "message": "Invalid Request: Only one initialization request is allowed"},
+              "id": null,
+            }),
+          );
+          await res.close();
+          return;
+        }
+
         sessionId = _sessionIdGenerator?.call();
         _initialized = true;
 
@@ -888,11 +916,20 @@ class StreamableHTTPServerTransport implements Transport {
       if (!hasRequests) {
         // Only notifications or responses
         res.statusCode = HttpStatus.accepted;
-        await res.close();
 
+        // FIX 6: Process messages BEFORE closing the response, matching the
+        // dart:io path which calls onmessage before _safeClose.
+        // FIX 5: Wrap each onmessage in try-catch so one handler error does
+        // not prevent subsequent messages from being delivered.
         for (final message in messages) {
-          onmessage?.call(message);
+          try {
+            onmessage?.call(message);
+          } catch (e) {
+            onerror?.call(e is Error ? e : StateError(e.toString()));
+          }
         }
+
+        await res.close();
       } else {
         // Has requests - set up response (SSE or JSON based on enableJsonResponse)
         final streamId = generateUUID();
@@ -925,9 +962,14 @@ class StreamableHTTPServerTransport implements Transport {
           }
         }
 
-        // Handle messages - this will trigger server to call send()
+        // FIX 5: Wrap each onmessage in try-catch so one handler error does
+        // not prevent subsequent messages from being delivered.
         for (final message in messages) {
-          onmessage?.call(message);
+          try {
+            onmessage?.call(message);
+          } catch (e) {
+            onerror?.call(e is Error ? e : StateError(e.toString()));
+          }
         }
 
         // For JSON responses, the response will be completed by send()
@@ -1464,6 +1506,10 @@ class StreamableHTTPServerTransport implements Transport {
 
   @override
   Future<void> send(JsonRpcMessage message, {dynamic relatedRequestId}) async {
+    // FIX 1: Reject sends after close() — a DELETE request or error handler
+    // may have torn down the transport while responses are still in-flight.
+    if (_closed) throw StateError('Cannot send: transport is closed.');
+
     dynamic requestId = relatedRequestId;
     if (_isJsonRpcResponse(message) || _isJsonRpcError(message)) {
       // If the message is a response, use the request ID from the message

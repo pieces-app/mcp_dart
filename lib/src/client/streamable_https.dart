@@ -503,6 +503,13 @@ class StreamableHttpClientTransport implements Transport {
 
   @override
   Future<void> start() async {
+    // FIX 8: HTTP transports are non-restartable after close() — _isClosed is
+    // never reset, so a closed instance must be replaced with a new one.
+    // (Unlike stdio transports which can restart with a new process.)
+    if (_isClosed) {
+      throw StateError('Cannot start: transport has been closed. Create a new instance.');
+    }
+
     if (_abortController != null) {
       throw McpError(
         0,
@@ -719,7 +726,11 @@ class StreamableHttpClientTransport implements Transport {
     try {
       final headers = await _commonHeaders();
 
-      final response = await _httpClient.delete(_url, headers: headers);
+      // FIX 7: Route the DELETE through _sendWithTimeout so the configured
+      // httpTimeout applies, preventing indefinite hangs on unresponsive servers.
+      final request = http.Request('DELETE', _url);
+      request.headers.addAll(headers);
+      final response = await _sendWithTimeout(request);
 
       // We specifically handle 405 as a valid response according to the spec,
       // meaning the server does not support explicit session termination

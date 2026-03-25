@@ -449,7 +449,7 @@ void main() {
     client.close();
   });
 
-  test('SseServerTransport - multiple close calls are safe', () async {
+  test('SseServerTransport - multiple close calls are safe and onclose fires once', () async {
     final sseUrl = '$serverUrlBase/sse_test';
     final client = HttpClient();
 
@@ -463,10 +463,18 @@ void main() {
 
     final transport = activeTransports.values.first;
 
-    // Multiple close calls should not throw
+    int oncloseCount = 0;
+    final originalOnclose = transport.onclose;
+    transport.onclose = () {
+      oncloseCount++;
+      originalOnclose?.call();
+    };
+
     await transport.close();
     await transport.close();
     await transport.close();
+
+    expect(oncloseCount, equals(1), reason: 'onclose must fire exactly once across multiple close calls');
 
     await sseSub.cancel();
     client.close();

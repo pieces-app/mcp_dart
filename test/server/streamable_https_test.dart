@@ -179,26 +179,70 @@ void main() {
       await transport.close();
     });
 
-    test('GET request establishes SSE stream', () async {
-      // Create a transport with fixed session ID
+    test('GET request establishes SSE stream and delivers notifications', () async {
       final transport = StreamableHTTPServerTransport(
         options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
       transports['/mcp'] = transport;
 
-      // Set the session ID for testing
-      transport.sessionId = "test-session-id";
+      // Initialize via shelf POST so _initialized becomes true
+      transport.onmessage = (message) {
+        if (message is JsonRpcRequest && message.method == 'initialize') {
+          transport.send(
+            JsonRpcResponse(
+              id: message.id,
+              result: {
+                'protocolVersion': '2024-11-05',
+                'serverInfo': {'name': 'test-server', 'version': '1.0.0'},
+                'capabilities': {},
+              },
+            ),
+            relatedRequestId: message.id,
+          );
+        }
+      };
 
-      // Create a notification to send via the SSE stream
-      final notification = const JsonRpcNotification(method: 'test/notification', params: {'message': 'hello'});
+      final initReq = shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/mcp'),
+        headers: {'accept': 'application/json, text/event-stream', 'content-type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'initialize',
+          'params': {
+            'protocolVersion': '2024-11-05',
+            'clientInfo': {'name': 'test', 'version': '1.0'},
+            'capabilities': {},
+          },
+        }),
+      );
+      final initResp = await transport.handleShelfRequest(initReq);
+      expect(initResp.statusCode, equals(200));
 
-      // Verify the transport can send messages without exceptions
-      try {
-        await transport.send(notification);
-      } catch (e) {
-        fail("Transport send method threw an exception: $e");
-      }
+      // Establish standalone SSE stream via shelf GET
+      final getReq = shelf.Request(
+        'GET',
+        Uri.parse('http://localhost/mcp'),
+        headers: {'accept': 'text/event-stream', 'mcp-session-id': transport.sessionId!},
+      );
+      final sseResp = await transport.handleShelfRequest(getReq);
+      expect(sseResp.statusCode, equals(200));
+
+      // Send a notification and verify it appears in the SSE stream
+      const notification = JsonRpcNotification(method: 'test/notification', params: {'message': 'hello'});
+      await transport.send(notification);
+
+      final bodyBytes = await sseResp
+          .read()
+          .timeout(const Duration(seconds: 2), onTimeout: (sink) => sink.close())
+          .fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
+
+      final bodyText = utf8.decode(bodyBytes);
+      expect(bodyText, contains('event: message'), reason: 'SSE stream must contain a message event');
+      expect(bodyText, contains('"method":"test/notification"'));
+      expect(bodyText, contains('"message":"hello"'));
 
       await transport.close();
     });
@@ -578,13 +622,22 @@ void main() {
       await transport.start();
       transport.sessionId = "test-session-id";
 
-      // Send notification without established SSE stream
+      final errors = <Error>[];
+      transport.onerror = (error) => errors.add(error);
+
       final notification = const JsonRpcNotification(method: 'test/notification', params: {'message': 'hello'});
 
-      // This should not throw - notifications are discarded if no stream
       await transport.send(notification);
 
+      expect(errors, isEmpty, reason: 'Discarding a notification must not produce an error');
+
+      // Transport must remain healthy — onclose should still fire on close.
+      bool oncloseCalled = false;
+      transport.onclose = () => oncloseCalled = true;
+
       await transport.close();
+
+      expect(oncloseCalled, isTrue, reason: 'Transport must close cleanly after discarding notifications');
     });
 
     test('send throws StateError for unknown request ID', () async {

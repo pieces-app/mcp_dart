@@ -495,7 +495,7 @@ void main() {
       expect(manager.activeSseTransports[sessionId], isNotNull);
     });
 
-    test('transport has onclose callback configured', () async {
+    test('transport onclose callback cleans up activeSseTransports', () async {
       final mcpServer = McpServer(const Implementation(name: 'TestServer', version: '1.0.0'));
       final manager = SseServerManager(mcpServer);
 
@@ -504,9 +504,18 @@ void main() {
 
       expect(manager.activeSseTransports.length, equals(1));
 
+      final sessionId = manager.activeSseTransports.keys.first;
       final transport = manager.activeSseTransports.values.first;
-      // Verify onclose callback is configured
       expect(transport.onclose, isNotNull);
+
+      await transport.close();
+
+      expect(
+        manager.activeSseTransports.containsKey(sessionId),
+        isFalse,
+        reason: 'onclose must remove the transport from activeSseTransports',
+      );
+      expect(manager.activeSseTransports.length, equals(0));
     });
 
     test('handles multiple simultaneous connections', () async {
@@ -603,18 +612,30 @@ void main() {
     });
 
     test('handles SSE connection setup errors gracefully', () async {
-      final request = MockHttpRequest('GET', '/sse');
+      // First connection succeeds (saturates McpServer's single-connect).
+      final request1 = MockHttpRequest('GET', '/sse');
+      await manager.handleRequest(request1);
+      expect(manager.activeSseTransports.length, equals(1));
 
-      // Simulate error by closing response immediately
-      request.response.headers.persistentConnection = false;
+      // Second connection on the same mcpServer will fail in connect().
+      final request2 = MockHttpRequest('GET', '/sse');
+      request2.response.headers.persistentConnection = false;
+      await manager.handleRequest(request2);
 
-      await manager.handleRequest(request);
-
-      // Should still complete without throwing
-      expect(() => Future.value(), returnsNormally);
+      // The failed transport must have been cleaned up.
+      expect(
+        manager.activeSseTransports.length,
+        equals(1),
+        reason: 'Failed transport must be removed from activeSseTransports',
+      );
+      expect(
+        request2.response.statusCode,
+        equals(HttpStatus.internalServerError),
+        reason: 'Failed setup must return 500',
+      );
     });
 
-    test('configures error handler on transport', () async {
+    test('configures error handler on transport that receives errors', () async {
       final mcpServer = McpServer(const Implementation(name: 'TestServer', version: '1.0.0'));
       final manager = SseServerManager(mcpServer);
 
@@ -623,11 +644,17 @@ void main() {
 
       final transport = manager.activeSseTransports.values.first;
 
-      // Verify onerror callback is configured
       expect(transport.onerror, isNotNull);
 
-      // Trigger error should not throw
-      expect(() => transport.onerror?.call(StateError('Test error')), returnsNormally);
+      // Trigger an error through the configured handler — it must not throw
+      // and the transport must remain in activeSseTransports.
+      transport.onerror?.call(StateError('Test error'));
+
+      expect(
+        manager.activeSseTransports.length,
+        equals(1),
+        reason: 'Transport must remain active after a handled error',
+      );
     });
   });
 

@@ -162,14 +162,12 @@ void main() {
       }
     });
 
-    test('constructor initializes with default options', () {
-      transport = StreamableHttpClientTransport(serverUrl);
-      expect(transport, isNotNull);
-    });
+    test('constructor with default and custom options produces distinct state', () async {
+      final defaultTransport = StreamableHttpClientTransport(serverUrl);
+      expect(defaultTransport.sessionId, isNull, reason: 'Default transport has no session before start');
 
-    test('constructor accepts custom options', () {
       final mockAuthProvider = MockOAuthClientProvider();
-      transport = StreamableHttpClientTransport(
+      final customTransport = StreamableHttpClientTransport(
         serverUrl,
         opts: StreamableHttpClientTransportOptions(
           authProvider: mockAuthProvider,
@@ -185,13 +183,21 @@ void main() {
           sessionId: 'custom-session-id',
         ),
       );
-      expect(transport, isNotNull);
-    });
+      expect(
+        customTransport.sessionId,
+        equals('custom-session-id'),
+        reason: 'Custom transport must use provided sessionId',
+      );
 
-    test('start initializes the transport', () async {
-      transport = StreamableHttpClientTransport(serverUrl);
+      // Start the default one and verify it transitions to started state.
+      transport = defaultTransport;
       await transport.start();
-      expect(transport, isNotNull);
+      expect(transport.sessionId, isNull, reason: 'Session is null until server responds');
+
+      // Starting again must throw.
+      expect(() async => await transport.start(), throwsA(isA<McpError>()));
+
+      await customTransport.close();
     });
 
     test('send method sends a JsonRpcMessage', () async {
@@ -636,17 +642,29 @@ void main() {
         expect(receivedError, isNull, reason: 'No errors should occur when terminating a non-existent session');
       });
 
-      test('handles error callback configuration', () async {
-        transport = StreamableHttpClientTransport(serverUrl);
+      test('onerror fires on connection failure', () async {
+        final badUrl = Uri.parse('http://localhost:1/does-not-exist');
+        transport = StreamableHttpClientTransport(badUrl);
 
+        final errorCompleter = Completer<Error>();
         transport.onerror = (error) {
-          // Error callback configured
+          if (!errorCompleter.isCompleted) errorCompleter.complete(error);
         };
 
         await transport.start();
 
-        // Error callback should be configured
-        expect(transport.onerror, isNotNull);
+        try {
+          await transport.send(const JsonRpcRequest(id: 1, method: 'test/method', params: {}));
+        } catch (_) {
+          // Send may throw on connection refused
+        }
+
+        final error = await errorCompleter.future.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => fail('onerror was never called after connection failure'),
+        );
+
+        expect(error, isA<Error>());
       });
 
       test('handles onclose callback configuration', () async {

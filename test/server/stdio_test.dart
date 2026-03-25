@@ -479,8 +479,18 @@ void main() {
 
       await Future.delayed(const Duration(milliseconds: 50));
 
-      // Should not crash, just log warning
-      expect(() => Future.value(), returnsNormally);
+      // Transport must remain functional after the onerror handler threw.
+      final validMessages = <JsonRpcMessage>[];
+      transport.onmessage = (msg) => validMessages.add(msg);
+      transport.onerror = null;
+
+      final message = const JsonRpcPingRequest(id: 42);
+      stdin.addString('${jsonEncode(message.toJson())}\n');
+
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(validMessages.length, equals(1), reason: 'Transport must still deliver messages after onerror throws');
+      expect((validMessages.first as JsonRpcPingRequest).id, equals(42));
     });
 
     test('handles error in onclose callback gracefully', () async {
@@ -490,10 +500,14 @@ void main() {
 
       await transport.start();
 
-      // Should not throw, just log warning
       await transport.close();
 
-      expect(() => transport.close(), returnsNormally);
+      // Transport must be in a closed state: sending should throw.
+      expect(
+        () => transport.send(const JsonRpcPingRequest(id: 1)),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('not running'))),
+        reason: 'Transport must be closed even when onclose handler throws',
+      );
     });
   });
 }

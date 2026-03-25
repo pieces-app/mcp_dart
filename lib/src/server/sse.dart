@@ -261,22 +261,27 @@ class SseServerTransport implements Transport {
   /// Invokes the [onclose] callback.
   @override
   Future<void> close() async {
-    _handleClosure();
+    // FIX 10: await the now-async _handleClosure so that
+    // _socketSubscription.cancel() completes before close() returns.
+    await _handleClosure();
   }
 
   /// Internal cleanup logic for closing the connection.
-  void _handleClosure({bool propagateToCallback = true}) {
+  ///
+  /// FIX 10: Made async so _socketSubscription?.cancel() is properly awaited.
+  /// Stream subscription cancellation returns a Future; fire-and-forgetting it
+  /// can leave the socket delivering callbacks after teardown completes.
+  Future<void> _handleClosure({bool propagateToCallback = true}) async {
     if (_closeController.isClosed) return;
 
     _closeController.add(null);
     _closeController.close();
 
-    // FIX 4: Cancel the socket subscription to stop receiving data/done/error
-    // callbacks after the transport is torn down. Wrapped in try-catch because
-    // the underlying socket may already be closed or in an error state,
-    // causing cancel() to throw.
+    // FIX 4 + FIX 10: Cancel the socket subscription and await the Future so
+    // teardown fully completes before callers proceed. Wrapped in try-catch
+    // because the underlying socket may already be closed or in an error state.
     try {
-      _socketSubscription?.cancel();
+      await _socketSubscription?.cancel();
     } catch (e) {
       _logger.warn("Error cancelling socket subscription: $e");
     }
@@ -294,7 +299,14 @@ class SseServerTransport implements Transport {
         onclose?.call();
       } catch (e) {
         _logger.warn("Error within onclose handler: $e");
-        onerror?.call(StateError("Error in onclose handler: $e"));
+        // FIX 11: Protect the onerror call with its own try-catch. If both
+        // onclose and onerror throw, the second exception would otherwise
+        // escape _handleClosure and mask the original onclose error.
+        try {
+          onerror?.call(StateError("Error in onclose handler: $e"));
+        } catch (onerrorError) {
+          _logger.warn("onerror callback also threw inside onclose handler: $onerrorError");
+        }
       }
     }
   }

@@ -186,50 +186,66 @@ void main() {
     test('handles notification without handler gracefully', () async {
       await protocol.connect(transport);
 
-      // Send notification with no registered handler
+      final errors = <Error>[];
+      protocol.onerror = (error) => errors.add(error);
+
       transport.receiveMessage(const JsonRpcNotification(method: 'unhandled/notification', params: {}));
 
-      // Should not throw, just silently ignore
       await Future.delayed(const Duration(milliseconds: 50));
-      // Test passes if no exception is thrown
+
+      expect(errors, isEmpty, reason: 'Unhandled notification must not produce an error');
+      expect(transport.sentMessages, isEmpty, reason: 'No response should be sent for an unhandled notification');
     });
 
     test('fallback notification handler would be called if method parsed', () async {
-      // Note: This test documents that fallback handlers CAN'T be tested with
+      // Architectural limitation: fallback handlers can't be triggered with
       // custom methods because JsonRpcMessage.fromJson throws UnimplementedError
       // for unknown notification methods. The fallback handler mechanism exists
-      // but only works for methods that successfully parse.
-
+      // but only works for methods that successfully parse through the factory.
       await protocol.connect(transport);
 
-      // Set up fallback handler (it exists, just can't be triggered with unknown methods)
+      final errors = <Error>[];
+      protocol.onerror = (error) => errors.add(error);
+
+      bool fallbackCalled = false;
       protocol.fallbackNotificationHandler = (notification) async {
-        // Would be called if a known notification type had no specific handler
+        fallbackCalled = true;
       };
 
-      // Verify fallback handler is set
       expect(protocol.fallbackNotificationHandler, isNotNull);
 
-      // Test passes to document this architectural limitation
+      // Send a known notification type without a specific handler registered —
+      // the protocol should handle it without crashing.
+      transport.receiveMessage(const JsonRpcNotification(method: 'notifications/initialized'));
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(errors, isEmpty, reason: 'No errors should occur from the fallback path');
     });
 
     test('fallback request handler would be called if method parsed', () async {
-      // Note: Similar to notifications, fallback request handlers can't be tested
-      // with custom methods because JsonRpcMessage.fromJson throws UnimplementedError
-      // for unknown request methods. The fallback mechanism exists but only works
-      // for methods that successfully parse.
-
+      // Architectural limitation: similar to notifications, fallback request
+      // handlers can't be triggered with custom methods because
+      // JsonRpcMessage.fromJson throws UnimplementedError for unknown request
+      // methods. The fallback mechanism exists but only works for methods that
+      // successfully parse through the factory.
       await protocol.connect(transport);
 
-      // Set up fallback handler
+      final errors = <Error>[];
+      protocol.onerror = (error) => errors.add(error);
+
       protocol.fallbackRequestHandler = (request) async {
         return EdgeCaseResult(data: 'fallback');
       };
 
-      // Verify fallback handler is set
       expect(protocol.fallbackRequestHandler, isNotNull);
 
-      // Test passes to document this architectural limitation
+      // Verify the protocol remains functional after setting the fallback —
+      // send a ping and confirm no crash occurs.
+      transport.receiveMessage(const JsonRpcNotification(method: 'notifications/initialized'));
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(errors, isEmpty, reason: 'Protocol must stay healthy with fallback handler set');
+      expect(transport.sentMessages, isEmpty, reason: 'No response sent for notification');
     });
 
     test('handles connection close with pending requests', () async {
@@ -280,11 +296,19 @@ void main() {
       abortController.abort('test cancel');
       await future;
 
-      await protocol.close();
+      // Prove no stale state: a second request after cancel should work
+      // (transport will record it, and closing later should not double-resolve).
+      final secondFuture = protocol
+          .request<EmptyResult>(
+            const JsonRpcPingRequest(id: 0),
+            (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
+          )
+          .catchError((e) => const EmptyResult());
 
-      // If _requestResolvers were not cleaned up, closing after cancel would
-      // attempt to resolve a stale entry and potentially throw. Reaching this
-      // point without error proves the cancel path cleaned up properly.
+      expect(transport.sentMessages, isNotEmpty, reason: 'Second request after cancel must be sent');
+
+      await protocol.close();
+      await secondFuture;
     });
 
     test('error handlers fire before completeError on close', () async {
@@ -333,30 +357,49 @@ void main() {
         throw StateError('User onerror error');
       };
 
-      // Trigger an error
       transport.simulateError(StateError('Test error'));
 
-      // Should not crash, error is logged
       await Future.delayed(const Duration(milliseconds: 50));
-      // Test passes if no unhandled exception occurs
+
+      // Protocol must remain functional after the handler threw.
+      final secondFuture = protocol
+          .request<EmptyResult>(
+            const JsonRpcPingRequest(id: 0),
+            (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
+          )
+          .catchError((e) => const EmptyResult());
+
+      expect(transport.sentMessages, isNotEmpty, reason: 'Protocol must still be able to send after onerror throws');
+
+      await protocol.close();
+      await secondFuture;
     });
 
     test('handles notification handler error gracefully', () async {
-      // Note: Custom notification methods throw UnimplementedError during parsing,
-      // so we can't test error handling for notification handlers since unknown
-      // methods never reach the handler. This test documents that errors in
-      // known notification handlers would be caught and passed to onerror.
-
+      // Custom notification methods throw UnimplementedError during parsing,
+      // so we can't directly test error handling for custom notification
+      // handlers. Instead, verify the protocol stays healthy after receiving a
+      // known notification that has no explicit handler registered.
       await protocol.connect(transport);
 
       final receivedErrors = <Error>[];
       protocol.onerror = (error) => receivedErrors.add(error);
 
-      // The built-in handlers exist and would propagate errors through _onerror
-      // if they threw exceptions. Since we can't create a scenario that triggers
-      // this without modifying protocol internals, we document the behavior.
+      transport.receiveMessage(const JsonRpcNotification(method: 'notifications/initialized'));
+      await Future.delayed(const Duration(milliseconds: 50));
 
-      // Test passes to document error propagation architecture
+      // Protocol must remain usable afterwards.
+      final future = protocol
+          .request<EmptyResult>(
+            const JsonRpcPingRequest(id: 0),
+            (json) => EmptyResult(meta: json['_meta'] as Map<String, dynamic>?),
+          )
+          .catchError((e) => const EmptyResult());
+
+      expect(transport.sentMessages, isNotEmpty, reason: 'Protocol must still accept requests after notification');
+
+      await protocol.close();
+      await future;
     });
   });
 
