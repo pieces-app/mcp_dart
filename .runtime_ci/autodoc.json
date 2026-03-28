@@ -35,8 +35,8 @@
         "quickstart",
         "api_reference"
       ],
-      "hash": "a2b3a7c7334ea3122aaea25cec8d7658cf0fcbe4b33ebdfa518c008c6c51b7a2",
-      "last_updated": "2026-03-28T20:49:08.238067Z"
+      "hash": "543b3bace136b1e821e2312e12e3556f291f0bafe9b1e3fcd488e8787a2f40b4",
+      "last_updated": "2026-03-28T21:48:49.536307Z"
     },
     {
       "id": "shared",
@@ -83,8 +83,8 @@
       "generate": [
         "quickstart"
       ],
-      "hash": "a6a1a0b77d314c708ad005ae3e4bd98096475dc460cd8e09c38405ca2cbcf9b3",
-      "last_updated": "2026-03-28T20:49:08.238190Z"
+      "hash": "05ebf7debe80423995a64049a087dcc017ff36cc5f44a6b77941cbc7789a2aea",
+      "last_updated": "2026-03-28T21:48:49.536424Z"
     }
   ],
   "templates": {

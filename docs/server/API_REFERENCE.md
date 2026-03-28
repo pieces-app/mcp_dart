@@ -1,72 +1,52 @@
-# Server API Reference
+# Server Module API Reference
 
-This module provides the server-side implementation of the Model Context Protocol (MCP) for the **mcp_dart** package. It is designed to be highly pluggable, supporting various transport layers and integration with other packages in the workspace, such as **mcp_dart_cli**.
+The **Server** module is the core of the `mcp_dart` package's server-side implementation. It provides the high-level API for defining MCP tools, resources, and prompts, as well as the underlying transport layers and protocol handling.
 
-## Multi-Package Structure
-
-The MCP Dart workspace is organized into multiple packages:
-- **mcp_dart** (Core): Contains the core protocol, client, and server implementations. This is the package that owns this "Server" module.
-- **mcp_dart_cli** (`packages/mcp_dart_cli/`): A command-line interface that uses this server module to easily bootstrap and run MCP servers.
-
-### Integration with mcp_dart_cli
-
-The `mcp_dart_cli` package leverages the classes defined in this module (especially `McpServer` and `StreamableMcpServer`) to provide features like `mcp_dart serve`, which can automatically host an MCP server over SSE or Stdio based on configuration.
-
----
+This module is a foundational component of the `mcp_dart` workspace and is utilized by:
+- **mcp_dart_cli** (`packages/mcp_dart_cli/`): Employs this module to provide the `serve` and `inspect` commands for running and debugging MCP servers.
 
 ## 1. Core Server API
 
-### McpServer
+### **McpServer**
+The primary entry point for creating an MCP server. It manages the registration of capabilities and handles the JSON-RPC lifecycle.
 
-The `McpServer` class is the primary entry point for creating an MCP server. It provides high-level methods for registering tools, resources, and prompts.
+*   **Constructors**:
+    *   `McpServer(Implementation serverInfo, {McpServerOptions? options})`
+*   **Properties**:
+    *   `bool isConnected`: Returns true if the server is currently attached to a transport.
+    *   `ExperimentalMcpServerTasks experimental`: Access to task-management features (sampling, elicitation).
+*   **Methods**:
+    *   `Future<void> connect(Transport transport)`: Connects the server to a transport (Stdio, SSE, etc.) and starts the initialization handshake.
+    *   `Future<void> close()`: Disconnects the transport and cleans up resources.
+    *   `RegisteredTool registerTool(...)`: Registers a tool that the client can invoke.
+    *   `RegisteredResource registerResource(...)`: Registers a static resource.
+    *   `RegisteredResourceTemplate registerResourceTemplate(...)`: Registers a dynamic resource pattern.
+    *   `RegisteredPrompt registerPrompt(...)`: Registers a prompt for the client to use.
+    *   `void sendToolListChanged()`: Notifies the client that the tool list has been updated.
 
-#### Example: Basic Server Setup
-
+#### **Example: Creating a simple server**
 ```dart
 import 'package:mcp_dart/mcp_dart.dart';
 
 void main() async {
   final server = McpServer(
-    Implementation(
-      name: "ExampleServer",
-      version: "1.0.0",
-    ),
+    Implementation(name: 'ExampleServer', version: '1.0.0'),
   );
 
   // Register a simple tool
-  // The client can invoke this tool with a 'message' argument.
   server.registerTool(
-    "echo",
-    description: "Echoes the input back to the client",
+    'echo',
+    description: 'Echoes back the input',
     inputSchema: ToolInputSchema(
       properties: {
-        "message": JsonSchema.string(description: "The message to echo"),
+        'message': JsonSchema.string(description: 'The message to echo'),
       },
-      required: ["message"],
+      required: ['message'],
     ),
     callback: (args, extra) async {
-      final message = args["message"] as String;
+      final message = args['message'] as String;
       return CallToolResult(
-        content: [TextContent(text: "Echo: $message")],
-      );
-    },
-  );
-
-  // Register a static resource
-  // This resource will be available at the URI 'mcp://config'.
-  server.registerResource(
-    "config",
-    "mcp://config",
-    (description: "Server configuration", mimeType: "application/json"),
-    (uri, extra) async {
-      return ReadResourceResult(
-        contents: [
-          TextResourceContents(
-            uri: uri.toString(),
-            text: '{"status": "ok"}',
-            mimeType: "application/json",
-          ),
-        ],
+        content: [TextContent(text: 'Echo: $message')],
       );
     },
   );
@@ -77,213 +57,122 @@ void main() async {
 }
 ```
 
-#### Key Fields
-- `experimental` (**ExperimentalMcpServerTasks**): Access to experimental task-related features.
-- `isConnected` (**bool**): Whether the server is currently connected to a transport.
-- `onError` (**void Function(Error)?**): Global error handler for the server.
-
-#### Key Methods
-- `connect(Transport transport)`: Attaches the server to a transport (e.g., Stdio, SSE).
-- `close()`: Gracefully shuts down the server and its connection.
-- `registerTool(...)`: Registers a tool that clients can call. Uses `ToolInputSchema` for argument validation.
-- `registerResource(...)`: Registers a static resource accessible by URI.
-- `registerResourceTemplate(...)`: Registers a dynamic resource pattern using URI templates.
-- `registerPrompt(...)`: Registers a prompt that can be used for LLM interaction.
-- `sendLoggingMessage(...)`: Sends a notification to the client with a log entry.
-- `sendResourceListChanged()`: Notifies clients that the list of available resources has changed.
-- `sendToolListChanged()`: Notifies clients that the list of available tools has changed.
-- `sendPromptListChanged()`: Notifies clients that the list of available prompts has changed.
-- `elicitInput(...)`: Requests structured user input from the client using form mode.
-
-### McpServerOptions
-
-Configuration options passed to the `McpServer` constructor.
-
-```dart
-const options = McpServerOptions(
-  capabilities: ServerCapabilities(
-    logging: {},
-    prompts: ServerCapabilitiesPrompts(listChanged: true),
-    resources: ServerCapabilitiesResources(subscribe: true, listChanged: true),
-    tools: ServerCapabilitiesTools(listChanged: true),
-  ),
-  instructions: "Use the 'echo' tool to test connectivity.",
-);
-```
-
-- `capabilities`: Defines what MCP features this server supports.
-- `instructions`: Human-readable text for the client on how to use this server.
+### **McpServerOptions**
+Configuration for the `McpServer`.
+*   **Fields**:
+    *   `ServerCapabilities? capabilities`: Explicitly define supported capabilities (e.g., logging, tools, resources).
+    *   `String? instructions`: Optional instructions for the client on how to use the server.
+    *   `bool enforceStrictCapabilities`: Whether to strictly validate incoming requests against advertised capabilities.
 
 ---
 
-## 2. High-Level Servers
+## 2. Transport Layers
 
-### StreamableMcpServer
+The Server module supports multiple transport mechanisms to adapt to different environments.
 
-A complete HTTP server implementation that handles multiple concurrent sessions using the Streamable HTTP transport.
+### **StdioServerTransport**
+Standard I/O transport, typically used when the server process is managed directly by an MCP client.
+*   **Example**:
+    ```dart
+    final transport = StdioServerTransport();
+    await server.connect(transport);
+    ```
 
-```dart
-final server = StreamableMcpServer(
-  host: 'localhost',
-  port: 3000,
-  serverFactory: (sessionId) {
-    return McpServer(
-      Implementation(name: "HostedServer", version: "1.0.0"),
-    );
-  },
-);
+### **SseServerTransport** / **SseServerManager**
+Server-Sent Events transport for web-friendly communication.
+*   **SseServerManager**: Manages multiple SSE connections and routes POST messages to the correct sessions.
+*   **Example**:
+    ```dart
+    final manager = SseServerManager(mcpServer);
+    final server = await HttpServer.bind('localhost', 8080);
+    server.listen(manager.handleRequest);
+    ```
 
-await server.start();
-```
-
-- `start()`: Binds the HTTP server and starts listening for connections.
-- `stop()`: Closes the HTTP server and all active session transports.
-- `enableDnsRebindingProtection`: Security feature to prevent DNS rebinding attacks.
-
-### SseServerManager
-
-Used for managing SSE (Server-Sent Events) connections manually, typically when integrating with an existing `dart:io` `HttpServer`.
-
----
-
-## 3. Transports
-
-Transports define how the MCP JSON-RPC messages are moved between client and server.
-
-- **StdioServerTransport**: Communicates over standard input/output. Ideal for local processes managed by an IDE or CLI.
-- **SseServerTransport**: Uses a persistent GET request for server-to-client events and separate POST requests for client-to-server messages.
-- **StreamableHTTPServerTransport**: Implements the Model Context Protocol's "Streamable HTTP" specification, supporting both SSE and direct JSON responses.
+### **StreamableHTTPServerTransport**
+Implements the MCP **Streamable HTTP** specification. Supports both SSE streaming and direct JSON responses for environments where persistent connections might be interrupted.
+*   **Options**: `StreamableHTTPServerTransportOptions`
+    *   `sessionIdGenerator`: Callback to generate unique session IDs.
+    *   `enableJsonResponse`: If true, prefers JSON responses over SSE.
+    *   `keepAliveInterval`: Interval (in seconds) for SSE keep-alive messages (default: 25).
 
 ---
 
-## 4. Tasks (Experimental)
+## 3. Resource & Prompt Registration
 
-The experimental Tasks API allows servers to handle long-running operations that might require intermediate client interaction (like user input or model sampling).
+### **RegisteredResource**
+*   **Fields**: `name`, `uri`, `metadata`, `enabled`.
+*   **Methods**: `update(...)`, `remove()`, `enable()`, `disable()`.
 
-### ExperimentalMcpServerTasks
+### **RegisteredResourceTemplate**
+*   **Fields**: `resourceTemplate`, `metadata`, `enabled`.
+*   **Methods**: `update(...)`, `remove()`.
 
-Access this via `server.experimental`.
+### **RegisteredPrompt**
+*   **Fields**: `name`, `title`, `description`, `argsSchemaDefinition`, `enabled`.
+*   **Methods**: `update(...)`, `remove()`.
 
-- `registerToolTask(...)`: Registers a tool that returns a task instead of an immediate result.
-- `onListTasks(callback)`: Handler for when the client requests a list of tasks.
-- `onCancelTask(callback)`: Handler for task cancellation.
+---
 
-### ToolTaskHandler
+## 4. Task Management (Experimental)
 
-Interface for implementing task-based tools.
+The server supports long-running "Tasks" which allow for asynchronous execution and intermediate interaction with the client via sampling or elicitation.
 
+### **ToolTaskHandler** (Abstract)
+Interface for tools that implement task-based logic.
+*   `createTask(args, extra)`: Initiates a task.
+*   `getTask(taskId, extra)`: Checks task status.
+*   `getTaskResult(taskId, extra)`: Retrieves final output.
+
+### **TaskSession**
+Provides a task-specific context for interacting with the client.
+*   `elicit(message, schema)`: Ask the user for specific input.
+*   `createMessage(messages, maxTokens)`: Request LLM sampling from the client.
+
+#### **Example: Task with Elicitation**
 ```dart
-class MyLongRunningTask implements ToolTaskHandler {
+class MyTaskHandler implements ToolTaskHandler {
   @override
   Future<CreateTaskResult> createTask(Map<String, dynamic>? args, RequestHandlerExtra? extra) async {
-    // Start background work...
+    // ... logic to start a background process ...
     return CreateTaskResult(
       task: Task(
-        taskId: "task-123",
+        taskId: 'task-123',
         status: TaskStatus.working,
-        statusMessage: "Starting processing...",
       ),
     );
   }
-
-  @override
-  Future<Task> getTask(String taskId, RequestHandlerExtra? extra) async {
-    // Return current status...
-  }
-
-  // ... other methods ...
+  // ... implement other methods ...
 }
 ```
 
 ---
 
-## 5. Common Enums
+## 5. HTTP Adapters
 
-The server implementation uses several enums to represent states and configurations.
+To support both `dart:io` and the `shelf` framework, the server uses an adapter pattern.
 
-- **TaskStatus**: Used in the Task API to track execution state (`working`, `inputRequired`, `completed`, `failed`, `cancelled`).
-- **SamplingMessageRole**: Defines the sender of a message in sampling (`user`, `assistant`).
-- **IncludeContext**: Options for including server context in sampling (`none`, `thisServer`, `allServers`).
-- **StopReason**: Reason why LLM sampling might stop (`endTurn`, `stopSequence`, `maxTokens`).
-
----
-
-## 6. HTTP Adapters
-
-To remain framework-agnostic, the server uses adapters for HTTP requests/responses.
-
-- **HttpAdapter** / **HttpResponseAdapter**: Interfaces for request/response handling.
-- **DartIoHttpAdapter**: For `dart:io` native `HttpServer`.
-- **ShelfHttpAdapter**: For the `shelf` middleware ecosystem.
+*   **HttpAdapter**: Common interface for HTTP requests.
+*   **HttpResponseAdapter**: Common interface for HTTP responses.
+*   **Implementations**:
+    *   `DartIoHttpAdapter`: Wraps `HttpRequest` from `dart:io`.
+    *   `ShelfHttpAdapter`: Wraps `Request` from the `shelf` package.
 
 ---
 
-## 6. Registration Types & Schemas
+## 6. Helper Types & Constants
 
-### RegisteredTool
+### **Typedefs**
+*   **`ToolFunction`**: `FutureOr<CallToolResult> Function(Map<String, dynamic> args, RequestHandlerExtra extra)`
+*   **`PromptCallback`**: `FutureOr<GetPromptResult> Function(Map<String, dynamic>? args, RequestHandlerExtra? extra)`
+*   **`ReadResourceCallback`**: `FutureOr<ReadResourceResult> Function(Uri uri, RequestHandlerExtra extra)`
 
-When you call `registerTool`, it returns a `RegisteredTool` instance that allows you to manage the tool's lifecycle.
+### **Constants**
+*   `relatedTaskMetaKey`: Used in `meta` maps to link a result to a `taskId`.
+*   `taskNameKey`: Metadata key for the original tool name in a task.
+*   `taskInputKey`: Metadata key for the original arguments in a task.
 
-- `enable()` / `disable()`: Control whether the tool is visible to clients.
-- `remove()`: Unregister the tool from the server.
-- `update(...)`: Dynamically change the tool's metadata or callback.
-
-### ToolInputSchema
-
-Defines the parameters a tool accepts using JSON Schema.
-
-```dart
-final schema = ToolInputSchema(
-  properties: {
-    "count": JsonSchema.integer(minimum: 1),
-    "apiKey": JsonSchema.string(format: "password"),
-  },
-  required: ["count"],
-);
-```
-
----
-
-## 7. Sampling & Elicitation
-
-Servers can request information back from the client during request processing.
-
-### CreateMessageRequest (Sampling)
-
-Request an LLM completion from the client's configured model.
-
-```dart
-final samplingResult = await server.server.createMessage(
-  CreateMessageRequest(
-    messages: [
-      SamplingMessage(
-        role: SamplingMessageRole.user,
-        content: SamplingTextContent(text: "What is the weather?"),
-      ),
-    ],
-    maxTokens: 100,
-  ),
-);
-```
-
-### ElicitRequest (Elicitation)
-
-Request specific structured input from the user.
-
-```dart
-final userInput = await server.elicitInput(
-  ElicitRequest.form(
-    message: "Please provide your username",
-    requestedSchema: ElicitationInputSchema(
-      properties: {
-        "username": JsonSchema.string(),
-      },
-      required: ["username"],
-    ),
-  ),
-);
-```
-
----
-
-*Note: This documentation covers the Server-specific aspects of the MCP SDK. For shared types like `JsonSchema`, `TextContent`, and `ImageContent`, please refer to the Shared API Reference.*
+### **Naming Conventions**
+All Dart accessors for MCP types use `camelCase`, even though the underlying JSON protocol uses `snake_case`:
+*   Use `taskId`, NOT `task_id`
+*   Use `maxTokens`, NOT `max_tokens`
+*   Use `inputSchema`, NOT `input_schema`

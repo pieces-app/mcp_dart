@@ -1,79 +1,144 @@
-# Quickstart: Package Entry Points
+# Package Entry Points Quickstart
 
-## 1. Overview
-The **Package Entry Points** module provides the high-level API for the `mcp_dart` package. It serves as the primary gateway for developers building Model Context Protocol (MCP) applications, exporting the essential classes for both client and server implementations.
+The **Package Entry Points** module is the primary gateway to the Model Context Protocol (MCP) SDK for Dart. This module, owned by the core `mcp_dart` package, provides the essential interfaces for building MCP clients and servers, handling protocol handshakes, and managing various MCP capabilities.
 
-This module is owned by the core **`mcp_dart`** package. It facilitates seamless integration with sub-packages like **`mcp_dart_cli`**, which provides command-line tools for scaffolding and inspecting MCP servers built using these entry points.
+## 1. Multi-Package Repository Structure
 
-## 2. Import
-To access the complete suite of MCP functionality, import the main entry point:
+This workspace is a multi-package repository:
+- **`mcp_dart`** (Root): The core SDK library providing protocol implementation, types, and transports.
+- **`mcp_dart_cli`** (`packages/mcp_dart_cli/`): A command-line interface for creating, inspecting, and serving MCP servers built with `mcp_dart`.
+
+## 2. Installation
+
+Add `mcp_dart` to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  mcp_dart: ^1.0.0
+```
+
+## 3. Import
+
+Import the main library to access all core MCP functionalities. The library automatically handles platform-specific exports for native (`dart:io`) and web environments.
 
 ```dart
 import 'package:mcp_dart/mcp_dart.dart';
 ```
 
-## 3. Server Implementation
-The `McpServer` class is the central hub for creating MCP servers. It handles the protocol handshake and provides a simplified registration API.
+## 4. Basic Setup
 
-### Basic Setup
+MCP utilizes a client-server architecture where both sides exchange information about their implementation and capabilities during a handshake.
+
+### Implementation Details
+Define your implementation info using the `Implementation` class:
+
 ```dart
+final clientInfo = Implementation(
+  name: 'example-client',
+  version: '1.0.0',
+);
+
 final serverInfo = Implementation(
   name: 'example-server',
   version: '1.0.0',
-  description: 'An example MCP server',
 );
+```
 
+### Initializing Client and Server
+Instantiate `McpClient` or `McpServer` with implementation details and optional configuration.
+
+```dart
+// Setup a Client
+final client = McpClient(clientInfo);
+
+// Setup a Server with specific capabilities and instructions
 final server = McpServer(
   serverInfo,
-  options: const McpServerOptions(
-    capabilities: ServerCapabilities(
-      logging: {}, // Enable logging support
-      prompts: ServerCapabilitiesPrompts(listChanged: true),
-      resources: ServerCapabilitiesResources(subscribe: true, listChanged: true),
+  options: McpServerOptions(
+    capabilities: const ServerCapabilities(
+      logging: {},
       tools: ServerCapabilitiesTools(listChanged: true),
     ),
+    instructions: 'Use this server to fetch weather data and manage tasks.',
   ),
 );
 ```
 
+## 5. Server Implementation
+
+The `McpServer` class provides high-level methods to register various MCP features.
+
 ### Registering Tools
-Tools are executable functions that the server exposes to clients.
+Tools allow clients (and LLMs) to perform actions.
 
 ```dart
 server.registerTool(
-  'echo_message',
-  title: 'Echo Tool',
-  description: 'Repeats the input message back to the client',
-  inputSchema: JsonObject(
+  'get_weather',
+  description: 'Fetches current weather for a location',
+  inputSchema: JsonSchema.object(
     properties: {
-      'message': JsonSchema.string(description: 'The message to echo'),
+      'city': JsonSchema.string(description: 'The city name'),
+      'unit': JsonSchema.string(
+        enumValues: ['celsius', 'fahrenheit'],
+        defaultValue: 'celsius',
+      ),
     },
-    required: ['message'],
+    required: ['city'],
   ),
   callback: (args, extra) async {
-    final String message = args['message'];
+    final city = args['city'] as String;
+    final unit = args['unit'] as String;
+    
+    // Implementation logic here
     return CallToolResult(
-      content: [TextContent(text: 'Echo: $message')],
+      content: [TextContent(text: 'The weather in $city is 22° $unit.')],
     );
   },
 );
 ```
 
 ### Registering Resources
-Resources represent data that can be read by clients, such as files, database records, or system state.
+Resources provide structured data or content to the client.
 
 ```dart
 server.registerResource(
-  'system_status',
-  'system://status',
-  (description: 'Current system status', mimeType: 'text/plain'),
+  'system_logs',
+  'file:///var/log/system.log',
+  const (description: 'Access to system log files', mimeType: 'text/plain'),
   (uri, extra) async {
     return ReadResourceResult(
       contents: [
         TextResourceContents(
           uri: uri.toString(),
-          text: 'System is healthy.',
-          mimeType: 'text/plain',
+          text: 'Log entry: System started at 2026-03-28...',
+        ),
+      ],
+    );
+  },
+);
+```
+
+### Registering Resource Templates
+Resource templates use URI patterns (RFC 6570) to dynamically resolve resources.
+
+```dart
+server.registerResourceTemplate(
+  'user_profile',
+  ResourceTemplateRegistration(
+    'users://{username}/profile',
+    listCallback: (extra) async {
+      return const ListResourcesResult(resources: []);
+    },
+  ),
+  const (description: 'Dynamic user profile data', mimeType: 'application/json'),
+  (uri, variables, extra) async {
+    final username = variables['username'];
+    return ReadResourceResult(
+      contents: [
+        TextResourceContents(
+          uri: uri.toString(),
+          mimeType: 'application/json',
+          text: '{"user": "$username", "status": "active"}',
         ),
       ],
     );
@@ -82,99 +147,190 @@ server.registerResource(
 ```
 
 ### Registering Prompts
-Prompts are reusable templates that help clients interact with LLMs.
+Prompts are templates for LLM interactions.
 
 ```dart
 server.registerPrompt(
-  'creative_writer',
-  title: 'Story Starter',
-  description: 'Generates a creative writing prompt',
+  'code_review',
+  description: 'Reviews code for potential bugs and style issues',
   argsSchema: {
-    'genre': const PromptArgumentDefinition(
-      description: 'The genre of the story',
+    'language': const PromptArgumentDefinition(
+      description: 'The programming language',
       required: true,
     ),
   },
   callback: (args, extra) async {
-    final genre = args?['genre'] ?? 'fantasy';
+    final lang = args?['language'] ?? 'dart';
     return GetPromptResult(
       messages: [
         PromptMessage(
           role: PromptMessageRole.user,
-          content: TextContent(text: 'Write a $genre story opening.'),
+          content: TextContent(text: 'Please review this $lang code for me.'),
         ),
       ],
     );
   },
 );
-
-// Notify clients when registration changes
-server.sendPromptListChanged();
 ```
 
-## 4. Client Implementation
-The `McpClient` class manages the connection to an MCP server and provides methods to invoke server capabilities.
+## 6. Client Operations
 
-### Basic Setup and Connection
+Establish a connection using a `Transport` and perform standard MCP requests.
+
+### Connecting to a Server (Stdio)
 ```dart
-final clientInfo = Implementation(name: 'example-client', version: '1.0.0');
-final client = McpClient(clientInfo);
+Future<void> initClient() async {
+  final transport = StdioClientTransport(
+    StdioServerParameters(
+      command: 'dart',
+      args: ['run', 'bin/server.dart'],
+    ),
+  );
 
-// Use a transport (e.g., StdioClientTransport or StreamableHttpClientTransport)
-// await client.connect(transport);
-```
-
-### Interacting with the Server
-```dart
-// List available tools
-final toolsResult = await client.listTools();
-print('Available tools: ${toolsResult.tools.map((t) => t.name)}');
-
-// Call a tool
-final callResult = await client.callTool(
-  CallToolRequest(
-    name: 'echo_message',
-    arguments: {'message': 'Hello MCP!'},
-  ),
-);
-
-if (!callResult.isError) {
-  final content = callResult.content.first as TextContent;
-  print(content.text);
+  await client.connect(transport);
+  print('Connected to server: ${client.getServerVersion()?.name}');
 }
 ```
 
-## 5. Shared Utilities
-The entry point provides access to cross-cutting concerns used by both clients and servers.
+### Calling a Tool
+```dart
+final result = await client.callTool(
+  CallToolRequest(
+    name: 'get_weather',
+    arguments: {'city': 'San Francisco'},
+  ),
+);
+
+if (!result.isError) {
+  for (final item in result.content) {
+    if (item is TextContent) print(item.text);
+  }
+}
+```
+
+### Listing and Reading Resources
+```dart
+// List available resources
+final resources = await client.listResources();
+
+// Read a specific resource
+final content = await client.readResource(
+  ReadResourceRequest(uri: 'file:///var/log/system.log'),
+);
+```
+
+## 7. Advanced Features
+
+### Tasks and Progress
+MCP supports long-running tasks with progress notifications and cancellation.
+
+```dart
+// Server-side progress reporting
+server.registerTool(
+  'heavy_operation',
+  callback: (args, extra) async {
+    for (var i = 0; i <= 100; i += 20) {
+      await Future.delayed(const Duration(seconds: 1));
+      await extra.sendProgress(i.toDouble(), total: 100, message: 'Processing...');
+    }
+    return CallToolResult(content: [TextContent(text: 'Done!')]);
+  },
+);
+
+// Client-side request with progress callback
+final result = await client.callTool(
+  CallToolRequest(name: 'heavy_operation'),
+  options: RequestOptions(
+    onprogress: (progress) {
+      print('Progress: ${progress.progress}/${progress.total} - ${progress.message}');
+    },
+  ),
+);
+```
+
+### Sampling (LLM-in-the-loop)
+Servers can request the client to sample an LLM.
+
+```dart
+// Client-side setup for sampling
+client.onSamplingRequest = (params) async {
+  // Integrate with your LLM provider (e.g., OpenAI, Anthropic, Gemini)
+  return CreateMessageResult(
+    model: 'gpt-4',
+    role: SamplingMessageRole.assistant,
+    content: SamplingTextContent(text: 'This is a sample response.'),
+    stopReason: StopReason.endTurn,
+  );
+};
+
+// Server-side requesting sampling
+final sample = await server.createMessage(
+  CreateMessageRequest(
+    messages: [
+      SamplingMessage(
+        role: SamplingMessageRole.user,
+        content: SamplingTextContent(text: 'Explain MCP in one sentence.'),
+      ),
+    ],
+    maxTokens: 100,
+  ),
+);
+```
+
+### Elicitation (User-in-the-loop)
+Servers can request structured user input from the client.
+
+```dart
+// Server requesting input
+final elicitationResult = await server.elicitInput(
+  ElicitRequest.form(
+    message: 'Please provide your API key:',
+    requestedSchema: JsonSchema.string(title: 'API Key'),
+  ),
+);
+
+if (elicitationResult.accepted) {
+  print('User provided: ${elicitationResult.content}');
+}
+```
 
 ### Logging
-The `Logger` class provides a consistent way to handle diagnostics.
+MCP provides a standardized way for servers to send log messages to clients.
 
 ```dart
-final logger = Logger('MyComponent');
-logger.info('Initializing component...');
-logger.error('Unexpected state encountered');
+// Server sending a log message
+await server.sendLoggingMessage(
+  LoggingMessageNotification(
+    level: LoggingLevel.info,
+    logger: 'database_service',
+    data: 'Connected to database successfully.',
+  ),
+);
+
+// Client-side control of logging level
+await client.setLoggingLevel(LoggingLevel.debug);
 ```
 
-### UUID Generation
-Generate unique identifiers for tasks, sessions, or resources.
+### Roots
+Clients can expose "roots" (e.g., workspace folders) that the server can operate on.
 
 ```dart
-final String sessionId = generateUUID();
+// Server requesting the list of roots from the client
+final rootsResult = await server.listRoots();
+for (final root in rootsResult.roots) {
+  print('Client root: ${root.uri} (${root.name})');
+}
+
+// Client notifying the server when roots change
+await client.sendRootsListChanged();
 ```
 
-## 6. Integration with `mcp_dart_cli`
-If you are developing a server using these entry points, you can use the `mcp_dart_cli` tool to verify your implementation:
+## 8. Integration with `mcp_dart_cli`
 
-1.  **Scaffolding**: Generate a new server project template.
-2.  **Inspection**: Run `mcp_dart inspect` against your server binary to test protocol compliance.
-3.  **Serving**: Use `mcp_dart serve` to expose your server over different transports (e.g., SSE).
+The `mcp_dart_cli` package provides tools to facilitate the development lifecycle of `mcp_dart` servers:
 
-Refer to the `packages/mcp_dart_cli` documentation for more details.
+- **Scaffolding**: Create new MCP server projects with `mcp_dart create`.
+- **Debugging**: Inspect and test your server capabilities using `mcp_dart inspect`.
+- **Deployment**: Serve your MCP server over various transports with `mcp_dart serve`.
 
-## 7. Module Architecture
-The entry points aggregate functionality from the following internal modules:
-- **`client`**: Handlers for connection management and outbound requests.
-- **`server`**: Core logic for request routing and capability registration.
-- **`shared`**: The JSON-RPC protocol implementation and JSON Schema validation.
-- **`types`**: Type-safe data models for MCP messages and entities.
+For more details, refer to the [mcp_dart_cli documentation](../packages/mcp_dart_cli/README.md).

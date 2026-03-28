@@ -82,7 +82,7 @@ jobs:
         shell: bash
         run: |
           dart pub global deactivate runtime_ci_tooling 2>/dev/null || true
-          dart pub global activate --source git https://github.com/open-runtime/runtime_ci_tooling.git --git-ref v0.23.13
+          dart pub global activate --source git https://github.com/open-runtime/runtime_ci_tooling.git --git-ref v0.26.1
 
       - uses: actions/setup-node@v6
         if: steps.trigger.outputs.run == 'true'

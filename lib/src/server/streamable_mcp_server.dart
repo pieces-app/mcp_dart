@@ -383,20 +383,45 @@ class StreamableMcpServer {
     final completer = Completer<Uint8List>();
     final sink = BytesBuilder();
     var totalBytes = 0;
-    late final StreamSubscription<List<int>> subscription;
+    var exceededLimit = false;
 
-    subscription = request.listen(
+    request.listen(
       (chunk) {
+        if (exceededLimit) {
+          return;
+        }
+
         totalBytes += chunk.length;
         if (totalBytes > maxBodySize) {
-          subscription.cancel();
-          completer.completeError(_PayloadTooLargeException(maxBodySize));
+          exceededLimit = true;
           return;
         }
         sink.add(chunk);
       },
-      onDone: () => completer.complete(sink.takeBytes()),
-      onError: completer.completeError,
+      onDone: () {
+        if (completer.isCompleted) {
+          return;
+        }
+
+        if (exceededLimit) {
+          completer.completeError(_PayloadTooLargeException(maxBodySize));
+          return;
+        }
+
+        completer.complete(sink.takeBytes());
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (completer.isCompleted) {
+          return;
+        }
+
+        if (exceededLimit) {
+          completer.completeError(_PayloadTooLargeException(maxBodySize), stackTrace);
+          return;
+        }
+
+        completer.completeError(error, stackTrace);
+      },
       cancelOnError: true,
     );
 
