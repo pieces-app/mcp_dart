@@ -90,7 +90,14 @@ class IOStreamTransport implements Transport {
   /// Internal handler for data received from the input stream
   void _onStreamData(List<int> chunk) {
     if (chunk is! Uint8List) chunk = Uint8List.fromList(chunk);
-    _readBuffer.append(chunk);
+    // FIX: Check append() return value — false means the buffer overflowed
+    // its size limit. Report the error and tear down the transport rather
+    // than silently processing a cleared (empty) buffer.
+    if (!_readBuffer.append(chunk)) {
+      onerror?.call(StateError('ReadBuffer overflow: exceeded ${_readBuffer.maxBufferSize} bytes. Closing transport.'));
+      close();
+      return;
+    }
     _processReadBuffer();
   }
 
@@ -123,6 +130,9 @@ class IOStreamTransport implements Transport {
           _logger.warn("Error in onmessage handler: $e");
           onerror?.call(StateError("Error in onmessage handler: $e"));
         }
+      } on MalformedLineException catch (e) {
+        _logger.warn("IOStreamTransport: Skipping malformed line: $e");
+        continue;
       } catch (error) {
         final Error parseError = (error is Error) ? error : StateError("Message parsing error: $error");
         try {
@@ -131,7 +141,10 @@ class IOStreamTransport implements Transport {
           _logger.warn("Error in onerror handler: $e");
         }
         _logger.warn("IOStreamTransport: Error processing read buffer: $parseError. Skipping data.");
-        break; // Stop processing buffer on error
+        // FIX: Use continue instead of break. readMessage() already advanced
+        // the buffer past the bad line before deserializeMessage() threw, so
+        // breaking would strand any valid messages remaining in the buffer.
+        continue;
       }
     }
   }
@@ -147,11 +160,26 @@ class IOStreamTransport implements Transport {
     _started = false;
     _closed = true;
 
-    // Cancel stream subscription
-    await _streamSubscription?.cancel();
+    // Cancel stream subscription — try-caught so a throwing cancel()
+    // (e.g. from an already-errored stream) doesn't prevent the rest
+    // of close() (buffer clear, sink close, onclose) from running.
+    try {
+      await _streamSubscription?.cancel();
+    } catch (e) {
+      _logger.warn('Error cancelling stream subscription: $e');
+    }
     _streamSubscription = null;
 
     _readBuffer.clear();
+
+    // Close the output sink so the downstream consumer sees EOF.
+    // Without this the sink stays open and the peer never learns the
+    // transport is gone.
+    try {
+      await sink.close();
+    } catch (e) {
+      _logger.warn('Error closing output sink: $e');
+    }
 
     // Invoke the onclose callback
     try {
@@ -183,7 +211,7 @@ class IOStreamTransport implements Transport {
       } catch (e) {
         _logger.warn("Error in onerror handler: $e");
       }
-      close();
+      await close();
       throw sendError; // Rethrow after cleanup attempt
     }
   }

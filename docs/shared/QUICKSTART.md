@@ -1,188 +1,194 @@
 # Shared Module Quickstart
 
-The **Shared** module is the foundational layer of the `mcp_dart` ecosystem. It provides the essential primitives for implementing the Model Context Protocol (MCP), including JSON-RPC protocol handling, transport abstractions, type-safe JSON schema building, and cross-platform utilities.
+## 1. Overview
 
-## Package Context
-- **Owning Package:** `mcp_dart`
-- **Integration:** This module is the core dependency for both `mcp_dart` (Client/Server) and the `mcp_dart_cli` package. It ensures that protocol logic and validation rules remain consistent across all implementations.
+The **Shared** module is the foundational layer of the `mcp_dart` package. It provides the core primitives, protocol framing, and utilities used by both the [Client](../client/QUICKSTART.md) and [Server](../server/QUICKSTART.md) implementations.
 
-## 1. Import
-The module provides both standard IO and web-compatible entry points.
+### Package Ownership
+This module is owned by the main **`mcp_dart`** package. It is designed to be platform-agnostic where possible, with specific entry points for standard Dart IO and Web environments.
+
+### Integration
+- **`mcp_dart`**: The root package uses these primitives to implement the full MCP stack.
+- **`mcp_dart_cli`**: The CLI tool leverages the shared utilities (like `ToolNameValidation` and `UriTemplateExpander`) to inspect servers and validate configurations.
+
+## 2. Import
+
+Primary access to the shared module is through platform-specific exports:
 
 ```dart
-// Standard IO-compatible components (includes IOStreamTransport)
-import 'package:mcp_dart/src/shared/module.dart';
+// For standard Dart IO (Servers, CLI tools, Native clients)
+import 'package:mcp_dart/mcp_dart.dart'; // Exports common utilities
+import 'package:mcp_dart/src/shared/module.dart'; // Exports Transport, Protocol, etc.
 
-// Web-compatible components (excludes dart:io dependencies)
+// For Web-compatible applications
 import 'package:mcp_dart/src/shared/module_web.dart';
-
-// Specific utilities and types
-import 'package:mcp_dart/src/shared/json_schema/json_schema.dart';
-import 'package:mcp_dart/src/shared/protocol.dart';
-import 'package:mcp_dart/src/shared/logging.dart';
-import 'package:mcp_dart/src/shared/uri_template.dart';
-import 'package:mcp_dart/src/shared/uuid.dart';
 ```
 
-## 2. Core Transport: IOStream
-`IOStreamTransport` allows MCP communication over standard input and output streams. This is the primary transport for local MCP servers.
+Specific utilities can also be imported directly:
+
+```dart
+import 'package:mcp_dart/src/shared/json_schema/json_schema.dart';
+import 'package:mcp_dart/src/shared/uri_template.dart';
+import 'package:mcp_dart/src/shared/tool_name_validation.dart';
+```
+
+## 3. Core Utilities
+
+### Building and Validating JSON Schemas
+
+The module provides a type-safe `JsonSchema` builder. Note that Dart properties use `camelCase`.
+
+```dart
+import 'package:mcp_dart/src/shared/json_schema/json_schema.dart';
+import 'package:mcp_dart/src/shared/json_schema/json_schema_validator.dart';
+
+void main() {
+  // Define a complex schema using the builder pattern
+  final schema = JsonSchema.object(
+    required: ['productId', 'quantity'],
+    properties: {
+      'productId': JsonSchema.string(
+        pattern: r'^[A-Z]{3}-\d{4}$',
+        description: 'Format: AAA-1234',
+      ),
+      'quantity': JsonSchema.integer(minimum: 1, defaultValue: 1),
+      'category': JsonSchema.string(
+        enumValues: ['electronics', 'clothing', 'books'],
+      ),
+    },
+  );
+
+  final data = {
+    'productId': 'LAP-9021',
+    'quantity': 2,
+    'category': 'electronics',
+  };
+
+  try {
+    schema.validate(data);
+    print('Schema validation passed!');
+  } on JsonSchemaValidationException catch (e) {
+    print('Validation error: ${e.message} at ${e.path.join("/")}');
+  }
+}
+```
+
+### Expanding URI Templates (RFC 6570)
+
+The `UriTemplateExpander` is used for resource templates and prompt arguments.
+
+```dart
+import 'package:mcp_dart/src/shared/uri_template.dart';
+
+void main() {
+  final template = UriTemplateExpander('https://api.example.com/v1/users/{userId}/posts{?limit,sort}');
+  
+  final expanded = template.expand({
+    'userId': '123',
+    'limit': 10,
+    'sort': 'desc',
+  });
+  
+  print('Expanded URI: $expanded');
+  // Output: https://api.example.com/v1/users/123/posts?limit=10&sort=desc
+}
+```
+
+### Tool Name Validation
+
+Ensures tool names comply with MCP specifications (SEP-986).
+
+```dart
+import 'package:mcp_dart/src/shared/tool_name_validation.dart';
+
+void main() {
+  const toolName = 'my_awesome-tool.v1';
+  final result = validateToolName(toolName);
+  
+  if (result.isValid) {
+    print('"$toolName" is a valid MCP tool name.');
+  } else {
+    for (final warning in result.warnings) {
+      print('Warning: $warning');
+    }
+  }
+}
+```
+
+### Generating UUIDs
+
+A simple utility for generating RFC4122 compliant UUID (version 4) strings.
+
+```dart
+import 'package:mcp_dart/mcp_dart.dart';
+
+void main() {
+  final myId = generateUUID();
+  print('Generated ID: $myId');
+}
+```
+
+## 4. Transport & Protocol
+
+### IOStreamTransport
+
+The `IOStreamTransport` implements the `Transport` interface using standard I/O streams, which is the default for most MCP servers.
 
 ```dart
 import 'dart:io';
 import 'package:mcp_dart/src/shared/iostream.dart';
 
-final transport = IOStreamTransport(
-  stream: stdin,
-  sink: stdout,
-);
+void main() async {
+  final transport = IOStreamTransport(
+    stream: stdin,
+    sink: stdout,
+  );
 
-// The transport is typically started by the Client or Server connect() method.
+  // The transport is usually managed by a Client or Server instance
+  // but can be started manually for custom protocol implementations.
+  await transport.start();
+  
+  transport.onmessage = (message) {
+    print('Received message: ${message.toJson()}');
+  };
+}
 ```
 
-## 3. Protocol Configuration
-The `Protocol` class handles the JSON-RPC lifecycle and can be customized using `ProtocolOptions`.
+### Protocol Options
+
+When initializing the protocol layer, you can configure various behaviors:
 
 ```dart
 import 'package:mcp_dart/src/shared/protocol.dart';
 
-final options = ProtocolOptions(
-  // Restrict requests to advertised capabilities
-  enforceStrictCapabilities: true,
-  // Automatically debounce specific notifications
-  debouncedNotificationMethods: ['notifications/progress'],
-  // Default polling for task status (ms)
-  defaultTaskPollInterval: 1000,
-  // Maximum messages to queue per task
-  maxTaskQueueSize: 100,
+const options = ProtocolOptions(
+  enforceStrictCapabilities: true, // Validate requests against advertised capabilities
+  defaultTaskPollInterval: 2000,   // Polling interval for tasks in ms
+  maxTaskQueueSize: 100,           // Max messages per task queue
 );
 ```
 
-### Request-Level Control
-Use `RequestOptions` to manage timeouts and track operation progress.
+## 5. Global Logging
+
+Logging is centralized and can be customized by providing a custom handler.
 
 ```dart
-final requestOptions = RequestOptions(
-  timeout: Duration(seconds: 45),
-  // Note: onprogress is used for progress notification callbacks
-  onprogress: (progress) {
-    print('Progress: ${progress.progress * 100}% - ${progress.message ?? ""}');
-  },
-);
-```
+import 'package:mcp_dart/src/shared/logging.dart';
 
-## 4. Type-Safe JSON Schema
-The `JsonSchema` builder provides a fluent API for defining MCP-compatible validation rules.
-
-```dart
-final searchSchema = JsonSchema.object(
-  title: 'SearchParameters',
-  description: 'Parameters for the search tool',
-  properties: {
-    'query': JsonSchema.string(
-      description: 'The search term',
-      minLength: 1,
-    ),
-    'limit': JsonSchema.integer(
-      description: 'Maximum results to return',
-      minimum: 1,
-      maximum: 100,
-      defaultValue: 10,
-    ),
-  },
-  required: ['query'],
-);
-
-// Convert to JSON for registration
-final jsonRepresentation = searchSchema.toJson();
-```
-
-## 5. Advanced Features
-
-### Cancellable Requests
-Use `AbortController` to cancel in-flight requests gracefully.
-
-```dart
-import 'package:mcp_dart/src/shared/protocol.dart';
-
-final controller = BasicAbortController();
-final options = RequestOptions(signal: controller.signal);
-
-// Call a tool with the cancellation signal
-client.callTool('heavy_task', {}, options);
-
-// Later, if needed:
-controller.abort('Operation no longer required');
-```
-
-### Request Streams (Tasks)
-For long-running operations that support progress and status updates, use `requestStream`.
-
-```dart
-final stream = client.requestStream(
-  JsonRpcRequest(
-    method: 'tools/call',
-    params: {'name': 'generate_report', 'arguments': {...}},
-  ),
-  (json) => CallToolResult.fromJson(json),
-  RequestOptions(task: TaskCreation(ttl: 3600)),
-);
-
-await for (final message in stream) {
-  if (message is TaskCreatedMessage) {
-    print('Task ID: ${message.task.taskId}');
-  } else if (message is TaskStatusMessage) {
-    print('Status: ${message.task.status.name}');
-  } else if (message is TaskResultMessage) {
-    print('Completed: ${message.result}');
-  }
+void setupLogging() {
+  Logger.setHandler((loggerName, level, message) {
+    final timestamp = DateTime.now().toIso8601String();
+    // Redirect logs to stderr to avoid polluting stdout in MCP stdio servers
+    stderr.writeln('[$timestamp] [${level.name.toUpperCase()}] [$loggerName] $message');
+  });
 }
 ```
 
-### Progress Reporting
-Inside request handlers, use `RequestHandlerExtra` to send updates back to the client.
+## 6. Task Interfaces
 
-```dart
-Future<BaseResultData> handleRequest(JsonRpcRequest request, RequestHandlerExtra extra) async {
-  // Send a progress notification if the client requested it
-  await extra.sendProgress(0.5, message: 'Processing data...');
-  
-  // ... perform work ...
-  
-  return const EmptyResult();
-}
-```
+The shared module defines the interfaces for long-running tasks:
 
-## 6. Essential Utilities
+- **`TaskStore`**: Interface for persisting task state and results.
+- **`TaskMessageQueue`**: Interface for managing side-channel messages (notifications, progress) for active tasks.
 
-### URI Template Expansion
-```dart
-final template = UriTemplateExpander('/files/{path}{?version}');
-final uri = template.expand({'path': 'docs/readme.md', 'version': '2.0'});
-// Result: /files/docs/readme.md?version=2.0
-```
-
-### Tool Name Validation
-Ensure tool names conform to the MCP standard (SEP-986).
-
-```dart
-import 'package:mcp_dart/src/shared/tool_name_validation.dart';
-
-// Validates against standard and issues warnings for non-conforming names
-final isValid = validateAndWarnToolName('my_tool_v1');
-```
-
-### UUID Generation
-```dart
-import 'package:mcp_dart/src/shared/uuid.dart';
-
-final id = generateUUID(); // Returns an RFC4122 v4 UUID string
-```
-
-### Global Logging
-Configure how the entire MCP stack logs internal events.
-
-```dart
-Logger.setHandler((loggerName, level, message) {
-  print('[$level][$loggerName] $message');
-});
-```
+Implement these interfaces if you need custom task persistence (e.g., using a database or Redis).

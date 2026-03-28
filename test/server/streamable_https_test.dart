@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:mcp_dart/src/server/streamable_https.dart';
 import 'package:mcp_dart/src/shared/uuid.dart';
 import 'package:mcp_dart/src/types.dart';
+import 'package:shelf/shelf.dart' as shelf;
 import 'package:test/test.dart';
 
 /// A simple implementation of EventStore for testing event resumability
@@ -177,26 +179,70 @@ void main() {
       await transport.close();
     });
 
-    test('GET request establishes SSE stream', () async {
-      // Create a transport with fixed session ID
+    test('GET request establishes SSE stream and delivers notifications', () async {
       final transport = StreamableHTTPServerTransport(
         options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "test-session-id"),
       );
       await transport.start();
       transports['/mcp'] = transport;
 
-      // Set the session ID for testing
-      transport.sessionId = "test-session-id";
+      // Initialize via shelf POST so _initialized becomes true
+      transport.onmessage = (message) {
+        if (message is JsonRpcRequest && message.method == 'initialize') {
+          transport.send(
+            JsonRpcResponse(
+              id: message.id,
+              result: {
+                'protocolVersion': '2024-11-05',
+                'serverInfo': {'name': 'test-server', 'version': '1.0.0'},
+                'capabilities': {},
+              },
+            ),
+            relatedRequestId: message.id,
+          );
+        }
+      };
 
-      // Create a notification to send via the SSE stream
-      final notification = const JsonRpcNotification(method: 'test/notification', params: {'message': 'hello'});
+      final initReq = shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/mcp'),
+        headers: {'accept': 'application/json, text/event-stream', 'content-type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'initialize',
+          'params': {
+            'protocolVersion': '2024-11-05',
+            'clientInfo': {'name': 'test', 'version': '1.0'},
+            'capabilities': {},
+          },
+        }),
+      );
+      final initResp = await transport.handleShelfRequest(initReq);
+      expect(initResp.statusCode, equals(200));
 
-      // Verify the transport can send messages without exceptions
-      try {
-        await transport.send(notification);
-      } catch (e) {
-        fail("Transport send method threw an exception: $e");
-      }
+      // Establish standalone SSE stream via shelf GET
+      final getReq = shelf.Request(
+        'GET',
+        Uri.parse('http://localhost/mcp'),
+        headers: {'accept': 'text/event-stream', 'mcp-session-id': transport.sessionId!},
+      );
+      final sseResp = await transport.handleShelfRequest(getReq);
+      expect(sseResp.statusCode, equals(200));
+
+      // Send a notification and verify it appears in the SSE stream
+      const notification = JsonRpcNotification(method: 'test/notification', params: {'message': 'hello'});
+      await transport.send(notification);
+
+      final bodyBytes = await sseResp
+          .read()
+          .timeout(const Duration(seconds: 2), onTimeout: (sink) => sink.close())
+          .fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
+
+      final bodyText = utf8.decode(bodyBytes);
+      expect(bodyText, contains('event: message'), reason: 'SSE stream must contain a message event');
+      expect(bodyText, contains('"method":"test/notification"'));
+      expect(bodyText, contains('"message":"hello"'));
 
       await transport.close();
     });
@@ -241,7 +287,7 @@ void main() {
     }, timeout: const Timeout(Duration(seconds: 5)));
 
     test('enableJsonResponse option is accepted', () async {
-      // Create a transport with JSON response enabled
+      final errors = <Error>[];
       final transport = StreamableHTTPServerTransport(
         options: StreamableHTTPServerTransportOptions(
           sessionIdGenerator: () => "test-session-id",
@@ -250,16 +296,23 @@ void main() {
       );
 
       await transport.start();
+      transport.onerror = (error) => errors.add(error);
       transports['/mcp'] = transport;
       transport.sessionId = "test-session-id";
 
+      expect(
+        transport.sessionId,
+        equals("test-session-id"),
+        reason: 'Session ID should be assignable after start with enableJsonResponse',
+      );
+
       await transport.close();
 
-      // If we reach here without exceptions, the test passes
-      expect(true, isTrue, reason: "Transport successfully created with enableJsonResponse=true");
+      expect(errors, isEmpty, reason: 'No errors should occur with enableJsonResponse=true');
     });
 
     test('dns rebinding protection options are accepted', () async {
+      final errors = <Error>[];
       final transport = StreamableHTTPServerTransport(
         options: StreamableHTTPServerTransportOptions(
           sessionIdGenerator: () => 'test-session-id',
@@ -270,12 +323,23 @@ void main() {
       );
 
       await transport.start();
+      transport.onerror = (error) => errors.add(error);
       transports['/mcp'] = transport;
       transport.sessionId = 'test-session-id';
 
+      expect(
+        transport.sessionId,
+        equals('test-session-id'),
+        reason: 'Session ID should be assignable with DNS rebinding protection enabled',
+      );
+
+      bool oncloseCalled = false;
+      transport.onclose = () => oncloseCalled = true;
+
       await transport.close();
 
-      expect(true, isTrue);
+      expect(oncloseCalled, isTrue, reason: 'onclose should fire on clean shutdown');
+      expect(errors, isEmpty, reason: 'No errors should occur with DNS rebinding protection options');
     });
 
     test('session validation works correctly', () async {
@@ -558,13 +622,22 @@ void main() {
       await transport.start();
       transport.sessionId = "test-session-id";
 
-      // Send notification without established SSE stream
+      final errors = <Error>[];
+      transport.onerror = (error) => errors.add(error);
+
       final notification = const JsonRpcNotification(method: 'test/notification', params: {'message': 'hello'});
 
-      // This should not throw - notifications are discarded if no stream
       await transport.send(notification);
 
+      expect(errors, isEmpty, reason: 'Discarding a notification must not produce an error');
+
+      // Transport must remain healthy — onclose should still fire on close.
+      bool oncloseCalled = false;
+      transport.onclose = () => oncloseCalled = true;
+
       await transport.close();
+
+      expect(oncloseCalled, isTrue, reason: 'Transport must close cleanly after discarding notifications');
     });
 
     test('send throws StateError for unknown request ID', () async {
@@ -657,5 +730,193 @@ void main() {
 
       await transport.close();
     });
+
+    test('body size limit enforcement returns 413 for oversized POST', () async {
+      final transport = StreamableHTTPServerTransport(
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => 'body-limit-session', maxBodySize: 100),
+      );
+      await transport.start();
+      transports['/mcp'] = transport;
+
+      final client = HttpClient();
+      try {
+        final req = await client.postUrl(Uri.parse('$serverUrlBase/mcp'));
+        req.headers.contentType = ContentType.json;
+        req.headers.set('Accept', 'application/json, text/event-stream');
+        req.write('a' * 200);
+        final res = await req.close();
+
+        expect(res.statusCode, HttpStatus.requestEntityTooLarge);
+        await res.drain();
+      } finally {
+        client.close(force: true);
+        await transport.close();
+      }
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
+    test('double close is safe and fires onclose exactly once', () async {
+      final transport = StreamableHTTPServerTransport(
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => 'double-close-session'),
+      );
+      await transport.start();
+      transport.sessionId = 'double-close-session';
+
+      int oncloseCount = 0;
+      final errors = <Error>[];
+      transport.onclose = () {
+        oncloseCount++;
+      };
+      transport.onerror = (error) {
+        errors.add(error);
+      };
+
+      await transport.close();
+      await transport.close();
+      await transport.close();
+
+      expect(oncloseCount, equals(1), reason: 'onclose must fire exactly once');
+      expect(errors, isEmpty, reason: 'no errors on repeated close');
+    });
+
+    test('send notification via shelf adapter standalone SSE stream', () async {
+      final transport = StreamableHTTPServerTransport(
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => 'shelf-sse-session'),
+      );
+      await transport.start();
+
+      // Step 1: Initialize via shelf POST so _initialized becomes true
+      final initBody = jsonEncode({
+        'jsonrpc': '2.0',
+        'id': 1,
+        'method': 'initialize',
+        'params': {
+          'protocolVersion': '2024-11-05',
+          'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
+          'capabilities': {},
+        },
+      });
+
+      transport.onmessage = (message) {
+        if (message is JsonRpcRequest && message.method == 'initialize') {
+          transport.send(
+            JsonRpcResponse(
+              id: message.id,
+              result: {
+                'protocolVersion': '2024-11-05',
+                'serverInfo': {'name': 'test-server', 'version': '1.0.0'},
+                'capabilities': {},
+              },
+            ),
+            relatedRequestId: message.id,
+          );
+        }
+      };
+
+      final initReq = shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/mcp'),
+        headers: {'accept': 'application/json, text/event-stream', 'content-type': 'application/json'},
+        body: initBody,
+      );
+
+      final initResponse = await transport.handleShelfRequest(initReq);
+      expect(initResponse.statusCode, equals(200));
+      expect(transport.sessionId, equals('shelf-sse-session'));
+
+      // Step 2: Establish standalone SSE stream via shelf GET
+      final getReq = shelf.Request(
+        'GET',
+        Uri.parse('http://localhost/mcp'),
+        headers: {'accept': 'text/event-stream', 'mcp-session-id': transport.sessionId!},
+      );
+
+      final sseResponse = await transport.handleShelfRequest(getReq);
+      expect(sseResponse.statusCode, equals(200));
+
+      // Step 3: Send a notification — should go through the adapter stream
+      const notification = JsonRpcNotification(method: 'test/hello', params: {'greeting': 'world'});
+      await transport.send(notification);
+
+      // Step 4: Read the SSE stream and verify the notification arrived
+      final bodyBytes = await sseResponse
+          .read()
+          .timeout(const Duration(seconds: 2), onTimeout: (sink) => sink.close())
+          .fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
+
+      final bodyText = utf8.decode(bodyBytes);
+      expect(bodyText, contains('event: message'));
+      expect(bodyText, contains('"method":"test/hello"'));
+      expect(bodyText, contains('"greeting":"world"'));
+
+      await transport.close();
+    }, timeout: const Timeout(Duration(seconds: 10)));
+
+    test('standalone SSE GET keeps notifications sent during initial flush', () async {
+      final transport = StreamableHTTPServerTransport(
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => 'flush-race-session'),
+      );
+      await transport.start();
+
+      transport.onmessage = (message) {
+        if (message is JsonRpcRequest && message.method == 'initialize') {
+          transport.send(
+            JsonRpcResponse(
+              id: message.id,
+              result: {
+                'protocolVersion': '2024-11-05',
+                'serverInfo': {'name': 'test-server', 'version': '1.0.0'},
+                'capabilities': {},
+              },
+            ),
+            relatedRequestId: message.id,
+          );
+        }
+      };
+
+      final initReq = shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/mcp'),
+        headers: {'accept': 'application/json, text/event-stream', 'content-type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'initialize',
+          'params': {
+            'protocolVersion': '2024-11-05',
+            'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
+            'capabilities': {},
+          },
+        }),
+      );
+
+      final initResponse = await transport.handleShelfRequest(initReq);
+      expect(initResponse.statusCode, equals(200));
+      expect(transport.sessionId, equals('flush-race-session'));
+
+      const notification = JsonRpcNotification(method: 'test/race', params: {'phase': 'flush'});
+      final sendDuringFlush = Future<void>.microtask(() => transport.send(notification));
+
+      final getReq = shelf.Request(
+        'GET',
+        Uri.parse('http://localhost/mcp'),
+        headers: {'accept': 'text/event-stream', 'mcp-session-id': transport.sessionId!},
+      );
+
+      final sseResponse = await transport.handleShelfRequest(getReq);
+      expect(sseResponse.statusCode, equals(200));
+
+      await sendDuringFlush;
+
+      final bodyBytes = await sseResponse
+          .read()
+          .timeout(const Duration(seconds: 2), onTimeout: (sink) => sink.close())
+          .fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
+
+      final bodyText = utf8.decode(bodyBytes);
+      expect(bodyText, contains('"method":"test/race"'));
+      expect(bodyText, contains('"phase":"flush"'));
+
+      await transport.close();
+    }, timeout: const Timeout(Duration(seconds: 10)));
   });
 }

@@ -27,14 +27,15 @@ void main() {
       expect(caps.completions?.listChanged, equals(true));
     });
 
-    test('Server without completions capability returns null', () {
+    test('Server auto-enables completions capability when other capabilities are configured', () {
       final mcpServer = McpServer(
         const Implementation(name: "test-server", version: "1.0.0"),
         options: const ServerOptions(capabilities: ServerCapabilities(tools: ServerCapabilitiesTools())),
       );
 
       final caps = mcpServer.server.getCapabilities();
-      expect(caps.completions, isNull);
+      expect(caps.tools, isNotNull);
+      expect(caps.completions, isNotNull);
     });
 
     test('Server with completions capability can be verified', () {

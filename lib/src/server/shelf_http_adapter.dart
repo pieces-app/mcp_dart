@@ -70,7 +70,7 @@ class ShelfHttpAdapter implements HttpAdapter {
 /// For SSE responses, we create a Response with a streaming body.
 class ShelfHttpResponseAdapter implements HttpResponseAdapter {
   final Completer<Response> _responseCompleter;
-  final StreamController<List<int>> _bodyController = StreamController<List<int>>();
+  late final StreamController<List<int>> _bodyController;
   final List<String> _bufferedWrites = []; // Buffer for JSON responses
   final Map<String, String> _headers = {};
   final Completer<void> _doneCompleter = Completer<void>();
@@ -80,7 +80,20 @@ class ShelfHttpResponseAdapter implements HttpResponseAdapter {
   bool _closed = false;
   bool _isStreaming = false; // Track if this is a streaming response
 
-  ShelfHttpResponseAdapter(this._responseCompleter);
+  ShelfHttpResponseAdapter(this._responseCompleter) {
+    _bodyController = StreamController<List<int>>(
+      // Shelf signals client disconnect by cancelling the stream
+      // subscription. Completing the done future here lets transport-level
+      // cleanup handlers (e.g., stream mapping removal) fire promptly,
+      // mirroring the dart:io response.done behavior.
+      onCancel: () {
+        _closed = true;
+        if (!_doneCompleter.isCompleted) {
+          _doneCompleter.complete();
+        }
+      },
+    );
+  }
 
   @override
   set bufferOutput(bool value) {

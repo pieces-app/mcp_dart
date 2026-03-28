@@ -398,5 +398,44 @@ void main() {
       expect(server.port, isPositive);
       expect(server.port, lessThan(65536));
     });
+
+    test('body size limit enforcement returns 413 for oversized POST', () async {
+      await server.stop();
+
+      server = StreamableMcpServer(
+        serverFactory: (sid) => McpServer(const Implementation(name: 'TestServer', version: '1.0.0')),
+        host: host,
+        port: 0,
+        maxBodySize: 100,
+      );
+      await server.start();
+      baseUrl = 'http://$host:${server.port}/mcp';
+
+      final res = await http.post(
+        Uri.parse(baseUrl),
+        body: 'a' * 200,
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'},
+      );
+
+      expect(res.statusCode, HttpStatus.requestEntityTooLarge);
+    });
+
+    test('invalid UTF-8 body returns 400 parse error', () async {
+      final client = HttpClient();
+      try {
+        final req = await client.postUrl(Uri.parse(baseUrl));
+        req.headers.contentType = ContentType.json;
+        req.headers.add('Accept', 'application/json, text/event-stream');
+        req.add([0xc3, 0x28]);
+
+        final res = await req.close();
+        final body = await utf8.decodeStream(res);
+
+        expect(res.statusCode, HttpStatus.badRequest);
+        expect(body, contains('Parse error'));
+      } finally {
+        client.close(force: true);
+      }
+    });
   });
 }

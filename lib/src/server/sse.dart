@@ -34,6 +34,16 @@ class SseServerTransport implements Transport {
   /// Controller for managing the SSE connection stream closing.
   final StreamController<void> _closeController = StreamController.broadcast();
 
+  /// FIX 4: Subscription from the raw socket's listen() call. Stored so
+  /// _handleClosure() can cancel it, preventing callbacks on a dead socket.
+  StreamSubscription? _socketSubscription;
+
+  /// Guards against calling start() more than once. Unlike close() which is
+  /// idempotent via _closeController.isClosed, start() has no built-in
+  /// protection against re-entry — a second call would reconfigure headers
+  /// and detach the socket again, corrupting the connection.
+  bool _started = false;
+
   /// Callback for when the connection is closed.
   @override
   void Function()? onclose;
@@ -74,6 +84,10 @@ class SseServerTransport implements Transport {
     if (_closeController.isClosed) {
       throw StateError("SseServerTransport cannot start: Transport is already closed.");
     }
+    if (_started) {
+      throw StateError('SseServerTransport already started.');
+    }
+    _started = true;
 
     try {
       _sseResponse.headers.chunkedTransferEncoding = false;
@@ -86,7 +100,7 @@ class SseServerTransport implements Transport {
       final endpointUrl = '$_messageEndpointPath?sessionId=${Uri.encodeComponent(sessionId)}';
       await _sendSseEvent(name: 'endpoint', data: endpointUrl);
 
-      socket.listen(
+      _socketSubscription = socket.listen(
         (_) {},
         onDone: () {
           _logger.debug('Client disconnected');
@@ -95,14 +109,23 @@ class SseServerTransport implements Transport {
         onError: (error) {
           _logger.warn('Socket error: $error');
           onerror?.call(error is Error ? error : StateError("Socket error: $error"));
+          close();
         },
       );
     } on UnimplementedError catch (e) {
       _logger.error('UnimplementedError during SSE transport setup: $e');
+      // Clean up any partially-initialized state (detached socket, _sink)
+      // without firing onclose — Protocol.connect() never completed, so there
+      // is no Protocol-level state to tear down via the callback chain.
+      _handleClosure(propagateToCallback: false);
       onerror?.call(e);
       rethrow;
     } catch (error) {
       _logger.error('Error starting SSE transport: $error');
+      // Same partial-teardown: if detachSocket() succeeded before this error,
+      // the raw socket and _sink would leak without explicit cleanup.
+      _handleClosure(propagateToCallback: false);
+      rethrow;
     }
   }
 
@@ -238,15 +261,31 @@ class SseServerTransport implements Transport {
   /// Invokes the [onclose] callback.
   @override
   Future<void> close() async {
-    _handleClosure();
+    // FIX 10: await the now-async _handleClosure so that
+    // _socketSubscription.cancel() completes before close() returns.
+    await _handleClosure();
   }
 
   /// Internal cleanup logic for closing the connection.
-  void _handleClosure({bool propagateToCallback = true}) {
+  ///
+  /// FIX 10: Made async so _socketSubscription?.cancel() is properly awaited.
+  /// Stream subscription cancellation returns a Future; fire-and-forgetting it
+  /// can leave the socket delivering callbacks after teardown completes.
+  Future<void> _handleClosure({bool propagateToCallback = true}) async {
     if (_closeController.isClosed) return;
 
     _closeController.add(null);
     _closeController.close();
+
+    // FIX 4 + FIX 10: Cancel the socket subscription and await the Future so
+    // teardown fully completes before callers proceed. Wrapped in try-catch
+    // because the underlying socket may already be closed or in an error state.
+    try {
+      await _socketSubscription?.cancel();
+    } catch (e) {
+      _logger.warn("Error cancelling socket subscription: $e");
+    }
+    _socketSubscription = null;
 
     try {
       _sink?.close();
@@ -260,7 +299,14 @@ class SseServerTransport implements Transport {
         onclose?.call();
       } catch (e) {
         _logger.warn("Error within onclose handler: $e");
-        onerror?.call(StateError("Error in onclose handler: $e"));
+        // FIX 11: Protect the onerror call with its own try-catch. If both
+        // onclose and onerror throw, the second exception would otherwise
+        // escape _handleClosure and mask the original onclose error.
+        try {
+          onerror?.call(StateError("Error in onclose handler: $e"));
+        } catch (onerrorError) {
+          _logger.warn("onerror callback also threw inside onclose handler: $onerrorError");
+        }
       }
     }
   }

@@ -3,12 +3,9 @@ import 'dart:async';
 import 'dart:io' as io; // Use 'io' prefix
 import 'dart:typed_data'; // For Uint8List
 
-// Assume shared stdio helpers are defined in shared/stdio.dart
-import 'package:mcp_dart/src/shared/stdio.dart'; // Adjust import path as needed
-// Assume Transport interface is defined in shared/transport.dart
-import 'package:mcp_dart/src/shared/transport.dart'; // Adjust import path as needed
-// Assume types are defined in types.dart
-import 'package:mcp_dart/src/types.dart'; // Adjust import path as needed
+import 'package:mcp_dart/src/shared/stdio.dart';
+import 'package:mcp_dart/src/shared/transport.dart';
+import 'package:mcp_dart/src/types.dart';
 import 'package:mcp_dart/src/shared/logging.dart';
 
 final _logger = Logger("mcp_dart.client.stdio");
@@ -44,14 +41,6 @@ class StdioServerParameters {
   });
 }
 
-// Note: DEFAULT_INHERITED_ENV_VARS and getDefaultEnvironment from the TS code
-// provide a mechanism to create a restricted default environment.
-// This can be complex to replicate perfectly across platforms in Dart.
-// For simplicity, this conversion allows passing a custom environment or
-// defaulting to inheriting the parent's environment (which is dart:io's default).
-// If strict environment control is needed, implement a Dart equivalent of
-// getDefaultEnvironment() based on io.Platform.environment.
-
 /// Client transport for stdio: connects to a server by spawning a process
 /// and communicating with it over stdin/stdout pipes.
 ///
@@ -65,7 +54,8 @@ class StdioClientTransport implements Transport {
   io.Process? _process;
 
   /// Used to signal process termination during [close].
-  final Completer<void> _exitCompleter = Completer<void>();
+  /// Recreated on each [start] call so the transport can be restarted.
+  Completer<void> _exitCompleter = Completer<void>();
 
   /// Buffer for incoming data from the process's stdout.
   final ReadBuffer _readBuffer = ReadBuffer();
@@ -111,6 +101,7 @@ class StdioClientTransport implements Transport {
         "StdioClientTransport already started! If using Client class, note that connect() calls start() automatically.",
       );
     }
+    _exitCompleter = Completer<void>();
     _started = true;
     try {
       // Start the process.
@@ -144,8 +135,23 @@ class StdioClientTransport implements Transport {
         _stderrSubscription = _process!.stderr.listen((data) => io.stderr.add(data), onError: _onStreamError);
       }
 
-      // Handle process exit
-      _process!.exitCode.then(_onProcessExit).catchError(_onProcessExitError);
+      // FIX: Capture the completer and process in local closures at
+      // registration time. If start() is called again (restart), a previous
+      // process's exit callback would otherwise read the NEW _exitCompleter
+      // and corrupt the restarted transport's state.
+      final localCompleter = _exitCompleter;
+      final localProcess = _process!;
+      localProcess.exitCode
+          .then((exitCode) {
+            // Only act if this completer is still the active one — prevents
+            // a previous process's exit from corrupting a restarted transport.
+            if (_exitCompleter != localCompleter) return;
+            _onProcessExit(exitCode);
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            if (_exitCompleter != localCompleter) return;
+            _onProcessExitError(error, stackTrace);
+          });
 
       // Start successful
       return Future.value();
@@ -177,19 +183,31 @@ class StdioClientTransport implements Transport {
   /// Internal handler for data received from the process's stdout.
   void _onStdoutData(List<int> chunk) {
     if (chunk is! Uint8List) chunk = Uint8List.fromList(chunk);
-    _readBuffer.append(chunk);
+    // FIX: Check append() return value — false means the buffer overflowed
+    // its size limit. Report the error and tear down the transport rather
+    // than silently processing a cleared (empty) buffer.
+    if (!_readBuffer.append(chunk)) {
+      onerror?.call(StateError('ReadBuffer overflow: exceeded ${_readBuffer.maxBufferSize} bytes. Closing transport.'));
+      close();
+      return;
+    }
     _processReadBuffer();
   }
 
   /// Internal handler for when the process's stdout stream closes.
+  ///
+  /// Stdout closing means no more JSON-RPC messages can arrive. Without this
+  /// teardown, pending request futures would hang until their individual
+  /// timeouts, leaving the client in a half-open / zombie state.
   void _onStdoutDone() {
-    _logger.debug("StdioClientTransport: Process stdout closed.");
-    // Consider if this should trigger close() - depends if server exiting is expected.
-    // Maybe only close if the process has also exited?
-    // close(); // Optionally close transport when stdout ends
+    _logger.debug("StdioClientTransport: Process stdout closed — triggering transport close.");
+    close();
   }
 
   /// Internal handler for errors on process stdout/stderr streams.
+  ///
+  /// Stream errors indicate a broken pipe or similar — the transport is no
+  /// longer usable, so we tear down after reporting the error.
   void _onStreamError(dynamic error, StackTrace stackTrace) {
     final Error streamError = (error is Error) ? error : StateError("Process stream error: $error\n$stackTrace");
     try {
@@ -197,8 +215,7 @@ class StdioClientTransport implements Transport {
     } catch (e) {
       _logger.warn("Error in onerror handler: $e");
     }
-    // Consider if stream errors should trigger close()
-    // close();
+    close();
   }
 
   /// Internal handler processing buffered stdout data for messages.
@@ -213,6 +230,9 @@ class StdioClientTransport implements Transport {
           _logger.warn("Error in onmessage handler: $e");
           onerror?.call(StateError("Error in onmessage handler: $e"));
         }
+      } on MalformedLineException catch (e) {
+        _logger.warn("StdioClientTransport: Skipping malformed line: $e");
+        continue;
       } catch (error) {
         final Error parseError = (error is Error) ? error : StateError("Message parsing error: $error");
         try {
@@ -221,10 +241,10 @@ class StdioClientTransport implements Transport {
           _logger.warn("Error in onerror handler: $e");
         }
         _logger.error("StdioClientTransport: Error processing read buffer: $parseError. Skipping data.");
-        // Consider clearing buffer or attempting recovery depending on error type.
-        // Clearing might be safest for unknown parsing errors.
-        // _readBuffer.clear();
-        break; // Stop processing buffer on error for now
+        // FIX: Use continue instead of break. readMessage() already advanced
+        // the buffer past the bad line before deserializeMessage() threw, so
+        // breaking would strand any valid messages remaining in the buffer.
+        continue;
       }
     }
   }
@@ -266,9 +286,20 @@ class StdioClientTransport implements Transport {
     // Mark as closing immediately to prevent further sends/starts
     _started = false;
 
-    // Cancel stream subscriptions
-    await _stdoutSubscription?.cancel();
-    await _stderrSubscription?.cancel();
+    // Cancel stream subscriptions — try-caught individually so a
+    // throwing cancel() (e.g. from an already-errored stream) doesn't
+    // prevent the remaining cleanup (buffer clear, process kill,
+    // onclose) from running.
+    try {
+      await _stdoutSubscription?.cancel();
+    } catch (e) {
+      _logger.warn('Error cancelling stdout subscription: $e');
+    }
+    try {
+      await _stderrSubscription?.cancel();
+    } catch (e) {
+      _logger.warn('Error cancelling stderr subscription: $e');
+    }
     _stdoutSubscription = null;
     _stderrSubscription = null;
 
@@ -330,7 +361,6 @@ class StdioClientTransport implements Transport {
     try {
       final jsonString = serializeMessage(message);
       currentProcess.stdin.write(jsonString);
-      // Flushing stdin might be necessary depending on the server's reading behavior.
       await currentProcess.stdin.flush();
     } catch (error, stackTrace) {
       _logger.warn("StdioClientTransport: Error writing to process stdin: $error");
@@ -340,9 +370,8 @@ class StdioClientTransport implements Transport {
       } catch (e) {
         _logger.warn("Error in onerror handler: $e");
       }
-      // Consider closing the transport on stdin write failure
-      close();
-      throw sendError; // Rethrow after cleanup attempt
+      await close();
+      throw sendError;
     }
   }
 }

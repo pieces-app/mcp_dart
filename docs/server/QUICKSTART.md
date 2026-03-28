@@ -1,132 +1,77 @@
 # Server Module Quickstart
 
-The **Server** module provides the core implementation for building Model Context Protocol (MCP) servers in Dart. It handles the lifecycle of MCP connections, manages JSON-RPC message routing, and provides high-level APIs for registering tools, resources, and prompts.
+The **Server** module is the core of the `mcp_dart` package, providing the infrastructure to build Model Context Protocol (MCP) servers. It allows you to expose tools, resources, and prompts to MCP clients through various transport layers.
 
-## Multi-Package Repository Structure
+This module is owned by the `mcp_dart` package. For a CLI-driven workflow (creating, serving, and inspecting servers), refer to the [mcp_dart_cli](../../packages/mcp_dart_cli/README.md) package.
 
-This repository is organized as a multi-package workspace:
+## 1. Setup
 
-### mcp_dart (Core SDK)
-The `mcp_dart` package contains the core Server, Client, and Shared modules. The Server module is defined here and provides the foundational logic for any Dart-based MCP server.
-
-### mcp_dart_cli
-Located in `packages/mcp_dart_cli/`, this package provides command-line utilities. It can be used to host or test servers built with the `mcp_dart` Server module.
-
----
-
-## 1. Setup & Initialization
-
-To build a server, instantiate `McpServer` with your implementation details and capabilities.
+To create an MCP server, initialize an `McpServer` with implementation metadata and connect it to a transport.
 
 ```dart
 import 'package:mcp_dart/mcp_dart.dart';
 
-Future<void> main() async {
-  // 1. Initialize the MCP Server
-  final server = McpServer(
-    const Implementation(
-      name: 'example_server', 
-      version: '1.0.0',
-      description: 'A comprehensive example server',
-    ),
-    options: const McpServerOptions(
-      capabilities: ServerCapabilities(
-        tools: ServerCapabilitiesTools(listChanged: true),
-        resources: ServerCapabilitiesResources(subscribe: true, listChanged: true),
-        prompts: ServerCapabilitiesPrompts(listChanged: true),
-        logging: {}, // Enable logging capability
-      ),
-    ),
-  )
-    // 2. Set global error handler using cascade notation
-    ..onError = (error) => print('Server error: $error');
+void main() async {
+  // 1. Define server metadata
+  final serverInfo = Implementation(
+    name: 'my-custom-server',
+    version: '1.0.0',
+  );
 
-  // 3. Connect to a transport (stdio is standard for local MCP)
+  // 2. Initialize the server
+  final server = McpServer(serverInfo);
+
+  // 3. Register features (see below)
+  
+  // 4. Connect to a transport (e.g., Standard I/O)
   final transport = StdioServerTransport();
   await server.connect(transport);
 }
 ```
 
-## 2. Registering Tools
+## 2. Registering Features
 
-Tools are executable functions exposed to the client.
+### Tools
+Tools are callable functions with defined input schemas.
 
 ```dart
 server.registerTool(
-  'calculate_bmi',
-  description: 'Calculate Body Mass Index',
-  inputSchema: JsonSchema.object(
+  'calculate_sum',
+  description: 'Calculates the sum of two numbers',
+  inputSchema: const ToolInputSchema(
     properties: {
-      'weightKg': JsonSchema.number(description: 'Weight in kilograms'),
-      'heightM': JsonSchema.number(description: 'Height in meters'),
+      'a': JsonSchema(type: 'number', description: 'First number'),
+      'b': JsonSchema(type: 'number', description: 'Second number'),
     },
-    required: ['weightKg', 'heightM'],
+    required: ['a', 'b'],
   ),
-  callback: (args, extra) {
-    final weight = args['weightKg'] as num;
-    final height = args['heightM'] as num;
-    final bmi = weight / (height * height);
+  callback: (args, extra) async {
+    final a = args['a'] as num;
+    final b = args['b'] as num;
     
     return CallToolResult(
-      content: [TextContent(text: 'Your BMI is ${bmi.toStringAsFixed(2)}')],
+      content: [TextContent(text: 'Result: ${a + b}')],
     );
   },
 );
 ```
 
-### Task-Augmented Tools (Experimental)
-For long-running operations, you can register a tool that returns a task ID and supports polling or notifications.
+### Resources
+Resources provide read-only data (text or binary) accessible via URIs.
 
-```dart
-server.experimental.registerToolTask(
-  'long_running_job',
-  handler: MyTaskHandler(), // Implements ToolTaskHandler
-);
-```
-
-## 3. Resources & Templates
-
-Resources expose data (text or binary) to the client.
-
-### Static Resources
+#### Fixed Resources
 ```dart
 server.registerResource(
-  'system_logs',
-  'file:///var/log/system.log',
-  (description: 'Current system logs', mimeType: 'text/plain'),
+  'Application Config',
+  'file:///config.json',
+  (description: 'Static app configuration', mimeType: 'application/json'),
   (uri, extra) async {
-    return const ReadResourceResult(
-      contents: [
-        TextResourceContents(
-          uri: 'file:///var/log/system.log',
-          text: 'Log entry 1: System started...',
-          mimeType: 'text/plain',
-        ),
-      ],
-    );
-  },
-);
-```
-
-### Resource Templates
-Templates allow dynamic URI matching using RFC 6570 patterns.
-
-```dart
-server.registerResourceTemplate(
-  'user_profile',
-  ResourceTemplateRegistration(
-    'users://{userId}/profile',
-    listCallback: (extra) => const ListResourcesResult(resources: []),
-  ),
-  (description: 'User profile data', mimeType: 'application/json'),
-  (uri, variables, extra) async {
-    final userId = variables['userId'];
     return ReadResourceResult(
       contents: [
         TextResourceContents(
           uri: uri.toString(),
-          text: '{"userId": "$userId", "name": "John Doe"}',
           mimeType: 'application/json',
+          text: '{"theme": "dark", "notifications": true}',
         ),
       ],
     );
@@ -134,27 +79,55 @@ server.registerResourceTemplate(
 );
 ```
 
-## 4. Prompts & Completions
+#### Resource Templates
+Templates allow dynamic URI matching with variables.
 
-Prompts provide reusable templates for generating LLM interactions.
+```dart
+server.registerResourceTemplate(
+  'Log Files',
+  ResourceTemplateRegistration(
+    'file:///logs/{date}.log',
+    listCallback: (extra) async => ListResourcesResult(
+      resources: [
+        Resource(uri: 'file:///logs/2026-03-28.log', name: 'Today\'s Logs'),
+      ],
+    ),
+  ),
+  (description: 'Daily log files', mimeType: 'text/plain'),
+  (uri, variables, extra) async {
+    final date = variables['date'] as String;
+    return ReadResourceResult(
+      contents: [
+        TextResourceContents(
+          uri: uri.toString(),
+          text: 'Log entries for $date...',
+        ),
+      ],
+    );
+  },
+);
+```
+
+### Prompts
+Prompts are reusable templates for generating LLM messages.
 
 ```dart
 server.registerPrompt(
-  'code_review',
-  description: 'Request a code review for a snippet',
+  'greet_user',
+  description: 'Generates a personalized greeting',
   argsSchema: {
-    'language': const PromptArgumentDefinition(
-      description: 'Programming language',
+    'name': const PromptArgumentDefinition(
+      description: 'The user\'s name',
       required: true,
     ),
   },
-  callback: (args, extra) {
-    final lang = args?['language'] as String;
+  callback: (args, extra) async {
+    final name = args!['name'] as String;
     return GetPromptResult(
       messages: [
         PromptMessage(
-          role: Role.user,
-          content: TextContent(text: 'Review this $lang code...'),
+          role: PromptMessageRole.user,
+          content: TextContent(text: 'Hello $name, how can I assist you?'),
         ),
       ],
     );
@@ -162,59 +135,53 @@ server.registerPrompt(
 );
 ```
 
-## 5. Server-Initiated Input (Elicitation)
+## 3. Transports
 
-Servers can request structured input from the client during tool execution or other operations.
+The server supports multiple transport layers depending on your deployment environment.
+
+### Standard I/O (Stdio)
+Best for servers invoked directly by a host (like an IDE or local LLM agent).
 
 ```dart
-final result = await server.elicitInput(
-  ElicitRequest.form(
-    message: 'Please provide your API key',
-    requestedSchema: JsonSchema.object(
-      properties: {
-        'apiKey': JsonSchema.string(title: 'API Key'),
-      },
-      required: ['apiKey'],
-    ),
-  ),
-);
-
-if (result.accepted) {
-  final apiKey = result.content?['apiKey'];
-  // ... process API key
-}
+await server.connect(StdioServerTransport());
 ```
 
-## 6. Advanced Transports
-
-### HTTP with Server-Sent Events (SSE)
-Use `StreamableMcpServer` to host multiple sessions over HTTP.
+### Server-Sent Events (SSE)
+Allows connecting via HTTP.
 
 ```dart
-final streamable = StreamableMcpServer(
-  serverFactory: (sessionId) => McpServer(
-    Implementation(name: 'sse_server', version: '1.0.0'),
-  ),
-  host: '0.0.0.0',
+// Using the managed helper for multiple sessions
+final sseServer = StreamableMcpServer(
+  serverFactory: (sessionId) => McpServer(serverInfo)..registerTool(...),
   port: 8080,
-  enableDnsRebindingProtection: true,
-  allowedHosts: {'localhost', 'my-server.local'},
 );
-
-await streamable.start();
+await sseServer.start();
 ```
 
----
+## 4. Advanced Usage
 
-## 7. Configuration Details
+### Task Support (Experimental)
+The server supports the experimental Tasks capability for long-running operations.
 
-### McpServerOptions
-- **`capabilities`**: Define what the server supports (tools, resources, prompts, completions, logging, tasks).
-- **`instructions`**: Provide guidance to the client on how to best use this server.
+```dart
+server.experimental.registerToolTask(
+  'long_job',
+  handler: MyTaskHandler(), // Implements ToolTaskHandler
+);
+```
 
-### Protocol Support
-The Server module implements the full MCP specification, including:
-- **Initialization**: Automatic handling of `initialize` and `notifications/initialized`.
-- **Liveness**: Support for `ping` requests.
-- **List Changes**: Use `sendToolListChanged()`, `sendResourceListChanged()`, etc., to notify clients of updates.
-- **Logging**: Use `sendLoggingMessage()` to stream logs to the client.
+### Error Handling
+Use `McpError` and standard `ErrorCode` values to report issues to clients.
+
+```dart
+throw McpError(ErrorCode.invalidParams.value, 'Missing parameter X');
+```
+
+## 5. Integration with CLI
+
+The `mcp_dart_cli` package provides powerful tools for developers:
+- **`mcp_dart serve`**: Run your server project with auto-restart.
+- **`mcp_dart inspect`**: Test your server by manually invoking its tools and resources.
+- **`mcp_dart doctor`**: Verify server connectivity and configuration.
+
+Refer to the [CLI README](../../packages/mcp_dart_cli/README.md) for full details.

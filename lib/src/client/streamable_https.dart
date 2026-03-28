@@ -113,11 +113,18 @@ class StreamableHttpClientTransportOptions {
   /// the server will generate a new session ID.
   final String? sessionId;
 
+  /// Maximum duration to wait for any single HTTP request (GET or POST)
+  /// before aborting with a [TimeoutException]. Prevents indefinite hangs
+  /// when the server is unreachable or unresponsive.
+  /// Defaults to 30 seconds. Set to `null` to disable timeouts.
+  final Duration? httpTimeout;
+
   const StreamableHttpClientTransportOptions({
     this.authProvider,
     this.requestInit,
     this.reconnectionOptions,
     this.sessionId,
+    this.httpTimeout = const Duration(seconds: 30),
   });
 }
 
@@ -131,7 +138,20 @@ class StreamableHttpClientTransport implements Transport {
   final OAuthClientProvider? _authProvider;
   String? _sessionId;
   final StreamableHttpReconnectionOptions _reconnectionOptions;
+  final Duration? _httpTimeout;
   bool _isClosed = false;
+  Timer? _reconnectTimer;
+
+  /// Cumulative reconnect attempt counter that persists across
+  /// connect-then-drop cycles. Without this, each cycle re-enters
+  /// _scheduleReconnection with attemptCount=0, defeating maxRetries.
+  int _reconnectAttemptCount = 0;
+
+  /// Guards against concurrent SSE GET streams. Without this, overlapping
+  /// calls to _startOrAuthSse (e.g. from reconnection racing with an
+  /// initialized notification) open duplicate connections, causing every
+  /// server-sent event to be delivered twice.
+  bool _sseActive = false;
 
   @override
   void Function()? onclose;
@@ -150,6 +170,7 @@ class StreamableHttpClientTransport implements Transport {
       _authProvider = opts?.authProvider,
       _sessionId = opts?.sessionId,
       _reconnectionOptions = opts?.reconnectionOptions ?? _defaultStreamableHttpReconnectionOptions,
+      _httpTimeout = opts?.httpTimeout ?? const Duration(seconds: 30),
       _httpClient = http.Client();
 
   Future<void> _authThenStart() async {
@@ -200,7 +221,31 @@ class StreamableHttpClientTransport implements Transport {
     return headers;
   }
 
+  /// Sends an HTTP request with the configured [_httpTimeout].
+  /// Throws [McpError] if the request exceeds the timeout, preventing
+  /// indefinite hangs when the server is unreachable or slow.
+  Future<http.StreamedResponse> _sendWithTimeout(http.BaseRequest request) async {
+    final future = _httpClient.send(request);
+    final timeout = _httpTimeout;
+    if (timeout == null) return future;
+
+    try {
+      return await future.timeout(timeout);
+    } on TimeoutException {
+      throw McpError(
+        ErrorCode.internalError.value,
+        'HTTP ${request.method} request to ${request.url} timed out after ${timeout.inSeconds}s',
+      );
+    }
+  }
+
   Future<void> _startOrAuthSse(StartSseOptions options) async {
+    if (_isClosed) return;
+
+    // Prevent duplicate SSE GET streams; see _sseActive field comment.
+    if (_sseActive) return;
+    _sseActive = true;
+
     final resumptionToken = options.resumptionToken;
     try {
       // Try to open an initial SSE stream with GET to listen for server messages
@@ -215,9 +260,11 @@ class StreamableHttpClientTransport implements Transport {
 
       final request = http.Request('GET', _url);
       request.headers.addAll(headers);
-      final response = await _httpClient.send(request);
+      final response = await _sendWithTimeout(request);
 
       if (response.statusCode != 200) {
+        _sseActive = false;
+
         if (response.statusCode == 401 && _authProvider != null) {
           // Need to authenticate
           return await _authThenStart();
@@ -234,6 +281,8 @@ class StreamableHttpClientTransport implements Transport {
 
       _handleSseStream(response, options);
     } catch (error) {
+      _sseActive = false;
+
       if (error is Error) {
         onerror?.call(error);
       } else {
@@ -244,10 +293,10 @@ class StreamableHttpClientTransport implements Transport {
     }
   }
 
-  /// Calculates the next reconnection delay using backoff algorithm
+  /// Calculates the next reconnection delay using backoff algorithm.
   ///
-  /// @param attempt Current reconnection attempt count for the specific stream
-  /// @returns Time to wait in milliseconds before next reconnection attempt
+  /// [attempt] is the current reconnection attempt count for the specific
+  /// stream. Returns the time to wait in milliseconds before the next attempt.
   int _getNextReconnectionDelay(int attempt) {
     // Access default values directly, ensuring they're never undefined
     final initialDelay = _reconnectionOptions.initialReconnectionDelay;
@@ -258,34 +307,37 @@ class StreamableHttpClientTransport implements Transport {
     return (initialDelay * math.pow(growFactor, attempt)).round().clamp(0, maxDelay);
   }
 
-  /// Schedule a reconnection attempt with exponential backoff
+  /// Schedule a reconnection attempt with exponential backoff.
   ///
-  /// @param options The SSE connection options
-  /// @param attemptCount Current reconnection attempt count for this specific stream
-  void _scheduleReconnection(StartSseOptions options, [int attemptCount = 0]) {
-    // Use provided options or default options
+  /// FIX 8: The former [attemptCount] parameter was dead — the method uses
+  /// the persistent [_reconnectAttemptCount] field instead, which survives
+  /// across connect-then-drop cycles and correctly enforces [maxRetries].
+  void _scheduleReconnection(StartSseOptions options) {
+    // Prevent zombie timers from being created after close() has been called.
+    if (_isClosed) return;
+
     final maxRetries = _reconnectionOptions.maxRetries;
 
-    // Check if we've exceeded maximum retry attempts
-    if (maxRetries > 0 && attemptCount >= maxRetries) {
+    // Use the cumulative instance counter instead of the local parameter,
+    // because the local resets to 0 each time a connect-then-drop cycle
+    // re-enters handleReconnection → _scheduleReconnection.
+    if (maxRetries >= 0 && _reconnectAttemptCount >= maxRetries) {
       onerror?.call(McpError(0, "Maximum reconnection attempts ($maxRetries) exceeded."));
       return;
     }
 
-    // Calculate next delay based on current attempt count
-    final delay = _getNextReconnectionDelay(attemptCount);
+    final delay = _getNextReconnectionDelay(_reconnectAttemptCount);
 
-    // Schedule the reconnection
-    Future.delayed(Duration(milliseconds: delay), () {
-      // Use the last event ID to resume where we left off
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(milliseconds: delay), () {
+      _reconnectTimer = null;
+      _reconnectAttemptCount++;
       _startOrAuthSse(options).catchError((error) {
-        final errorMessage = error is Error ? error.toString() : error.toString();
-        onerror?.call(McpError(0, "Failed to reconnect SSE stream: $errorMessage"));
+        // Do NOT call onerror here — _startOrAuthSse already reports the
+        // error via onerror before rethrowing.  Calling it again would
+        // double-report to consumers.
+        _scheduleReconnection(options);
 
-        // Schedule another attempt if this one failed, incrementing the attempt counter
-        _scheduleReconnection(options, attemptCount + 1);
-
-        // Ensure the Future completes
         return null;
       });
     });
@@ -315,10 +367,14 @@ class StreamableHttpClientTransport implements Transport {
         try {
           final message = JsonRpcMessage.fromJson(jsonDecode(eventData!));
 
-          // Can't set id directly if it's final, need to create a new message
           if (replayMessageId != null && message is JsonRpcResponse) {
-            // Create a new response with the same data but different ID
             final newMessage = JsonRpcResponse(id: replayMessageId, result: message.result, meta: message.meta);
+            onmessage?.call(newMessage);
+          } else if (replayMessageId != null && message is JsonRpcError) {
+            // JsonRpcError is a sibling type of JsonRpcResponse, not a subtype.
+            // Error responses during replay must also have their IDs remapped
+            // so the client can correlate them with the resumed request.
+            final newMessage = JsonRpcError(id: replayMessageId, error: message.error);
             onmessage?.call(newMessage);
           } else {
             onmessage?.call(message);
@@ -343,26 +399,32 @@ class StreamableHttpClientTransport implements Transport {
       if (_isClosed || !options.shouldReconnect) return;
 
       if (_abortController != null && !_abortController!.isClosed) {
-        if (eventId != null) {
-          try {
-            _scheduleReconnection(
-              StartSseOptions(
-                resumptionToken: eventId,
-                onResumptionToken: onResumptionToken,
-                replayMessageId: replayMessageId,
-                shouldReconnect: options.shouldReconnect,
-              ),
-            );
-          } catch (error) {
-            final errorMessage = error is Error ? error.toString() : error.toString();
-            onerror?.call(McpError(0, "Failed to reconnect: $errorMessage"));
-          }
+        // Reconnection must work even when the server never sent SSE event
+        // IDs, because the connection can drop before any events arrive.
+        // When eventId is null, _startOrAuthSse simply skips the
+        // Last-Event-ID header — no guard needed here.
+        try {
+          _scheduleReconnection(
+            StartSseOptions(
+              resumptionToken: eventId,
+              onResumptionToken: onResumptionToken,
+              replayMessageId: replayMessageId,
+              shouldReconnect: options.shouldReconnect,
+            ),
+          );
+        } catch (error) {
+          onerror?.call(McpError(0, "Failed to reconnect: $error"));
         }
       }
     }
 
-    // Convert the stream to a broadcast stream to allow multiple listeners if needed
+    // Connection succeeded — reset the cumulative counter so future
+    // disconnect cycles get a fresh set of retries.
+    _reconnectAttemptCount = 0;
+
     final broadcastStream = stream.stream;
+
+    StreamSubscription<bool>? abortSubscription;
 
     // Create a subscription to the stream
     final subscription = broadcastStream
@@ -415,6 +477,8 @@ class StreamableHttpClientTransport implements Transport {
             }
           },
           onDone: () {
+            abortSubscription?.cancel();
+            _sseActive = false;
             // Process any final event
             processEvent();
 
@@ -422,22 +486,30 @@ class StreamableHttpClientTransport implements Transport {
             handleReconnection(lastEventId, "Stream closed");
           },
           onError: (error) {
-            final errorMessage = error is Error ? error.toString() : error.toString();
-            onerror?.call(McpError(0, "SSE stream disconnected: $errorMessage"));
+            abortSubscription?.cancel();
+            _sseActive = false;
+            onerror?.call(McpError(0, "SSE stream disconnected: $error"));
 
             // Attempt to reconnect if the stream disconnects unexpectedly
-            handleReconnection(lastEventId, errorMessage);
+            handleReconnection(lastEventId, error.toString());
           },
         );
 
     // Register the subscription cleanup when the abort controller is triggered
-    _abortController?.stream.listen((_) {
+    abortSubscription = _abortController?.stream.listen((_) {
       subscription.cancel();
     });
   }
 
   @override
   Future<void> start() async {
+    // FIX 8: HTTP transports are non-restartable after close() — _isClosed is
+    // never reset, so a closed instance must be replaced with a new one.
+    // (Unlike stdio transports which can restart with a new process.)
+    if (_isClosed) {
+      throw StateError('Cannot start: transport has been closed. Create a new instance.');
+    }
+
     if (_abortController != null) {
       throw McpError(
         0,
@@ -464,13 +536,34 @@ class StreamableHttpClientTransport implements Transport {
 
   @override
   Future<void> close() async {
+    // Prevent double-close crashes: close() can be triggered by both explicit
+    // user calls and internal error/disconnect handlers. Without this guard,
+    // the second call attempts to add to an already-closed StreamController
+    // (_abortController), throwing a StateError.
+    if (_isClosed) return;
     _isClosed = true;
-    // Abort any pending requests
+    _sseActive = false;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _abortController?.add(true);
     _abortController?.close();
-    _httpClient.close();
+    _abortController = null;
 
-    onclose?.call();
+    // FIX 5: Wrap _httpClient.close() in try-catch — the underlying HTTP
+    // client may already be in a broken state (e.g. socket error).
+    try {
+      _httpClient.close();
+    } catch (_) {
+      // Best-effort — HTTP client may already be closed or broken.
+    }
+
+    // FIX 5: Wrap onclose in try-catch to match all other transports —
+    // a throwing callback must not crash the client teardown sequence.
+    try {
+      onclose?.call();
+    } catch (_) {
+      // Best-effort — onclose callback errors must not break teardown.
+    }
   }
 
   @override
@@ -480,6 +573,13 @@ class StreamableHttpClientTransport implements Transport {
     String? resumptionToken,
     void Function(String)? onResumptionToken,
   }) async {
+    // Fail fast if the transport has been closed. Without this guard, send()
+    // falls through to _httpClient methods on a closed client, producing
+    // opaque errors. This matches the closed-guard pattern used in
+    // SseServerTransport.send() and other transports.
+    if (_isClosed) {
+      throw StateError('Cannot send message: StreamableHttpClientTransport is closed.');
+    }
     try {
       if (resumptionToken != null) {
         // If we have a last event ID, we need to reconnect the SSE stream
@@ -490,12 +590,8 @@ class StreamableHttpClientTransport implements Transport {
             replayMessageId: replayId,
             onResumptionToken: onResumptionToken,
           ),
-        ).catchError((err) {
-          if (err is Error) {
-            onerror?.call(err);
-          } else {
-            onerror?.call(McpError(0, err.toString()));
-          }
+        ).catchError((_) {
+          // Error already reported by _startOrAuthSse's catch block via onerror.
         });
         return;
       }
@@ -518,7 +614,7 @@ class StreamableHttpClientTransport implements Transport {
       request.headers.addAll(headers);
       request.body = jsonEncode(message.toJson());
 
-      final response = await _httpClient.send(request);
+      final response = await _sendWithTimeout(request);
 
       // Handle session ID received during initialization
       final sessionId = response.headers['mcp-session-id'];
@@ -547,13 +643,9 @@ class StreamableHttpClientTransport implements Transport {
         // if the accepted notification is initialized, we start the SSE stream
         // if it's supported by the server
         if (_isInitializedNotification(message)) {
-          // Start without a lastEventId since this is a fresh connection
-          _startOrAuthSse(const StartSseOptions()).catchError((err) {
-            if (err is Error) {
-              onerror?.call(err);
-            } else {
-              onerror?.call(McpError(0, err.toString()));
-            }
+          // Start without a lastEventId since this is a fresh connection.
+          _startOrAuthSse(const StartSseOptions()).catchError((_) {
+            // Error already reported by _startOrAuthSse's catch block via onerror.
           });
         }
         return;
@@ -561,12 +653,8 @@ class StreamableHttpClientTransport implements Transport {
 
       // Start SSE if this was the initialized notification, even if 200 OK
       if (_isInitializedNotification(message)) {
-        _startOrAuthSse(const StartSseOptions()).catchError((err) {
-          if (err is Error) {
-            onerror?.call(err);
-          } else {
-            onerror?.call(McpError(0, err.toString()));
-          }
+        _startOrAuthSse(const StartSseOptions()).catchError((_) {
+          // Error already reported by _startOrAuthSse's catch block via onerror.
         });
       }
 
@@ -627,6 +715,10 @@ class StreamableHttpClientTransport implements Transport {
   /// The server MAY respond with HTTP 405 Method Not Allowed, indicating that
   /// the server does not allow clients to terminate sessions.
   Future<void> terminateSession() async {
+    // FIX 5: After close(), _httpClient is closed. Attempting the DELETE
+    // request would throw an opaque error on the closed client.
+    if (_isClosed) return;
+
     if (_sessionId == null) {
       return; // No session to terminate
     }
@@ -634,7 +726,11 @@ class StreamableHttpClientTransport implements Transport {
     try {
       final headers = await _commonHeaders();
 
-      final response = await _httpClient.delete(_url, headers: headers);
+      // FIX 7: Route the DELETE through _sendWithTimeout so the configured
+      // httpTimeout applies, preventing indefinite hangs on unresponsive servers.
+      final request = http.Request('DELETE', _url);
+      request.headers.addAll(headers);
+      final response = await _sendWithTimeout(request);
 
       // We specifically handle 405 as a valid response according to the spec,
       // meaning the server does not support explicit session termination

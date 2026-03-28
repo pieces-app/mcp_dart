@@ -11,6 +11,16 @@ import '../types.dart';
 import 'http_adapter.dart';
 import 'shelf_http_adapter.dart';
 
+const int _defaultMaxBodySize = 10 * 1024 * 1024; // 10 MB
+
+class _PayloadTooLargeException implements Exception {
+  final int maxBytes;
+  _PayloadTooLargeException(this.maxBytes);
+
+  @override
+  String toString() => 'Request body exceeded maximum allowed size of $maxBytes bytes';
+}
+
 /// ID for SSE streams
 typedef StreamId = String;
 
@@ -77,6 +87,11 @@ class StreamableHTTPServerTransportOptions {
   /// Default is 25 seconds (recommended to prevent client timeouts).
   final int? keepAliveInterval;
 
+  /// Maximum allowed POST body size in bytes.
+  /// Requests exceeding this limit receive HTTP 413 Payload Too Large.
+  /// Default is 10 MB.
+  final int maxBodySize;
+
   /// Creates configuration options for StreamableHTTPServerTransport
   StreamableHTTPServerTransportOptions({
     this.sessionIdGenerator,
@@ -87,6 +102,7 @@ class StreamableHTTPServerTransportOptions {
     this.allowedHosts,
     this.allowedOrigins,
     this.keepAliveInterval = 25,
+    this.maxBodySize = _defaultMaxBodySize,
   });
 }
 
@@ -133,6 +149,11 @@ class StreamableHTTPServerTransport implements Transport {
   // when sessionId is not set (null), it means the transport is in stateless mode
   final String? Function()? _sessionIdGenerator;
   bool _started = false;
+
+  /// FIX 1: Guard against redundant close() calls — close() can be triggered
+  /// by both DELETE requests and internal error handlers concurrently.
+  bool _closed = false;
+
   final Map<String, HttpResponse> _streamMapping = {};
   final Map<String, HttpResponseAdapter> _adapterStreamMapping = {}; // For shelf adapters
   final Map<dynamic, String> _requestToStreamMapping = {};
@@ -146,6 +167,7 @@ class StreamableHTTPServerTransport implements Transport {
   final Set<String>? _allowedHosts;
   final Set<String>? _allowedOrigins;
   final int? _keepAliveInterval;
+  final int _maxBodySize;
   final Map<String, Timer> _keepAliveTimers = {};
 
   @override
@@ -169,7 +191,8 @@ class StreamableHTTPServerTransport implements Transport {
       _enableDnsRebindingProtection = options.enableDnsRebindingProtection,
       _allowedHosts = options.allowedHosts,
       _allowedOrigins = options.allowedOrigins,
-      _keepAliveInterval = options.keepAliveInterval;
+      _keepAliveInterval = options.keepAliveInterval,
+      _maxBodySize = options.maxBodySize;
 
   /// Starts the transport. This is required by the Transport interface but is a no-op
   /// for the Streamable HTTP transport as connections are managed per-request.
@@ -206,7 +229,14 @@ class StreamableHTTPServerTransport implements Transport {
   }
 
   bool _isRequestAllowedByDnsRebindingProtection(HttpRequest request) {
-    final hostHeader = request.headers.value(HttpHeaders.hostHeader);
+    return _isDnsRebindingAllowedByHeaders(
+      request.headers.value(HttpHeaders.hostHeader),
+      request.headers.value('origin'),
+    );
+  }
+
+  /// Core DNS rebinding validation shared by dart:io and shelf code paths.
+  bool _isDnsRebindingAllowedByHeaders(String? hostHeader, String? originHeader) {
     if (hostHeader == null || hostHeader.trim().isEmpty) {
       return false;
     }
@@ -216,7 +246,6 @@ class StreamableHTTPServerTransport implements Transport {
       return false;
     }
 
-    final originHeader = request.headers.value('origin');
     if (originHeader == null || originHeader.trim().isEmpty) {
       return true;
     }
@@ -313,6 +342,11 @@ class StreamableHTTPServerTransport implements Transport {
   ///
   /// For dart:io HttpRequest, use handleRequest() instead.
   Future<Response> handleShelfRequest(Request req, [dynamic parsedBody]) async {
+    // FIX 3: DNS rebinding protection — matching the dart:io handleRequest guard.
+    if (_enableDnsRebindingProtection && !_isDnsRebindingAllowedByHeaders(req.headers['host'], req.headers['origin'])) {
+      return Response.forbidden('Forbidden: blocked by DNS rebinding protection');
+    }
+
     final responseCompleter = Completer<Response>();
     final adapter = ShelfHttpAdapter(req, responseCompleter);
 
@@ -380,8 +414,9 @@ class StreamableHTTPServerTransport implements Transport {
       headers["mcp-session-id"] = sessionId!;
     }
 
-    // Check if there's already an active standalone SSE stream for this session
-    if (_streamMapping[_standaloneSseStreamId] != null) {
+    // FIX 2: Check both dart:io and shelf adapter maps — a shelf GET registers
+    // in _adapterStreamMapping, not _streamMapping.
+    if (_streamMapping[_standaloneSseStreamId] != null || _adapterStreamMapping[_standaloneSseStreamId] != null) {
       // Only one GET SSE stream is allowed per session
       req.response
         ..statusCode = HttpStatus.conflict
@@ -416,10 +451,16 @@ class StreamableHTTPServerTransport implements Transport {
     await req.response.flush();
 
     // Set up close handler for client disconnects
-    req.response.done.then((_) {
-      _streamMapping.remove(_standaloneSseStreamId);
-      _stopKeepAliveTimer(_standaloneSseStreamId);
-    });
+    req.response.done
+        .then((_) {
+          _streamMapping.remove(_standaloneSseStreamId);
+          _stopKeepAliveTimer(_standaloneSseStreamId);
+        })
+        .catchError((e) {
+          _streamMapping.remove(_standaloneSseStreamId);
+          _stopKeepAliveTimer(_standaloneSseStreamId);
+          onerror?.call(e is Error ? e : StateError(e.toString()));
+        });
   }
 
   /// Replays events that would have been sent after the specified event ID
@@ -462,10 +503,18 @@ class StreamableHTTPServerTransport implements Transport {
       _startKeepAliveTimer(streamId, res);
 
       // Set up close handler for client disconnects
-      res.done.then((_) {
-        _streamMapping.remove(streamId);
-        _stopKeepAliveTimer(streamId);
-      });
+      res.done
+          .then((_) {
+            _streamMapping.remove(streamId);
+            _requestToStreamMapping.removeWhere((_, v) => v == streamId);
+            _stopKeepAliveTimer(streamId);
+          })
+          .catchError((e) {
+            _streamMapping.remove(streamId);
+            _requestToStreamMapping.removeWhere((_, v) => v == streamId);
+            _stopKeepAliveTimer(streamId);
+            onerror?.call(e is Error ? e : StateError(e.toString()));
+          });
     } catch (error) {
       onerror?.call(error is Error ? error : StateError(error.toString()));
     }
@@ -655,6 +704,22 @@ class StreamableHTTPServerTransport implements Transport {
       return;
     }
 
+    // FIX: reject concurrent GET SSE streams, matching the dart:io guard.
+    // Only one standalone SSE stream is allowed per session.
+    if (_adapterStreamMapping[_standaloneSseStreamId] != null || _streamMapping[_standaloneSseStreamId] != null) {
+      res.statusCode = HttpStatus.conflict;
+      res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+      res.write(
+        jsonEncode({
+          "jsonrpc": "2.0",
+          "error": {"code": -32000, "message": "Conflict: Only one SSE stream is allowed per session"},
+          "id": null,
+        }),
+      );
+      await res.close();
+      return;
+    }
+
     // Set SSE headers
     res.statusCode = HttpStatus.ok;
     res.setHeader(HttpHeaders.contentTypeHeader, "text/event-stream");
@@ -665,13 +730,33 @@ class StreamableHTTPServerTransport implements Transport {
       res.setHeader("mcp-session-id", sessionId!);
     }
 
-    await res.flush();
-
     // Store this GET stream for future server-initiated messages
     _adapterStreamMapping[_standaloneSseStreamId] = res;
 
+    try {
+      await res.flush();
+    } catch (_) {
+      _adapterStreamMapping.remove(_standaloneSseStreamId);
+      rethrow;
+    }
+
     // Start keep-alive timer for this SSE connection
     _startKeepAliveTimerAdapter(_standaloneSseStreamId, res);
+
+    // Wire cleanup to the adapter's done future. ShelfHttpResponseAdapter
+    // completes done when close() is called explicitly OR when shelf
+    // cancels the underlying stream subscription (client disconnect),
+    // mirroring the dart:io response.done handler above.
+    res.done
+        .then((_) {
+          _adapterStreamMapping.remove(_standaloneSseStreamId);
+          _stopKeepAliveTimer(_standaloneSseStreamId);
+        })
+        .catchError((e) {
+          _adapterStreamMapping.remove(_standaloneSseStreamId);
+          _stopKeepAliveTimer(_standaloneSseStreamId);
+          onerror?.call(e is Error ? e : StateError(e.toString()));
+        });
   }
 
   /// Handles POST requests via adapter
@@ -701,8 +786,10 @@ class StreamableHTTPServerTransport implements Transport {
       }
 
       // Validate Content-Type
+      // Exact MIME type match — contains() would false-positive on types
+      // like "application/json-seq" or "application/json-patch+json".
       final contentType = adapter.contentType;
-      if (contentType == null || !contentType.mimeType.contains("application/json")) {
+      if (contentType == null || contentType.mimeType.toLowerCase() != 'application/json') {
         res.statusCode = HttpStatus.unsupportedMediaType;
         res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
         res.write(
@@ -721,7 +808,22 @@ class StreamableHTTPServerTransport implements Transport {
       if (parsedBody != null) {
         rawMessage = parsedBody;
       } else {
-        final bodyBytes = await _collectBytesFromStream(adapter.bodyStream);
+        Uint8List bodyBytes;
+        try {
+          bodyBytes = await _collectBytesFromStream(adapter.bodyStream);
+        } on _PayloadTooLargeException catch (e) {
+          res.statusCode = HttpStatus.requestEntityTooLarge;
+          res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+          res.write(
+            jsonEncode({
+              "jsonrpc": "2.0",
+              "error": {"code": ErrorCode.invalidRequest.value, "message": "Payload Too Large", "data": e.toString()},
+              "id": null,
+            }),
+          );
+          await res.close();
+          return;
+        }
         final bodyString = utf8.decode(bodyBytes);
         rawMessage = jsonDecode(bodyString);
       }
@@ -782,6 +884,22 @@ class StreamableHTTPServerTransport implements Transport {
           return;
         }
 
+        // FIX 4: Reject batched init requests — an initialize request must be
+        // the sole message in the batch, matching the dart:io guard.
+        if (messages.length > 1) {
+          res.statusCode = HttpStatus.badRequest;
+          res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
+          res.write(
+            jsonEncode({
+              "jsonrpc": "2.0",
+              "error": {"code": -32600, "message": "Invalid Request: Only one initialization request is allowed"},
+              "id": null,
+            }),
+          );
+          await res.close();
+          return;
+        }
+
         sessionId = _sessionIdGenerator?.call();
         _initialized = true;
 
@@ -803,11 +921,20 @@ class StreamableHTTPServerTransport implements Transport {
       if (!hasRequests) {
         // Only notifications or responses
         res.statusCode = HttpStatus.accepted;
-        await res.close();
 
+        // FIX 6: Process messages BEFORE closing the response, matching the
+        // dart:io path which calls onmessage before _safeClose.
+        // FIX 5: Wrap each onmessage in try-catch so one handler error does
+        // not prevent subsequent messages from being delivered.
         for (final message in messages) {
-          onmessage?.call(message);
+          try {
+            onmessage?.call(message);
+          } catch (e) {
+            onerror?.call(e is Error ? e : StateError(e.toString()));
+          }
         }
+
+        await res.close();
       } else {
         // Has requests - set up response (SSE or JSON based on enableJsonResponse)
         final streamId = generateUUID();
@@ -840,9 +967,14 @@ class StreamableHTTPServerTransport implements Transport {
           }
         }
 
-        // Handle messages - this will trigger server to call send()
+        // FIX 5: Wrap each onmessage in try-catch so one handler error does
+        // not prevent subsequent messages from being delivered.
         for (final message in messages) {
-          onmessage?.call(message);
+          try {
+            onmessage?.call(message);
+          } catch (e) {
+            onerror?.call(e is Error ? e : StateError(e.toString()));
+          }
         }
 
         // For JSON responses, the response will be completed by send()
@@ -932,13 +1064,23 @@ class StreamableHTTPServerTransport implements Transport {
     return true;
   }
 
-  /// Collects all bytes from a stream
+  /// Collects all bytes from a stream, enforcing [_maxBodySize].
   Future<Uint8List> _collectBytesFromStream(Stream<List<int>> stream) async {
     final completer = Completer<Uint8List>();
     final sink = BytesBuilder();
+    var totalBytes = 0;
+    late final StreamSubscription<List<int>> subscription;
 
-    stream.listen(
-      sink.add,
+    subscription = stream.listen(
+      (chunk) {
+        totalBytes += chunk.length;
+        if (totalBytes > _maxBodySize) {
+          subscription.cancel();
+          completer.completeError(_PayloadTooLargeException(_maxBodySize));
+          return;
+        }
+        sink.add(chunk);
+      },
       onDone: () => completer.complete(sink.takeBytes()),
       onError: completer.completeError,
       cancelOnError: true,
@@ -970,8 +1112,11 @@ class StreamableHTTPServerTransport implements Transport {
         return;
       }
 
-      final contentType = req.headers.contentType?.value ?? '';
-      if (!contentType.contains("application/json")) {
+      // Extract the MIME type (stripping parameters like charset) and compare
+      // exactly. Using contains() would false-positive on similar types such
+      // as "application/json-seq" or "application/json-patch+json".
+      final mimeType = (req.headers.contentType?.value ?? '').split(';').first.trim().toLowerCase();
+      if (mimeType != 'application/json') {
         req.response.statusCode = HttpStatus.unsupportedMediaType;
         req.response.write(
           jsonEncode(
@@ -993,7 +1138,26 @@ class StreamableHTTPServerTransport implements Transport {
         rawMessage = parsedBody;
       } else {
         // Read and parse request body
-        final bodyBytes = await _collectBytes(req);
+        Uint8List bodyBytes;
+        try {
+          bodyBytes = await _collectBytes(req);
+        } on _PayloadTooLargeException catch (e) {
+          req.response.statusCode = HttpStatus.requestEntityTooLarge;
+          req.response.write(
+            jsonEncode(
+              JsonRpcError(
+                id: null,
+                error: JsonRpcErrorData(
+                  code: ErrorCode.invalidRequest.value,
+                  message: 'Payload Too Large',
+                  data: e.toString(),
+                ),
+              ).toJson(),
+            ),
+          );
+          await _safeClose(req.response);
+          return;
+        }
         final bodyString = utf8.decode(bodyBytes);
         rawMessage = jsonDecode(bodyString);
       }
@@ -1151,10 +1315,18 @@ class StreamableHTTPServerTransport implements Transport {
         }
 
         // Set up close handler for client disconnects
-        req.response.done.then((_) {
-          _streamMapping.remove(streamId);
-          _stopKeepAliveTimer(streamId);
-        });
+        req.response.done
+            .then((_) {
+              _streamMapping.remove(streamId);
+              _requestToStreamMapping.removeWhere((_, v) => v == streamId);
+              _stopKeepAliveTimer(streamId);
+            })
+            .catchError((e) {
+              _streamMapping.remove(streamId);
+              _requestToStreamMapping.removeWhere((_, v) => v == streamId);
+              _stopKeepAliveTimer(streamId);
+              onerror?.call(e is Error ? e : StateError(e.toString()));
+            });
 
         // Flush headers immediately so client receives status and mcp-session-id
         // before we process messages (which may be async)
@@ -1195,13 +1367,23 @@ class StreamableHTTPServerTransport implements Transport {
     }
   }
 
-  /// Collects all bytes from an HTTP request
+  /// Collects all bytes from an HTTP request, enforcing [_maxBodySize].
   Future<Uint8List> _collectBytes(HttpRequest request) async {
     final completer = Completer<Uint8List>();
     final sink = BytesBuilder();
+    var totalBytes = 0;
+    late final StreamSubscription<List<int>> subscription;
 
-    request.listen(
-      sink.add,
+    subscription = request.listen(
+      (chunk) {
+        totalBytes += chunk.length;
+        if (totalBytes > _maxBodySize) {
+          subscription.cancel();
+          completer.completeError(_PayloadTooLargeException(_maxBodySize));
+          return;
+        }
+        sink.add(chunk);
+      },
       onDone: () => completer.complete(sink.takeBytes()),
       onError: completer.completeError,
       cancelOnError: true,
@@ -1285,6 +1467,11 @@ class StreamableHTTPServerTransport implements Transport {
 
   @override
   Future<void> close() async {
+    // FIX 1: Prevent double-close — close() can be triggered by both DELETE
+    // requests and internal error/disconnect handlers concurrently.
+    if (_closed) return;
+    _closed = true;
+
     // Cancel all keep-alive timers
     for (final timer in _keepAliveTimers.values) {
       timer.cancel();
@@ -1312,11 +1499,22 @@ class StreamableHTTPServerTransport implements Transport {
     // Clear any pending responses
     _requestResponseMap.clear();
     _requestToStreamMapping.clear();
-    onclose?.call();
+
+    // FIX 1 (cont): Wrap onclose in try-catch to match all other transports
+    // (SSE, stdio) — a throwing callback must not break server teardown.
+    try {
+      onclose?.call();
+    } catch (_) {
+      // Best-effort — onclose callback errors must not break server teardown.
+    }
   }
 
   @override
   Future<void> send(JsonRpcMessage message, {dynamic relatedRequestId}) async {
+    // FIX 1: Reject sends after close() — a DELETE request or error handler
+    // may have torn down the transport while responses are still in-flight.
+    if (_closed) throw StateError('Cannot send: transport is closed.');
+
     dynamic requestId = relatedRequestId;
     if (_isJsonRpcResponse(message) || _isJsonRpcError(message)) {
       // If the message is a response, use the request ID from the message
@@ -1332,8 +1530,11 @@ class StreamableHTTPServerTransport implements Transport {
         throw StateError("Cannot send a response on a standalone SSE stream unless resuming a previous client request");
       }
 
+      // FIX: check both dart:io and shelf adapter stream maps — a shelf GET
+      // registers the standalone stream in _adapterStreamMapping, not _streamMapping.
       final standaloneSse = _streamMapping[_standaloneSseStreamId];
-      if (standaloneSse == null) {
+      final standaloneAdapter = _adapterStreamMapping[_standaloneSseStreamId];
+      if (standaloneSse == null && standaloneAdapter == null) {
         // The spec says the server MAY send messages on the stream, so it's ok to discard if no stream
         return;
       }
@@ -1345,8 +1546,12 @@ class StreamableHTTPServerTransport implements Transport {
         eventId = await _eventStore.storeEvent(_standaloneSseStreamId, message);
       }
 
-      // Send the message to the standalone SSE stream
-      await _writeSSEEvent(standaloneSse, message, eventId);
+      // Send the message to whichever standalone SSE stream is active
+      if (standaloneSse != null) {
+        await _writeSSEEvent(standaloneSse, message, eventId);
+      } else if (standaloneAdapter != null) {
+        _writeSSEEventAdapter(standaloneAdapter, message, eventId);
+      }
       return;
     }
 
@@ -1368,8 +1573,9 @@ class StreamableHTTPServerTransport implements Transport {
       }
 
       if (response != null) {
-        // Write the event to the response stream (dart:io)
-        _writeSSEEvent(response, message, eventId);
+        // FIX: await the SSE write so the final event in a batch is flushed
+        // before we check allResponsesReady and close the stream.
+        await _writeSSEEvent(response, message, eventId);
       } else if (adapterResponse != null) {
         // Write to adapter response (shelf)
         _writeSSEEventAdapter(adapterResponse, message, eventId);

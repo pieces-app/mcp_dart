@@ -162,14 +162,12 @@ void main() {
       }
     });
 
-    test('constructor initializes with default options', () {
-      transport = StreamableHttpClientTransport(serverUrl);
-      expect(transport, isNotNull);
-    });
+    test('constructor with default and custom options produces distinct state', () async {
+      final defaultTransport = StreamableHttpClientTransport(serverUrl);
+      expect(defaultTransport.sessionId, isNull, reason: 'Default transport has no session before start');
 
-    test('constructor accepts custom options', () {
       final mockAuthProvider = MockOAuthClientProvider();
-      transport = StreamableHttpClientTransport(
+      final customTransport = StreamableHttpClientTransport(
         serverUrl,
         opts: StreamableHttpClientTransportOptions(
           authProvider: mockAuthProvider,
@@ -185,13 +183,21 @@ void main() {
           sessionId: 'custom-session-id',
         ),
       );
-      expect(transport, isNotNull);
-    });
+      expect(
+        customTransport.sessionId,
+        equals('custom-session-id'),
+        reason: 'Custom transport must use provided sessionId',
+      );
 
-    test('start initializes the transport', () async {
-      transport = StreamableHttpClientTransport(serverUrl);
+      // Start the default one and verify it transitions to started state.
+      transport = defaultTransport;
       await transport.start();
-      expect(transport, isNotNull);
+      expect(transport.sessionId, isNull, reason: 'Session is null until server responds');
+
+      // Starting again must throw.
+      expect(() async => await transport.start(), throwsA(isA<McpError>()));
+
+      await customTransport.close();
     });
 
     test('send method sends a JsonRpcMessage', () async {
@@ -445,19 +451,19 @@ void main() {
       transport = StreamableHttpClientTransport(serverUrl);
       await transport.start();
 
-      // Ensure we have a session ID
       final notification = const JsonRpcInitializedNotification();
       await transport.send(notification);
 
-      // Wait for session establishment
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Now terminate the session
+      expect(transport.sessionId, isNotNull, reason: 'Session should be established before termination');
+
+      Error? receivedError;
+      transport.onerror = (error) => receivedError = error;
+
       await transport.terminateSession();
 
-      // Since the session was terminated, a successful result implies the
-      // server received and processed our DELETE request
-      expect(true, isTrue);
+      expect(receivedError, isNull, reason: 'terminateSession should complete without errors');
     });
 
     test('handles CRLF line endings in SSE events', () async {
@@ -515,6 +521,79 @@ void main() {
       expect((message as JsonRpcNotification).method, equals('notifications/initialized'));
     }, timeout: const Timeout(Duration(seconds: 10)));
 
+    group('Close/Send/Reconnect Lifecycle', () {
+      test('double close is safe — no StateError, onclose fires once', () async {
+        transport = StreamableHttpClientTransport(serverUrl);
+        await transport.start();
+
+        var oncloseCount = 0;
+        transport.onclose = () {
+          oncloseCount++;
+        };
+
+        await transport.close();
+        await transport.close();
+
+        expect(oncloseCount, equals(1));
+      });
+
+      test('send after close throws StateError', () async {
+        transport = StreamableHttpClientTransport(serverUrl);
+        await transport.start();
+        await transport.close();
+
+        final request = const JsonRpcRequest(id: 999, method: 'test/afterClose', params: {'key': 'value'});
+
+        expect(
+          () => transport.send(request),
+          throwsA(
+            allOf(
+              isA<StateError>(),
+              predicate<StateError>((e) => e.message.contains('closed'), 'message mentions "closed"'),
+            ),
+          ),
+        );
+      });
+
+      test('close cancels reconnect timer — transport is inert', () async {
+        transport = StreamableHttpClientTransport(
+          serverUrl,
+          opts: const StreamableHttpClientTransportOptions(
+            reconnectionOptions: StreamableHttpReconnectionOptions(
+              initialReconnectionDelay: 50,
+              maxReconnectionDelay: 200,
+              reconnectionDelayGrowFactor: 1.5,
+              maxRetries: 5,
+            ),
+          ),
+        );
+        await transport.start();
+        await transport.close();
+
+        expect(() => transport.send(const JsonRpcRequest(id: 1, method: 'test/probe')), throwsStateError);
+
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+
+        expect(() => transport.send(const JsonRpcRequest(id: 2, method: 'test/probe2')), throwsStateError);
+      });
+
+      test('onclose fires exactly once across multiple close calls', () async {
+        transport = StreamableHttpClientTransport(serverUrl);
+        await transport.start();
+
+        var count = 0;
+        transport.onclose = () {
+          count++;
+        };
+
+        await transport.close();
+        await transport.close();
+        await transport.close();
+
+        expect(count, equals(1));
+      });
+    });
+
     group('Error Handling and Edge Cases', () {
       test('handles finishAuth without auth provider', () async {
         transport = StreamableHttpClientTransport(serverUrl);
@@ -552,22 +631,40 @@ void main() {
         transport = StreamableHttpClientTransport(serverUrl);
         await transport.start();
 
-        // Should complete without error
+        expect(transport.sessionId, isNull, reason: 'No session should exist before any messages are sent');
+
+        Error? receivedError;
+        transport.onerror = (error) => receivedError = error;
+
         await transport.terminateSession();
-        expect(true, isTrue);
+
+        expect(transport.sessionId, isNull, reason: 'Session should remain null after no-op termination');
+        expect(receivedError, isNull, reason: 'No errors should occur when terminating a non-existent session');
       });
 
-      test('handles error callback configuration', () async {
-        transport = StreamableHttpClientTransport(serverUrl);
+      test('onerror fires on connection failure', () async {
+        final badUrl = Uri.parse('http://localhost:1/does-not-exist');
+        transport = StreamableHttpClientTransport(badUrl);
 
+        final errorCompleter = Completer<Error>();
         transport.onerror = (error) {
-          // Error callback configured
+          if (!errorCompleter.isCompleted) errorCompleter.complete(error);
         };
 
         await transport.start();
 
-        // Error callback should be configured
-        expect(transport.onerror, isNotNull);
+        try {
+          await transport.send(const JsonRpcRequest(id: 1, method: 'test/method', params: {}));
+        } catch (_) {
+          // Send may throw on connection refused
+        }
+
+        final error = await errorCompleter.future.timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => fail('onerror was never called after connection failure'),
+        );
+
+        expect(error, isA<Error>());
       });
 
       test('handles onclose callback configuration', () async {

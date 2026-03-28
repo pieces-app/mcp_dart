@@ -1,11 +1,90 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:mcp_dart/src/shared/iostream.dart';
+import 'package:mcp_dart/src/shared/stdio.dart';
 import 'package:mcp_dart/src/types.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('ReadBuffer', () {
+    test('overflow clears buffer and continues', () {
+      final buffer = ReadBuffer(maxBufferSize: 50);
+
+      // 60 bytes, no newline — exceeds the 50-byte limit.
+      final big = Uint8List(60)..fillRange(0, 60, 0x41); // 'A' * 60
+      final ok = buffer.append(big);
+
+      expect(ok, isFalse, reason: 'append should return false on overflow');
+      expect(buffer.readMessage(), isNull, reason: 'buffer should be empty after overflow');
+
+      // A subsequent small valid message should parse normally.
+      final msg = '{"jsonrpc":"2.0","method":"ping","id":1}\n';
+      expect(buffer.append(Uint8List.fromList(utf8.encode(msg))), isTrue);
+
+      final parsed = buffer.readMessage();
+      expect(parsed, isNotNull);
+      expect(parsed, isA<JsonRpcPingRequest>());
+      expect((parsed as JsonRpcPingRequest).id, 1);
+    });
+
+    test('partial message buffered across chunks', () {
+      final buffer = ReadBuffer();
+      final full = '{"jsonrpc":"2.0","method":"ping","id":99}\n';
+      final bytes = utf8.encode(full);
+      final mid = bytes.length ~/ 2;
+
+      buffer.append(Uint8List.fromList(bytes.sublist(0, mid)));
+      expect(buffer.readMessage(), isNull, reason: 'no newline yet — nothing to return');
+
+      buffer.append(Uint8List.fromList(bytes.sublist(mid)));
+      final parsed = buffer.readMessage();
+      expect(parsed, isA<JsonRpcPingRequest>());
+      expect((parsed as JsonRpcPingRequest).id, 99);
+    });
+
+    test('multiple messages in single chunk', () {
+      final buffer = ReadBuffer();
+      final chunk =
+          '{"jsonrpc":"2.0","method":"ping","id":1}\n'
+          '{"jsonrpc":"2.0","method":"ping","id":2}\n';
+      buffer.append(Uint8List.fromList(utf8.encode(chunk)));
+
+      final first = buffer.readMessage();
+      expect(first, isA<JsonRpcPingRequest>());
+      expect((first as JsonRpcPingRequest).id, 1);
+
+      final second = buffer.readMessage();
+      expect(second, isA<JsonRpcPingRequest>());
+      expect((second as JsonRpcPingRequest).id, 2);
+
+      expect(buffer.readMessage(), isNull);
+    });
+
+    test('malformed UTF-8 line throws MalformedLineException', () {
+      final buffer = ReadBuffer();
+      // 0xFF 0xFE are invalid UTF-8 lead bytes followed by a newline.
+      buffer.append(Uint8List.fromList([0xFF, 0xFE, 0x0A]));
+
+      expect(() => buffer.readMessage(), throwsA(isA<MalformedLineException>()));
+
+      // Buffer should have advanced past the bad line; a valid message
+      // appended afterwards still parses.
+      final msg = '{"jsonrpc":"2.0","method":"ping","id":5}\n';
+      buffer.append(Uint8List.fromList(utf8.encode(msg)));
+      final parsed = buffer.readMessage();
+      expect(parsed, isA<JsonRpcPingRequest>());
+      expect((parsed as JsonRpcPingRequest).id, 5);
+    });
+
+    test('invalid JSON line throws FormatException', () {
+      final buffer = ReadBuffer();
+      buffer.append(Uint8List.fromList(utf8.encode('not valid json\n')));
+      expect(() => buffer.readMessage(), throwsA(isA<FormatException>()));
+    });
+  });
+
   group('IOStream Transport Tests', () {
     // Stream controllers for direct communication
     late StreamController<List<int>> clientToServerController;
@@ -442,6 +521,145 @@ void main() {
 
       // Verify no message was extracted from the incomplete data
       expect(serverReceivedMessages.isEmpty, isTrue);
+    });
+  });
+
+  group('IOStreamTransport edge cases', () {
+    late StreamController<List<int>> inputController;
+    late StreamController<List<int>> outputController;
+    late IOStreamTransport transport;
+    late List<JsonRpcMessage> messages;
+    late List<Error> errors;
+    late Completer<void> closedCompleter;
+
+    setUp(() {
+      inputController = StreamController<List<int>>.broadcast();
+      outputController = StreamController<List<int>>.broadcast();
+      transport = IOStreamTransport(stream: inputController.stream, sink: outputController.sink);
+      messages = [];
+      errors = [];
+      closedCompleter = Completer<void>();
+
+      transport.onmessage = (m) => messages.add(m);
+      transport.onerror = (e) => errors.add(e);
+      transport.onclose = () {
+        if (!closedCompleter.isCompleted) closedCompleter.complete();
+      };
+    });
+
+    tearDown(() async {
+      await transport.close();
+      await inputController.close();
+      await outputController.close();
+    });
+
+    test('malformed UTF-8 line is skipped, valid message still delivered', () async {
+      final messageReceived = Completer<void>();
+      transport.onmessage = (m) {
+        messages.add(m);
+        if (!messageReceived.isCompleted) messageReceived.complete();
+      };
+
+      await transport.start();
+
+      // Invalid UTF-8 bytes + \n, then a valid JSON-RPC + \n.
+      final invalidUtf8 = [0xFF, 0xFE, 0x0A];
+      final validLine = utf8.encode('{"jsonrpc":"2.0","method":"ping","id":20}\n');
+      inputController.add(Uint8List.fromList([...invalidUtf8, ...validLine]));
+
+      await messageReceived.future.timeout(const Duration(seconds: 2));
+
+      expect(errors, isEmpty, reason: 'MalformedLineException is logged, not sent to onerror');
+      expect(messages, hasLength(1));
+      expect(messages.first, isA<JsonRpcPingRequest>());
+      expect((messages.first as JsonRpcPingRequest).id, 20);
+    });
+
+    test('FormatException fires onerror but continues to next message', () async {
+      final messageReceived = Completer<void>();
+      transport.onmessage = (m) {
+        messages.add(m);
+        if (!messageReceived.isCompleted) messageReceived.complete();
+      };
+
+      await transport.start();
+
+      inputController.add(
+        utf8.encode(
+          'not valid json\n'
+          '{"jsonrpc":"2.0","method":"ping","id":30}\n',
+        ),
+      );
+
+      await messageReceived.future.timeout(const Duration(seconds: 2));
+
+      expect(errors, hasLength(1), reason: 'invalid JSON should fire onerror');
+      expect(errors.first.toString(), contains('Invalid JSON'));
+      expect(messages, hasLength(1));
+      expect((messages.first as JsonRpcPingRequest).id, 30);
+    });
+
+    test('multiple messages in single chunk are all delivered', () async {
+      final allReceived = Completer<void>();
+      transport.onmessage = (m) {
+        messages.add(m);
+        if (messages.length >= 2 && !allReceived.isCompleted) {
+          allReceived.complete();
+        }
+      };
+
+      await transport.start();
+
+      inputController.add(
+        utf8.encode(
+          '{"jsonrpc":"2.0","method":"ping","id":40}\n'
+          '{"jsonrpc":"2.0","method":"ping","id":41}\n',
+        ),
+      );
+
+      await allReceived.future.timeout(const Duration(seconds: 2));
+
+      expect(messages, hasLength(2));
+      expect((messages[0] as JsonRpcPingRequest).id, 40);
+      expect((messages[1] as JsonRpcPingRequest).id, 41);
+    });
+
+    test('partial message buffered across chunks', () async {
+      final received = Completer<void>();
+      transport.onmessage = (m) {
+        messages.add(m);
+        if (!received.isCompleted) received.complete();
+      };
+
+      await transport.start();
+
+      final ping = const JsonRpcPingRequest(id: 50);
+      final full = utf8.encode('${jsonEncode(ping.toJson())}\n');
+      final mid = full.length ~/ 2;
+
+      inputController.add(full.sublist(0, mid));
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(messages, isEmpty);
+
+      inputController.add(full.sublist(mid));
+      await received.future.timeout(const Duration(seconds: 2));
+
+      expect(messages, hasLength(1));
+      expect((messages.first as JsonRpcPingRequest).id, 50);
+    });
+
+    test('buffer overflow fires onerror and closes transport', () async {
+      await transport.start();
+
+      // Stream-level errors exercise the same onerror → close path that
+      // ReadBuffer overflow uses inside _onStreamData.
+      inputController.addError(StateError('simulated overflow / broken pipe'));
+
+      await closedCompleter.future.timeout(const Duration(seconds: 2));
+
+      expect(errors, hasLength(1));
+      expect(errors.first, isA<StateError>());
+      expect(errors.first.toString(), contains('simulated overflow'));
     });
   });
 }

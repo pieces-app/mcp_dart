@@ -1,9 +1,14 @@
 import 'dart:async';
 
+import 'package:mcp_dart/src/shared/logging.dart';
 import 'package:mcp_dart/src/types.dart';
 import 'package:mcp_dart/src/server/mcp_server.dart';
 import 'queue.dart';
 import 'store.dart';
+
+// FIX 15: Use the package's own logger instead of dart:io's stderr so the
+// task session layer stays pure-Dart with no platform dependency.
+final _logger = Logger('mcp_dart.server.tasks.session');
 
 // ============================================================================
 // Task Session
@@ -24,23 +29,30 @@ class TaskSession {
   Future<void> _sendTaskStatusNotification() async {
     final task = await store.getTask(taskId);
     if (task != null) {
-      server.server
-          .notification(
-            JsonRpcTaskStatusNotification(
-              statusParams: TaskStatusNotification(
-                taskId: taskId,
-                status: task.status,
-                statusMessage: task.statusMessage,
-                ttl: task.ttl,
-                pollInterval: task.pollInterval,
-                createdAt: task.createdAt,
-                lastUpdatedAt: task.lastUpdatedAt,
-              ),
+      // FIX 16: Await the notification so task status is actually sent before
+      // subsequent operations (like elicit/createMessage) proceed. The
+      // previous fire-and-forget `.catchError` meant callers that awaited
+      // _sendTaskStatusNotification could race ahead of the send.
+      try {
+        await server.server.notification(
+          JsonRpcTaskStatusNotification(
+            statusParams: TaskStatusNotification(
+              taskId: taskId,
+              status: task.status,
+              statusMessage: task.statusMessage,
+              ttl: task.ttl,
+              pollInterval: task.pollInterval,
+              createdAt: task.createdAt,
+              lastUpdatedAt: task.lastUpdatedAt,
             ),
-          )
-          .catchError((e) {
-            // Ignore errors broadcasting
-          });
+          ),
+        );
+      } catch (e) {
+        _logger.warn(
+          'Failed to broadcast task status notification '
+          'for task $taskId: $e',
+        );
+      }
     }
   }
 

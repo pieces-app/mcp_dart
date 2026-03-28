@@ -20,8 +20,6 @@ class McpClientOptions extends ProtocolOptions {
 typedef ClientOptions = McpClientOptions;
 
 /// Recursively applies default values from a JSON Schema to a data object.
-/// Recursively applies default values from a JSON Schema to a data object.
-// Recursively applies default values from a JSON Schema to a data object.
 void _applyElicitationDefaults(JsonSchema schema, Map<String, dynamic> data) {
   if (schema is! JsonObject) return;
 
@@ -53,8 +51,6 @@ dynamic _deepCopy(dynamic value) {
     return value;
   }
 }
-
-// Unused _applyDefaultsFromMap removed
 
 /// An MCP client implementation built on top of a pluggable [Transport].
 ///
@@ -164,9 +160,13 @@ class McpClient extends Protocol {
   Future<void> connect(Transport transport) async {
     await super.connect(transport);
 
-    if (transport.sessionId != null) {
-      return;
-    }
+    // Always run the initialize handshake, even when resuming a session
+    // (transport.sessionId != null). The server needs to respond with its
+    // current capabilities so that _serverCapabilities is populated;
+    // without this, assertCapabilityForMethod throws because it sees null.
+    // The MCP spec allows re-initialization — the server will reply with
+    // its capabilities regardless of whether this is a fresh or resumed
+    // session.
 
     try {
       final initParams = InitializeRequest(
@@ -430,6 +430,20 @@ class McpClient extends Protocol {
         _cachedRequiredTaskTools.add(tool.name);
       }
     }
+  }
+
+  /// Clears cached server state so a disconnected client does not
+  /// retain stale capabilities, version, instructions, or tool metadata
+  /// from a previous session. Without this, callers that reuse an
+  /// [McpClient] instance after a disconnect could act on outdated data.
+  @override
+  Future<void> close() async {
+    _serverCapabilities = null;
+    _serverVersion = null;
+    _instructions = null;
+    _cachedToolOutputSchemas.clear();
+    _cachedRequiredTaskTools.clear();
+    await super.close();
   }
 
   /// Sends a `notifications/roots/list_changed` notification to the server.

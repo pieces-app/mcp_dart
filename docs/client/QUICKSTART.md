@@ -1,203 +1,216 @@
-# Client Module Quickstart
+# MCP Client Quickstart
 
-## Package Context
-
-### `mcp_dart` (Core Package)
-This module is owned by the core `mcp_dart` package. It provides the foundational client capabilities required to connect to and interact with Model Context Protocol (MCP) servers.
-
-### `mcp_dart_cli` (CLI Integration)
-The Client module is utilized by the `mcp_dart_cli` sub-package to establish connections (typically via `StdioClientTransport`) and forward commands from the command line interface to MCP servers.
-
----
+**Owning Package:** `mcp_dart`
+*(Note: This module is the core client implementation. It is used by the `mcp_dart_cli` package located in `packages/mcp_dart_cli/` for its command-line features like `inspect` and `doctor`.)*
 
 ## 1. Overview
 
-The Client module implements the MCP client specification, handling:
-- **Initialization**: Protocol negotiation and capability exchange.
-- **Transports**: Plug-in support for `stdio` and `http` (SSE).
-- **RPC Methods**: Discovery and invocation of tools, resources, and prompts.
-- **Handlers**: Client-side logic for sampling and elicitation requests.
-- **Tasks**: Support for long-running, asynchronous operations.
+The Client module provides a robust, fully-featured implementation of the Model Context Protocol (MCP) client for Dart. It manages the connection lifecycle, handles the initialization handshake, and provides a strongly-typed API for interacting with an MCP server's features such as tools, prompts, resources, and tasks. It supports pluggable transports, including Standard I/O (stdio) for local server processes and Streamable HTTPS (SSE) for remote servers.
 
-## 2. Importing
+## 2. Import
+
+Import the client module to access the `McpClient` and built-in transports:
 
 ```dart
-// Core client implementation and transports
-import 'package:mcp_dart/src/client/module.dart'; 
+import 'package:mcp_dart/src/client/module.dart';
 
-// Protocol types and message structures
-import 'package:mcp_dart/src/types.dart'; 
+// You will also likely need the shared types:
+import 'package:mcp_dart/src/types.dart';
 ```
 
-*For web platforms, use `import 'package:mcp_dart/src/client/module_web.dart';` to avoid `dart:io` dependencies.*
+*(Note: For web-specific projects, import `package:mcp_dart/src/client/module_web.dart` instead. This module excludes `dart:io` dependencies such as the `StdioClientTransport`.)*
 
-## 3. Initialization & Setup
+## 3. Setup
 
-Instantiate an `McpClient` with your application details and desired capabilities.
+To get started, instantiate a transport and an `McpClient`, then connect them. 
 
-```dart
-final client = McpClient(
-  Implementation(name: 'my-app', version: '1.0.0'),
-  options: McpClientOptions(
-    capabilities: ClientCapabilities(
-      roots: ClientCapabilitiesRoots(listChanged: true),
-      sampling: ClientCapabilitiesSampling(tools: true),
-      elicitation: ClientElicitation.all(),
-      tasks: ClientCapabilitiesTasks(
-        cancel: true,
-        list: true,
-      ),
-    ),
-  ),
-);
+### Connecting via Stdio (Local Process)
 
-// Register handlers for server-initiated requests
-client.onSamplingRequest = (params) async {
-  return CreateMessageResult(
-    role: 'assistant',
-    content: TextContent(text: 'Hello from client sampling!'),
-    model: 'gpt-4',
-    stopReason: 'endTurn',
-  );
-};
+Use `StdioClientTransport` to launch and connect to a local MCP server via its standard input and output streams:
 
-client.onElicitRequest = (params) async {
-  return ElicitResult(
-    action: 'accept',
-    content: {'user_confirmed': true},
-  );
-};
-```
-
-## 4. Transports
-
-### Standard I/O (Local Subprocess)
 ```dart
 import 'dart:io';
+import 'package:mcp_dart/src/client/module.dart';
+import 'package:mcp_dart/src/types.dart';
 
-final transport = StdioClientTransport(
-  StdioServerParameters(
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-everything'],
-    stderrMode: ProcessStartMode.inheritStdio,
-  ),
-);
+void main() async {
+  // 1. Define the transport parameters for the server process
+  final transport = StdioClientTransport(
+    StdioServerParameters(
+      command: 'npx',
+      args: ['-y', '@modelcontextprotocol/server-everything'],
+      stderrMode: ProcessStartMode.inheritStdio,
+    ),
+  );
 
-await transport.start();
-await client.connect(transport);
+  // 2. Initialize the client with basic implementation info and optional capabilities
+  final client = McpClient(
+    Implementation(name: 'my-dart-client', version: '1.0.0'),
+    options: McpClientOptions(
+      capabilities: ClientCapabilities(
+        roots: ClientCapabilitiesRoots(listChanged: true),
+        sampling: ClientCapabilitiesSampling(tools: true),
+        elicitation: ClientElicitation.formOnly(),
+        tasks: ClientCapabilitiesTasks(list: true, cancel: true),
+      ),
+    ),
+  );
+
+  // 3. Connect (this starts the process and performs the MCP handshake)
+  await client.connect(transport);
+  print('Connected to server: ${client.getServerVersion()?.name}');
+}
 ```
 
-### Streamable HTTP (Remote SSE)
+### Connecting via Streamable HTTPS (Remote Server)
+
+For web clients or connecting to remote servers, use `StreamableHttpClientTransport`:
+
 ```dart
 final transport = StreamableHttpClientTransport(
-  Uri.parse('https://mcp.example.com/sse'),
+  Uri.parse('https://api.example.com/mcp/sse'),
   opts: StreamableHttpClientTransportOptions(
-    sessionId: 'optional-session-id',
+    httpTimeout: Duration(seconds: 30),
+    reconnectionOptions: StreamableHttpReconnectionOptions(
+      maxRetries: 3,
+      initialReconnectionDelay: 1000,
+      maxReconnectionDelay: 30000,
+      reconnectionDelayGrowFactor: 1.5,
+    )
   ),
 );
 
-await transport.start();
+final client = McpClient(Implementation(name: 'my-web-client', version: '1.0.0'));
 await client.connect(transport);
 ```
 
-## 5. Core Operations
+## 4. Common Operations
 
-### Tool Operations
+### Calling a Tool
+
+Once connected, you can list the available tools on the server and execute them:
+
 ```dart
 // List available tools
 final toolsResult = await client.listTools();
+for (final tool in toolsResult.tools) {
+  print('Available tool: ${tool.name}');
+}
 
-// Call a tool
-final callResult = await client.callTool(
+// Call a specific tool
+final result = await client.callTool(
   CallToolRequest(
-    name: 'calculate_sum',
-    arguments: {'a': 5, 'b': 10},
+    name: 'echo',
+    arguments: {'message': 'Hello MCP!'},
   ),
 );
+
+if (result.isError) {
+  print('Tool execution encountered an error.');
+}
+
+for (final content in result.content) {
+  print(content.toJson());
+}
 ```
 
-### Resource Operations
+### Handling Elicitation (User Input)
+
+If you advertise the `elicitation` capability, you must provide a handler to process server requests for user input:
+
 ```dart
-// List resources
+client.onElicitRequest = (request) async {
+  print('Server requested input: ${request.message}');
+  
+  if (request.isFormMode) {
+    // Prompt user for form data based on request.requestedSchema
+    return ElicitResult(
+      action: 'accept',
+      content: {'user_name': 'John Doe'},
+    );
+  } else if (request.isUrlMode) {
+    print('Please navigate to: ${request.url}');
+    return ElicitResult(action: 'accept', elicitationId: request.elicitationId);
+  }
+  
+  return ElicitResult(action: 'decline');
+};
+```
+
+### Listing and Reading Resources
+
+Resources allow clients to read file-like data provided by the server:
+
+```dart
+// List resources exposed by the server
 final resources = await client.listResources();
+for (final resource in resources.resources) {
+  print('Resource URI: ${resource.uri}');
+}
 
 // Read a specific resource
-final content = await client.readResource(
-  ReadResourceRequest(uri: 'file:///logs/today.log'),
+final readResult = await client.readResource(
+  ReadResourceRequest(uri: 'file:///path/to/resource.txt'),
 );
 
-// Subscribe to resource updates
-await client.subscribeResource(
-  SubscribeRequest(uri: 'file:///logs/today.log'),
-);
+for (final content in readResult.contents) {
+  print('Content: ${content.toJson()}');
+}
 ```
 
-### Prompt Operations
-```dart
-// List available prompts
-final prompts = await client.listPrompts();
+### Using TaskClient for Long-Running Tasks
 
-// Retrieve a templated prompt
-final prompt = await client.getPrompt(
-  GetPromptRequest(
-    name: 'code_review',
-    arguments: {'language': 'dart'},
-  ),
-);
-```
-
-### Autocompletion
-```dart
-final completions = await client.complete(
-  CompleteRequest(
-    ref: PromptReference(name: 'code_review'),
-    argument: ArgumentCompletionInfo(name: 'language', value: 'da'),
-  ),
-);
-```
-
-### Logging & Utility
-```dart
-// Ping the server
-await client.ping();
-
-// Set server-side logging level
-await client.setLoggingLevel(LoggingLevel.debug);
-
-// Notify server that client roots have changed
-await client.sendRootsListChanged();
-```
-
-## 6. Advanced: Task Management
-
-Use the `TaskClient` for tools that support long-running task execution.
+For advanced task-augmented tools that execute asynchronously, wrap your client in a `TaskClient` to track and stream status updates:
 
 ```dart
 final taskClient = TaskClient(client);
 
+// Call a tool that supports tasks, passing task augmentation parameters
 final stream = taskClient.callToolStream(
-  'expensive_operation',
-  {'input': 'data'},
-  task: {'ttl': 30000, 'pollInterval': 500},
+  'long_running_analysis',
+  {'target': 'data.csv'},
+  task: {'ttl': 60000}, 
 );
 
-await for (final event in stream) {
-  if (event is TaskCreatedMessage) {
-    print('Task started: ${event.task.taskId}');
-  } else if (event is TaskStatusMessage) {
-    print('Progress: ${event.task.progress}');
-  } else if (event is TaskResultMessage) {
-    print('Final result: ${event.result.structuredContent}');
+await for (final message in stream) {
+  if (message is TaskCreatedMessage) {
+    print('Task created with ID: ${message.task.taskId}');
+  } else if (message is TaskStatusMessage) {
+    print('Task status: ${message.task.status}');
+  } else if (message is TaskResultMessage) {
+    print('Final result: ${message.result.toJson()}');
+  } else if (message is TaskErrorMessage) {
+    print('Task encountered an error: ${message.error}');
   }
 }
 ```
 
-## 7. Configuration Reference
+## 5. Configuration
 
-| Class | Key Fields | Purpose |
-|-------|------------|---------|
-| `McpClientOptions` | `capabilities`, `enforceStrictCapabilities` | Handshake config |
-| `StdioServerParameters` | `command`, `args`, `workingDirectory`, `environment` | Spawning local servers |
-| `StreamableHttpClientTransportOptions` | `authProvider`, `requestInit`, `reconnectionOptions` | HTTP/SSE config |
-| `ClientCapabilities` | `roots`, `sampling`, `elicitation`, `tasks` | Feature advertisement |
-| `RequestOptions` | `timeout`, `onProgress` | Per-request behavior |
+### `McpClientOptions`
+Configures the client behavior, particularly the capabilities the client advertises during the handshake. Capabilities enable advanced features like:
+- `elicitation` (`ClientElicitation`): Allows the server to prompt the client user for structured form or URL input.
+- `sampling` (`ClientCapabilitiesSampling`): Allows the server to request LLM completions directly from the client.
+- `roots` (`ClientCapabilitiesRoots`): Allows the client to manage and expose workspace roots.
+- `tasks` (`ClientCapabilitiesTasks`): Enables task-based tools and background task execution.
+
+### `StdioServerParameters`
+Configures how the child server process is spawned by the `StdioClientTransport`:
+- `command`: The executable to run (e.g., `node`, `python`, `npx`).
+- `args`: Command-line arguments passed to the executable.
+- `environment`: Custom environment variables (inherits parent environment by default).
+- `stderrMode`: Controls how stderr is handled (e.g., `ProcessStartMode.inheritStdio` for passthrough printing, or `ProcessStartMode.normal` to read from the transport's `stderr` stream).
+
+### `StreamableHttpClientTransportOptions`
+Configures HTTP and Server-Sent Events behavior:
+- `authProvider`: An `OAuthClientProvider` interface for automated token management, exchange, and refresh.
+- `requestInit`: Custom headers to append to HTTP requests.
+- `reconnectionOptions`: Tuning for exponential backoff during stream disconnects (`maxRetries`, `initialReconnectionDelay`, etc.).
+- `httpTimeout`: Maximum duration to wait for HTTP requests before timing out.
+
+## 6. Related Modules
+
+- **Types (`package:mcp_dart/src/types.dart`)**: Contains all the JSON-RPC models, request/response objects, and data structures used extensively by the Client.
+- **Shared Protocol (`package:mcp_dart/src/shared/protocol.dart`)**: The underlying `Protocol` class that `McpClient` extends, handling JSON-RPC message framing, promises, and routing.
+- **Server (`package:mcp_dart/src/server/module.dart`)**: The counterpart to the Client module, providing the `McpServer` implementation for creating MCP servers.
+- **CLI (`package:mcp_dart_cli`)**: A companion package that provides a command-line interface for interacting with and debugging MCP servers.

@@ -190,6 +190,9 @@ class _TimeoutInfo {
   /// Callback to execute when the timeout occurs.
   final void Function() onTimeout;
 
+  /// Whether progress notifications should reset the per-request timeout timer.
+  final bool resetTimeoutOnProgress;
+
   /// Creates timeout information.
   _TimeoutInfo({
     required this.timeoutTimer,
@@ -197,6 +200,7 @@ class _TimeoutInfo {
     required this.timeoutDuration,
     this.maxTotalTimeoutDuration,
     required this.onTimeout,
+    this.resetTimeoutOnProgress = false,
   });
 }
 
@@ -411,13 +415,20 @@ abstract class Protocol {
   }
 
   /// Sets up the timeout mechanism for an outgoing request.
-  void _setupTimeout(int messageId, Duration timeout, Duration? maxTotalTimeout, void Function() onTimeout) {
+  void _setupTimeout(
+    int messageId,
+    Duration timeout,
+    Duration? maxTotalTimeout,
+    void Function() onTimeout, {
+    bool resetTimeoutOnProgress = false,
+  }) {
     final info = _TimeoutInfo(
       timeoutTimer: Timer(timeout, onTimeout),
       startTime: DateTime.now(),
       timeoutDuration: timeout,
       maxTotalTimeoutDuration: maxTotalTimeout,
       onTimeout: onTimeout,
+      resetTimeoutOnProgress: resetTimeoutOnProgress,
     );
     _timeoutInfo[messageId] = info;
   }
@@ -471,21 +482,25 @@ abstract class Protocol {
 
     final error = McpError(ErrorCode.connectionClosed.value, "Connection closed");
 
-    completers.forEach((id, completer) {
-      if (!completer.isCompleted) {
-        completer.completeError(error);
-      }
-    });
+    // FIX 11: The previous resolver loop here was dead code. Each resolver
+    // callback invoked _onresponse(), which looked up the already-cleared
+    // _requestResolvers and _responseCompleters maps and therefore did nothing.
+    // The completers loop below already fails all pending requests with the
+    // connection-closed error, so the resolver loop was redundant and removed.
 
-    errorHandlers.forEach((id, handler) {
-      if (!completers[id]!.isCompleted) {
+    for (final entry in completers.entries) {
+      final handler = errorHandlers[entry.key];
+      if (handler != null && !entry.value.isCompleted) {
         try {
           handler(error);
         } catch (e) {
           _onerror(StateError("Error in response error handler during close: $e"));
         }
       }
-    });
+      if (!entry.value.isCompleted) {
+        entry.value.completeError(error);
+      }
+    }
 
     try {
       onclose?.call();
@@ -496,10 +511,16 @@ abstract class Protocol {
 
   /// Handles errors reported by the transport or within the protocol layer.
   void _onerror(Error error) {
+    // FIX 2: When no onerror handler is registered, errors were silently
+    // dropped. Log at warning level so they surface in diagnostics.
+    if (onerror == null) {
+      _logger.warn('Protocol error (no handler registered): $error');
+      return;
+    }
     try {
-      onerror?.call(error);
+      onerror!.call(error);
     } catch (e) {
-      _logger.warn("Error occurred in user onerror handler: $e");
+      _logger.warn("Error in user onerror handler: $e");
       _logger.warn("Original error was: $error");
     }
   }
@@ -582,7 +603,11 @@ abstract class Protocol {
     }
 
     if (relatedTaskId != null && _taskStore != null) {
-      _taskStore.updateTaskStatus(relatedTaskId, TaskStatus.inputRequired, null, _transport?.sessionId);
+      // FIX 1: The unawaited Future silently swallowed storage errors.
+      // _onrequest is synchronous (void), so we attach .catchError instead of await.
+      _taskStore.updateTaskStatus(relatedTaskId, TaskStatus.inputRequired, null, _transport?.sessionId).catchError((e) {
+        _onerror(StateError('Failed to update task status for $relatedTaskId: $e'));
+      });
     }
 
     Future.microtask(() => handler(request, extra))
@@ -652,18 +677,28 @@ abstract class Protocol {
       return;
     }
 
+    // Reset the request timeout if the caller opted in via resetTimeoutOnProgress.
+    // This keeps long-running requests alive as long as the server is reporting
+    // progress, while maxTotalTimeoutDuration provides a hard upper bound to
+    // prevent a request from being kept alive indefinitely by infinite resets.
     final timeoutInfo = _timeoutInfo[messageId];
-    if (timeoutInfo != null) {
-      // Determine if we should reset
-      // We don't have easy access to RequestOptions here without storing them,
-      // but in the original code we check `resetTimeoutOnProgress`
-      // For now, assume false unless we enhance `_TimeoutInfo` or lookup.
-      // The original code had `_getRequestOptionsFromTimeoutInfo` which returned null.
-      // If we want to support resetTimeoutOnProgress, we need to store it in `_TimeoutInfo` or a map.
-    }
+    if (timeoutInfo != null && timeoutInfo.resetTimeoutOnProgress) {
+      final maxTotal = timeoutInfo.maxTotalTimeoutDuration;
+      final elapsed = DateTime.now().difference(timeoutInfo.startTime);
 
-    // In strict TS implementation, `resetTimeoutOnProgress` is stored in `TimeoutInfo`.
-    // I will check `_resetTimeout` logic. It uses `_timeoutInfo`.
+      if (maxTotal != null && elapsed >= maxTotal) {
+        // Total wall-clock time exceeded — fire the timeout immediately
+        // rather than granting another extension.
+        timeoutInfo.timeoutTimer.cancel();
+        timeoutInfo.onTimeout();
+        return;
+      }
+
+      // Cancel the existing timer and start a fresh one with the same
+      // per-progress timeout duration.
+      timeoutInfo.timeoutTimer.cancel();
+      timeoutInfo.timeoutTimer = Timer(timeoutInfo.timeoutDuration, timeoutInfo.onTimeout);
+    }
 
     try {
       final progressData = Progress(progress: params.progress, total: params.total, message: params.message);
@@ -831,6 +866,10 @@ abstract class Protocol {
       _responseCompleters.remove(messageId);
       _responseErrorHandlers.remove(messageId);
       _progressHandlers.remove(messageId);
+      // FIX 12: Clean up the side-channel resolver so cancelled task-related
+      // requests don't leave stale entries that would intercept future
+      // responses sharing the same message ID.
+      _requestResolvers.remove(messageId);
       _cleanupTimeout(messageId);
 
       final cancelReason = reason?.toString() ?? 'Request cancelled';
@@ -881,7 +920,13 @@ abstract class Protocol {
       );
     }
 
-    _setupTimeout(messageId, timeoutDuration, maxTotalTimeoutDuration, timeoutHandler);
+    _setupTimeout(
+      messageId,
+      timeoutDuration,
+      maxTotalTimeoutDuration,
+      timeoutHandler,
+      resetTimeoutOnProgress: options?.resetTimeoutOnProgress ?? false,
+    );
 
     // Queue request if related to a task
     if (options?.relatedTask != null) {
@@ -926,6 +971,9 @@ abstract class Protocol {
           _responseCompleters.remove(messageId);
           _responseErrorHandlers.remove(messageId);
           _progressHandlers.remove(messageId);
+          // FIX 12: Also clean up the resolver on normal completion to prevent
+          // stale entries from accumulating in _requestResolvers.
+          _requestResolvers.remove(messageId);
         })
         .catchError((error) {
           throw capturedError ?? error;
@@ -990,10 +1038,16 @@ abstract class Protocol {
         return;
       }
       _pendingDebouncedNotifications.add(notificationData.method);
+      // FIX 3: Capture _transport before the microtask fires to avoid a
+      // TOCTOU race where close() nulls _transport between the check and
+      // the send() call, causing a null dereference on _transport!.
       Future.microtask(() {
         _pendingDebouncedNotifications.remove(notificationData.method);
-        if (_transport == null) return;
-        _transport!.send(jsonrpcNotification, relatedRequestId: relatedRequestId).catchError((e) => _onerror(e));
+        final transport = _transport;
+        if (transport == null) return;
+        transport
+            .send(jsonrpcNotification, relatedRequestId: relatedRequestId)
+            .catchError((e) => _onerror(e is Error ? e : StateError('$e')));
       });
       return;
     }
@@ -1077,25 +1131,9 @@ abstract class Protocol {
     if (options?.task == null) {
       try {
         final result = await request<T>(requestData, resultFactory, options);
-        // We need a way to wrap T into something that fits TaskStreamMessage
-        // OR we just yield a result type.
-        // In the TS SDK it yields { type: 'result', result }.
-        // Here we have specific classes.
-        // Assuming T is CallToolResult for tools, but it could be anything.
-        // For now, let's assume it works or we cast.
-        if (result is CallToolResult) {
-          yield TaskResultMessage(result);
-        } else {
-          // If T is generic BaseResultData, we can't put it in TaskResultMessage
-          // unless TaskResultMessage is generic.
-          // `TaskResultMessage` in types.dart takes `CallToolResult`.
-          // This implies `requestStream` is mostly for Tools?
-          // Or `TaskResultMessage` should be generic/BaseResultData.
-          // Checking types.dart... TaskResultMessage takes CallToolResult.
-          // I'll stick to that limitation or update types.dart later.
-          // For now, if it's not CallToolResult, we might error or just yield nothing?
-          // I'll assume it's fine for now.
-        }
+        // FIX 6: TaskResultMessage accepts any BaseResultData — no need to
+        // gate on CallToolResult, which silently dropped other result types.
+        yield TaskResultMessage(result);
       } catch (e) {
         yield TaskErrorMessage(e);
       }
@@ -1133,9 +1171,8 @@ abstract class Protocol {
               resultFactory,
               options,
             );
-            if (result is CallToolResult) {
-              yield TaskResultMessage(result);
-            }
+            // FIX 6: Yield all result types, not just CallToolResult.
+            yield TaskResultMessage(result);
           } else {
             yield TaskErrorMessage(McpError(ErrorCode.internalError.value, "Task failed: ${currentTask.status}"));
           }
@@ -1148,9 +1185,8 @@ abstract class Protocol {
             resultFactory,
             options,
           );
-          if (result is CallToolResult) {
-            yield TaskResultMessage(result);
-          }
+          // FIX 6: Yield all result types, not just CallToolResult.
+          yield TaskResultMessage(result);
           return;
         }
 
@@ -1285,8 +1321,13 @@ class _RequestTaskStoreImpl implements RequestTaskStore {
       );
       await _protocol.notification(notification);
 
+      // FIX 7: Clean up progress-token bookkeeping for completed/failed
+      // tasks so _taskProgressTokens and _progressHandlers don't leak.
       if (task.status.isTerminal) {
-        // _protocol._cleanupTaskProgressHandler(taskId); // Private method access issue
+        final progressMessageId = _protocol._taskProgressTokens.remove(taskId);
+        if (progressMessageId != null) {
+          _protocol._progressHandlers.remove(progressMessageId);
+        }
       }
     }
   }

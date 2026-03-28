@@ -345,6 +345,18 @@ class Server extends Protocol {
     }
   }
 
+  /// FIX 9: Clear session-specific state on close, matching McpClient.close().
+  /// Without this, a Server instance that is closed and later reconnected to a
+  /// new transport would retain stale _clientCapabilities/_clientVersion from
+  /// the previous session, causing capability checks to use outdated data.
+  @override
+  Future<void> close() async {
+    _clientCapabilities = null;
+    _clientVersion = null;
+    _loggingLevels.clear();
+    await super.close();
+  }
+
   /// Sends a `ping` request to the client and awaits an empty response.
   Future<EmptyResult> ping([RequestOptions? options]) {
     return request<EmptyResult>(const JsonRpcPingRequest(id: -1), (json) => const EmptyResult(), options);

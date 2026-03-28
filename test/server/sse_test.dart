@@ -424,7 +424,7 @@ void main() {
     client.close();
   });
 
-  test('SseServerTransport - multiple close calls are safe', () async {
+  test('SseServerTransport - double start throws StateError', () async {
     final sseUrl = '$serverUrlBase/sse_test';
     final client = HttpClient();
 
@@ -438,10 +438,68 @@ void main() {
 
     final transport = activeTransports.values.first;
 
-    // Multiple close calls should not throw
+    // Transport was already started during creation in testServerHandler.
+    // A second start() must throw StateError.
+    expect(
+      () => transport.start(),
+      throwsA(isA<StateError>().having((e) => e.message, 'message', contains('already started'))),
+    );
+
+    await sseSub.cancel();
+    client.close();
+  });
+
+  test('SseServerTransport - multiple close calls are safe and onclose fires once', () async {
+    final sseUrl = '$serverUrlBase/sse_test';
+    final client = HttpClient();
+
+    final request = await client.getUrl(Uri.parse(sseUrl));
+    request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
+    final response = await request.close();
+    final sseSub = response.listen((_) {});
+
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(activeTransports.length, 1);
+
+    final transport = activeTransports.values.first;
+
+    int oncloseCount = 0;
+    final originalOnclose = transport.onclose;
+    transport.onclose = () {
+      oncloseCount++;
+      originalOnclose?.call();
+    };
+
     await transport.close();
     await transport.close();
     await transport.close();
+
+    expect(oncloseCount, equals(1), reason: 'onclose must fire exactly once across multiple close calls');
+
+    await sseSub.cancel();
+    client.close();
+  });
+
+  test('SseServerTransport - start() on closed transport throws and is not in started state', () async {
+    final sseUrl = '$serverUrlBase/sse_test';
+    final client = HttpClient();
+
+    final request = await client.getUrl(Uri.parse(sseUrl));
+    request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
+    final response = await request.close();
+    final sseSub = response.listen((_) {});
+
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(activeTransports.length, 1);
+
+    final transport = activeTransports.values.first;
+
+    await transport.close();
+
+    expect(
+      () => transport.start(),
+      throwsA(isA<StateError>().having((e) => e.message, 'message', contains('already closed'))),
+    );
 
     await sseSub.cancel();
     client.close();
