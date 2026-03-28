@@ -20,7 +20,7 @@
       "managed_test": true,
       "build_runner": false,
       "web_test": false,
-      "autodoc": true
+      "autodoc": false
     },
     "secrets": {
       "env_file": false
