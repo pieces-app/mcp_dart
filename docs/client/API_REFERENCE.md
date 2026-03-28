@@ -2,188 +2,280 @@
 
 **Owning Package:** `mcp_dart`
 
-The **Client** module provides the core implementation for the Multi-Channel Protocol (MCP) in Dart. It handles the protocol handshake, session management, and standard MCP requests (tools, resources, prompts, etc.) over a pluggable transport layer.
+This module provides the core client implementation for the Model Context Protocol (MCP). It includes the main `McpClient` class, built on a pluggable transport architecture, alongside built-in transports like `StdioClientTransport` and `StreamableHttpClientTransport`.
 
-## Integration with Other Packages
+## Multi-Package Repository Structure
 
-- **`mcp_dart_cli`**: This package utilizes the `McpClient` and `StdioClientTransport` to provide a ready-to-use command-line interface for interacting with MCP servers.
-- **Custom Clients**: Use this module to build custom desktop or web-based MCP clients by choosing the appropriate transport (`StdioClientTransport` for native or `StreamableHttpClientTransport` for web/native).
+The `mcp_dart` repository is a multi-package workspace. This **Client** module is owned by the core `mcp_dart` package.
+
+### Sub-packages
+- **mcp_dart_cli**: A command-line interface for MCP, located in `packages/mcp_dart_cli/`. It utilizes this module to connect to and inspect MCP servers.
 
 ---
 
-## Core Classes
+## 1. Classes
 
-### McpClient
+### McpClientOptions
+Options for configuring the MCP `McpClient`.
 
-The primary entry point for MCP client functionality. It extends `Protocol` and manages the initialization lifecycle with an MCP server.
+**Fields:**
+- `capabilities`: `ClientCapabilities?` - Capabilities to advertise as being supported by this client.
+- `enforceStrictCapabilities`: `bool` - Whether to restrict emitted requests to only those that the remote side has indicated they can handle (inherited from `ProtocolOptions`).
 
-#### Constructors
-- `McpClient(Implementation clientInfo, {McpClientOptions? options})`: Initializes a client with metadata and optional configuration.
+**Constructors:**
+- `McpClientOptions({bool enforceStrictCapabilities = false, ClientCapabilities? capabilities})`
 
-#### Fields
-- `onElicitRequest` (`Future<ElicitResult> Function(ElicitRequest)?`): Callback for handling server-initiated elicitation requests.
-- `onSamplingRequest` (`Future<CreateMessageResult> Function(CreateMessageRequest)?`): Callback for handling server-initiated sampling (LLM completion) requests.
-- `onTaskStatus` (`FutureOr<void> Function(TaskStatusNotification)?`): Callback for handling task status notifications.
-
-#### Key Methods
-- `connect(Transport transport)`: Connects to the server using the provided transport and completes the initialization handshake.
-- `callTool(CallToolRequest params)`: Invokes a tool on the server.
-- `listTools({ListToolsRequest? params})`: Lists available tools.
-- `getPrompt(GetPromptRequest params)`: Retrieves a prompt template.
-- `listPrompts({ListPromptsRequest? params})`: Lists available prompts.
-- `readResource(ReadResourceRequest params)`: Reads the content of a resource.
-- `listResources({ListResourcesRequest? params})`: Lists available resources.
-- `ping()`: Sends a protocol-level ping to verify connection.
-
-#### Example: Initializing and Calling a Tool
-
+**Example:**
 ```dart
 import 'package:mcp_dart/mcp_dart.dart';
 
-void main() async {
-  // 1. Define client information
-  final clientInfo = Implementation(
-    name: "MyClient",
-    version: "1.0.0"
-  );
+final options = McpClientOptions(
+  enforceStrictCapabilities: true,
+  capabilities: ClientCapabilities(
+    sampling: const ClientCapabilitiesSampling(tools: true),
+    roots: const ClientCapabilitiesRoots(listChanged: true),
+  ),
+);
+```
 
-  // 2. Configure client options
-  final options = McpClientOptions(
+### McpClient
+An MCP client implementation built on top of a pluggable `Transport`. Handles the initialization handshake with the server upon connection and provides methods for making standard MCP requests.
+
+**Fields:**
+- `onElicitRequest`: `Future<ElicitResult> Function(ElicitRequest)?` - Callback for handling elicitation requests from the server.
+- `onTaskStatus`: `FutureOr<void> Function(TaskStatusNotification params)?` - Callback for handling task status notifications from the server.
+- `onSamplingRequest`: `Future<CreateMessageResult> Function(CreateMessageRequest params)?` - Callback for handling sampling requests from the server.
+
+**Constructors:**
+- `McpClient(Implementation clientInfo, {McpClientOptions? options})`
+
+**Initialization Example:**
+```dart
+import 'package:mcp_dart/mcp_dart.dart';
+
+final client = McpClient(
+  const Implementation(
+    name: 'my-client',
+    version: '1.0.0',
+    description: 'A custom MCP client',
+  ),
+  options: McpClientOptions(
     capabilities: const ClientCapabilities(
-      sampling: ClientCapabilitiesSampling(tools: true)
-    )
+      roots: ClientCapabilitiesRoots(listChanged: true),
+    ),
+  ),
+);
+
+// Register handlers before connecting
+client.onElicitRequest = (request) async {
+  // Handle server elicitation request
+  return ElicitResult(
+    action: 'accept',
+    content: {'key': 'value'},
   );
+};
+```
 
-  final client = McpClient(clientInfo, options: options);
+**Methods:**
+- `registerCapabilities(ClientCapabilities capabilities)`: `void` - Registers new capabilities for this client before connecting.
+- `connect(Transport transport)`: `Future<void>` - Connects to the server using the given transport and performs the initialization handshake.
+- `getServerCapabilities()`: `ServerCapabilities?` - Gets the server's reported capabilities after successful initialization.
+- `getServerVersion()`: `Implementation?` - Gets the server's reported implementation info.
+- `getInstructions()`: `String?` - Gets the server's instructions provided during initialization.
+- `ping([RequestOptions? options])`: `Future<EmptyResult>` - Sends a `ping` request to the server.
+- `complete(CompleteRequest params, [RequestOptions? options])`: `Future<CompleteResult>` - Sends a `completion/complete` request for argument completion.
+- `setLoggingLevel(LoggingLevel level, [RequestOptions? options])`: `Future<EmptyResult>` - Sends a `logging/setLevel` request.
+- `getPrompt(GetPromptRequest params, [RequestOptions? options])`: `Future<GetPromptResult>` - Sends a `prompts/get` request to retrieve a prompt template.
+- `listPrompts({ListPromptsRequest? params, RequestOptions? options})`: `Future<ListPromptsResult>` - Sends a `prompts/list` request.
+- `listResources({ListResourcesRequest? params, RequestOptions? options})`: `Future<ListResourcesResult>` - Sends a `resources/list` request.
+- `listResourceTemplates({ListResourceTemplatesRequest? params, RequestOptions? options})`: `Future<ListResourceTemplatesResult>` - Sends a `resources/templates/list` request.
+- `readResource(ReadResourceRequest params, [RequestOptions? options])`: `Future<ReadResourceResult>` - Sends a `resources/read` request.
+- `subscribeResource(SubscribeRequest params, [RequestOptions? options])`: `Future<EmptyResult>` - Sends a `resources/subscribe` request.
+- `unsubscribeResource(UnsubscribeRequest params, [RequestOptions? options])`: `Future<EmptyResult>` - Sends a `resources/unsubscribe` request.
+- `callTool(CallToolRequest params, {RequestOptions? options})`: `Future<CallToolResult>` - Sends a `tools/call` request to invoke a tool.
+- `listTools({ListToolsRequest? params, RequestOptions? options})`: `Future<ListToolsResult>` - Sends a `tools/list` request.
+- `close()`: `Future<void>` - Clears cached server state and closes the connection.
+- `sendRootsListChanged()`: `Future<void>` - Sends a `notifications/roots/list_changed` notification.
 
-  // 3. Setup Transport (Example: Stdio)
-  final transport = StdioClientTransport(const StdioServerParameters(
-    command: "node",
-    args: ["server.js"]
-  ));
+**Tool Call Example:**
+```dart
+final result = await client.callTool(
+  CallToolRequest(
+    name: 'get_weather',
+    arguments: {'city': 'San Francisco'},
+  ),
+);
 
-  // 4. Connect
-  await client.connect(transport);
-
-  // 5. Call a tool using cascade notation for request building
-  final result = await client.callTool(
-    CallToolRequest(name: "calculate_sum")
-      ..arguments = {"a": 10, "b": 20}
-  );
-
-  if (!result.isError) {
-    print("Result: ${result.content}");
-  }
-
-  await client.close();
+if (!result.isError) {
+  print('Weather: ${result.content}');
 }
 ```
 
----
+### StdioServerParameters
+Configuration parameters for launching a server process for stdio communication.
+
+**Fields:**
+- `command`: `String` - The executable command to run (e.g., `'node'`, `'python'`, `'dart'`).
+- `args`: `List<String>` - Command line arguments to pass to the executable.
+- `environment`: `Map<String, String>?` - Environment variables for the process.
+- `stderrMode`: `ProcessStartMode` - How to handle stderr. Defaults to `inheritStdio`. Use `normal` to capture via `transport.stderr`.
+- `workingDirectory`: `String?` - The working directory for the process.
+
+**Constructors:**
+- `StdioServerParameters({required String command, List<String> args = const [], Map<String, String>? environment, ProcessStartMode stderrMode = ProcessStartMode.inheritStdio, String? workingDirectory})`
+
+### StdioClientTransport
+Client transport for stdio: connects to a server by spawning a process and communicating with it over stdin/stdout pipes.
+
+**Fields:**
+- `onclose`: `void Function()?` - Callback for when the process exits.
+- `onerror`: `void Function(Error error)?` - Callback for reporting process or stream errors.
+- `onmessage`: `void Function(JsonRpcMessage message)?` - Callback for received messages.
+- `stderr`: `Stream<List<int>>?` - Access to the child process's stderr stream (requires `ProcessStartMode.normal`).
+
+**Constructors:**
+- `StdioClientTransport(StdioServerParameters serverParams)`
+
+**Example:**
+```dart
+import 'dart:io';
+import 'package:mcp_dart/mcp_dart.dart';
+
+final transport = StdioClientTransport(
+  const StdioServerParameters(
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-weather'],
+    environment: {'API_KEY': 'your-key'},
+  ),
+);
+
+final client = McpClient(const Implementation(name: 'weather-client', version: '1.0.0'));
+await client.connect(transport);
+```
+
+### StreamableHttpClientTransportOptions
+Configuration options for the `StreamableHttpClientTransport`.
+
+**Fields:**
+- `authProvider`: `OAuthClientProvider?` - Provider for OAuth-based authentication.
+- `requestInit`: `Map<String, dynamic>?` - Custom headers or other HTTP request parameters.
+- `reconnectionOptions`: `StreamableHttpReconnectionOptions?` - Reconnection strategy settings.
+- `sessionId`: `String?` - A pre-existing session ID to resume.
+- `httpTimeout`: `Duration?` - Timeout for individual HTTP requests (defaults to 30s).
+
+**Constructors:**
+- `StreamableHttpClientTransportOptions({OAuthClientProvider? authProvider, Map<String, dynamic>? requestInit, StreamableHttpReconnectionOptions? reconnectionOptions, String? sessionId, Duration? httpTimeout})`
+
+### StreamableHttpClientTransport
+Client transport for Streamable HTTP: connects to a server using HTTP POST for sending and GET (SSE) for receiving messages.
+
+**Fields:**
+- `onclose`: `void Function()?` - Callback for connection closure.
+- `onerror`: `void Function(Error error)?` - Callback for transport errors.
+- `onmessage`: `void Function(JsonRpcMessage message)?` - Callback for incoming messages.
+- `sessionId`: `String?` - The current active session ID.
+
+**Constructors:**
+- `StreamableHttpClientTransport(Uri url, {StreamableHttpClientTransportOptions? opts})`
+
+**Methods:**
+- `finishAuth(String authorizationCode)`: `Future<void>` - Exchanges an authorization code for tokens.
+- `terminateSession()`: `Future<void>` - Sends a `DELETE` request to explicitly end the session.
+
+**Example:**
+```dart
+import 'package:mcp_dart/mcp_dart.dart';
+
+final transport = StreamableHttpClientTransport(
+  Uri.parse('https://mcp.example.com/api'),
+  opts: StreamableHttpClientTransportOptions(
+    httpTimeout: const Duration(seconds: 10),
+  ),
+);
+
+final client = McpClient(const Implementation(name: 'http-client', version: '1.0.0'));
+await client.connect(transport);
+```
+
+### StreamableHttpError
+Error thrown for Streamable HTTP transport issues.
+
+**Fields:**
+- `code`: `int?` - The HTTP status code (e.g., 404, 500).
+- `message`: `String` - A descriptive error message.
+
+### UnauthorizedError
+Specialized error indicating that authentication is required or failed.
+
+**Fields:**
+- `message`: `String?` - Optional detail about the auth failure.
+
+### OAuthClientProvider
+Abstract interface for providing OAuth tokens and handling redirects.
+
+**Methods:**
+- `tokens()`: `Future<OAuthTokens?>` - Returns current access/refresh tokens.
+- `redirectToAuthorization()`: `Future<void>` - Navigates the user to the provider's auth page.
+
+### OAuthTokens
+Container for OAuth credentials.
+
+**Fields:**
+- `accessToken`: `String` - The active access token.
+- `refreshToken`: `String?` - Optional refresh token.
 
 ### TaskClient
+A high-level wrapper to simplify task-based tool calls. It handles polling and state management for long-running tasks.
 
-A helper class that abstracts the complexity of task-augmented tool calls, handling polling and terminal state retrieval automatically.
+**Fields:**
+- `client`: `McpClient` - The underlying client.
 
-#### Methods
-- `callToolStream(String name, Map<String, dynamic> arguments, {Map<String, dynamic>? task})`: Returns a `Stream<TaskStreamMessage>` that yields status updates and the final result.
+**Constructors:**
+- `TaskClient(McpClient client)`
 
-#### Example: Using Task-Augmented Tool Calls
+**Methods:**
+- `callToolStream(String name, Map<String, dynamic> arguments, {Map<String, dynamic>? task})`: `Stream<TaskStreamMessage>` - Invokes a tool and returns a stream of status updates and final result.
+- `listTasks()`: `Future<List<Task>>` - Lists all active tasks on the server.
+- `cancelTask(String taskId)`: `Future<void>` - Cancels a running task.
 
+**Example:**
 ```dart
 final taskClient = TaskClient(client);
 
-final taskStream = taskClient.callToolStream(
-  "long_running_process",
-  {"input": "data"},
-  task: {"ttl": 60000} // Request task augmentation
+final stream = taskClient.callToolStream(
+  'process_video',
+  {'url': 'https://example.com/video.mp4'},
+  task: {'ttl': 600000}, // Request task augmentation
 );
 
-await for (final message in taskStream) {
+await for (final message in stream) {
   if (message is TaskCreatedMessage) {
-    print("Task created: ${message.task.taskId}");
+    print('Task created: ${message.task.taskId}');
   } else if (message is TaskStatusMessage) {
-    print("Status: ${message.task.status.name}");
+    print('Status: ${message.task.status}');
   } else if (message is TaskResultMessage) {
-    print("Final result: ${message.result.toJson()}");
-  } else if (message is TaskErrorMessage) {
-    print("Error: ${message.error}");
+    print('Result: ${message.result.content}');
   }
 }
 ```
 
 ---
 
-## Transports
+## 2. Enums
+*(No public enums are directly defined in this module, see common types in shared module)*
 
-### StdioClientTransport
+## 3. Extensions
+*(No public extensions are directly defined in this module)*
 
-Connects to a server by spawning a process and communicating via `stdin`/`stdout`.
+## 4. Top-Level Functions
 
-```dart
-final transport = StdioClientTransport(
-  StdioServerParameters(
-    command: "python",
-    args: ["mcp_server.py"],
-    environment: {"DEBUG": "true"},
-    stderrMode: ProcessStartMode.inheritStdio
-  )
-);
-```
+- **auth** -- Performs authentication with the provided OAuth client.
+  - Signature: `Future<AuthResult> auth(OAuthClientProvider provider, {required Uri serverUrl, String? authorizationCode})`
+  - Returns: `Future<AuthResult>`
 
-### StreamableHttpClientTransport
+## 5. Typedefs
 
-Connects to a server using HTTP POST for sending and Server-Sent Events (SSE) for receiving messages. Supports authentication and resumable streams.
-
-```dart
-final transport = StreamableHttpClientTransport(
-  Uri.parse("https://mcp-server.example.com/endpoint"),
-  opts: StreamableHttpClientTransportOptions(
-    authProvider: myOAuthProvider,
-    reconnectionOptions: const StreamableHttpReconnectionOptions(
-      maxRetries: 5,
-      initialReconnectionDelay: 1000,
-      reconnectionDelayGrowFactor: 2.0,
-      maxReconnectionDelay: 60000
-    )
-  )
-);
-```
-
----
-
-## Configuration Classes
-
-### McpClientOptions
-- `capabilities`: The `ClientCapabilities` the client supports.
-- `enforceStrictCapabilities`: Whether to fail requests if the server hasn't advertised the required capability.
-
-### ClientCapabilities
-Used to advertise support for specific MCP features.
-- `sampling`: Support for `sampling/createMessage`.
-- `roots`: Support for `roots/list` and `list_changed` notifications.
-- `elicitation`: Support for `elicitation/create`.
-- `tasks`: Support for task-based execution.
-
----
-
-## Shared Types (Client Usage)
-
-When interacting with the client, you will use these common message types. All fields use **camelCase**.
-
-### CallToolResult
-- `content` (`List<Content>`): The items returned by the tool (text, image, etc.).
-- `isError` (`bool`): Whether the tool call failed.
-- `structuredContent` (`Map<String, dynamic>?`): Structured data returned by the tool.
-
-### Task
-- `taskId` (`String`): Unique identifier.
-- `status` (`TaskStatus`): Current state (`working`, `inputRequired`, `completed`, `failed`, `cancelled`).
-- `statusMessage` (`String?`): Optional description of the current state.
-- `pollInterval` (`int?`): Suggested milliseconds between status checks.
-
-### CreateMessageRequest (Sampling)
-- `messages` (`List<SamplingMessage>`): Context for the LLM.
-- `maxTokens` (`int`): Maximum length of response.
-- `modelPreferences` (`ModelPreferences?`): Hints for model selection.
-- `systemPrompt` (`String?`): Optional system instructions.
+- **ClientOptions** -- Deprecated alias for `McpClientOptions`. Use `McpClientOptions` instead.
+- **Client** -- Deprecated alias for `McpClient`. Use `McpClient` instead.
+- **AuthResult** -- Result of an authentication attempt (alias for `String`).
+- **ProgressCallback** -- Callback for progress notifications. Signature: `void Function(Progress progress)`.

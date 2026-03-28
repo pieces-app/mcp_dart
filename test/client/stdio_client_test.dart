@@ -5,6 +5,22 @@ import 'package:mcp_dart/src/client/stdio.dart';
 import 'package:mcp_dart/src/types.dart';
 import 'package:test/test.dart';
 
+StdioServerParameters _stderrEmitterParameters() {
+  if (io.Platform.isWindows) {
+    return const StdioServerParameters(
+      command: 'cmd',
+      args: ['/c', '(echo err 1>&2) & ping -n 3 127.0.0.1 > nul'],
+      stderrMode: io.ProcessStartMode.normal,
+    );
+  }
+
+  return const StdioServerParameters(
+    command: 'bash',
+    args: ['-c', 'echo err >&2; sleep 2'],
+    stderrMode: io.ProcessStartMode.normal,
+  );
+}
+
 void main() {
   group('StdioClientTransport', () {
     test('throws StateError when process fails to start', () async {
@@ -92,13 +108,7 @@ void main() {
     });
 
     test('stderr is accessible when stderrMode is normal', () async {
-      final transport = StdioClientTransport(
-        const StdioServerParameters(
-          command: 'bash',
-          args: ['-c', 'echo err >&2; sleep 2'],
-          stderrMode: io.ProcessStartMode.normal,
-        ),
-      );
+      final transport = StdioClientTransport(_stderrEmitterParameters());
 
       await transport.start();
 
@@ -114,7 +124,9 @@ void main() {
           }
         },
         onDone: () {
-          if (!stderrCompleter.isCompleted) stderrCompleter.complete(stderrData.toString());
+          if (!stderrCompleter.isCompleted) {
+            stderrCompleter.complete(stderrData.toString());
+          }
         },
       );
 
@@ -207,7 +219,9 @@ void main() {
       final twoReceived = Completer<void>();
       transport.onmessage = (msg) {
         messages.add(msg);
-        if (messages.length == 2 && !twoReceived.isCompleted) twoReceived.complete();
+        if (messages.length == 2 && !twoReceived.isCompleted) {
+          twoReceived.complete();
+        }
       };
 
       await transport.start();

@@ -229,14 +229,14 @@ class StreamableMcpServer {
               ),
             ).toJson(),
           ),
-        )
-        ..close();
+        );
+      await request.response.close();
       return;
     }
 
-    final bodyString = utf8.decode(bodyBytes);
     dynamic body;
     try {
+      final bodyString = utf8.decode(bodyBytes);
       body = jsonDecode(bodyString);
     } catch (e) {
       request.response
@@ -248,8 +248,8 @@ class StreamableMcpServer {
               error: JsonRpcErrorData(code: ErrorCode.parseError.value, message: 'Parse error'),
             ).toJson(),
           ),
-        )
-        ..close();
+        );
+      await request.response.close();
       return;
     }
 
@@ -278,8 +278,8 @@ class StreamableMcpServer {
               ),
             ).toJson(),
           ),
-        )
-        ..close();
+        );
+      await request.response.close();
       return;
     }
 

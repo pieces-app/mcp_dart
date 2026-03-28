@@ -92,9 +92,14 @@ class SseServerManager {
 
       // Protocol._onclose() runs first (clears pending requests, nulls
       // transport, etc.), then calls this callback at the very end.
+      final previousOnclose = mcpServer.server.onclose;
       mcpServer.server.onclose = () {
-        _logger.debug("SSE transport closed (Session: $sessionId). Removing from active list.");
-        activeSseTransports.remove(sessionId);
+        try {
+          previousOnclose?.call();
+        } finally {
+          _logger.debug("SSE transport closed (Session: $sessionId). Removing from active list.");
+          activeSseTransports.remove(sessionId);
+        }
       };
       _logger.debug("SSE transport connected, session ID: $sessionId");
     } catch (e) {

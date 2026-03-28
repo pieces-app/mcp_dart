@@ -1,236 +1,304 @@
-# API Reference: Types Module
+# Types API Reference
 
-## Multi-Package Architecture
+## Package Ownership
 
-This module is owned by the core **`mcp_dart`** package. It defines the foundational Model Context Protocol (MCP) data structures, capabilities, and JSON-RPC message formats used across the entire ecosystem.
+The **Types** module is part of the core `mcp_dart` package. It defines the foundational data structures and JSON-RPC protocol messages used by all Model Context Protocol (MCP) implementations in this repository.
 
-**Integration:**
-- **`mcp_dart`**: The core library uses these types for all internal protocol logic, transport handling, and high-level client/server abstractions.
-- **`mcp_dart_cli`**: The CLI package (located in `packages/mcp_dart_cli/`) depends on this module to provide type-safe command-line interfaces for interacting with MCP servers and clients. It utilizes these types for command arguments, result formatting, and configuration.
-
-All protocol messages, arguments, and content types exchanged between clients and servers in this repository are instantiated from this module.
+### Integration with `mcp_dart_cli`
+This module is utilized by the `mcp_dart_cli` package (located in `packages/mcp_dart_cli/`) to provide type-safe interactions when inspecting, serving, or debugging MCP servers. All command-line tools and inter-process communication (IPC) rely on these definitions for protocol compliance.
 
 ---
 
-## 1. Constants & Type Aliases
+## 1. JSON-RPC Core
 
-### Protocol Constants
-- `latestProtocolVersion`: The latest version of the MCP supported (currently "2025-11-25").
-- `supportedProtocolVersions`: List of all supported MCP versions.
-- `jsonRpcVersion`: Always "2.0".
+These classes define the base messaging layer for MCP.
 
-### Type Aliases (Typedefs)
-- `RequestId`: `dynamic` (String or int)
-- `ProgressToken`: `dynamic`
-- `Cursor`: `String`
-- `ElicitationInputSchema`: `JsonSchema`
-- `ToolInputSchema`: `JsonObject`
-- `ToolOutputSchema`: `JsonObject`
-- `DynamicStopReason`: `dynamic` (StopReason or String)
-- `TaskStatusString`: `String`
+### Methods & Constants
+Standard MCP JSON-RPC methods are defined as static constants in the `Method` class.
 
----
+```dart
+import 'package:mcp_dart/mcp_dart.dart';
 
-## 2. Core JSON-RPC Classes
+// Example usage of Method constants
+print(Method.initialize); // "initialize"
+print(Method.toolsCall);   // "tools/call"
+```
 
-### Base Messages
-- **JsonRpcMessage** -- Base class for all JSON-RPC messages.
-  - **Fields**: `jsonrpc` (String)
-  - **Constructors**: `JsonRpcMessage.fromJson(Map<String, dynamic> json)`
-- **JsonRpcRequest** -- Base class for requests expecting a response.
-  - **Fields**: `id` (RequestId), `method` (String), `params` (Map<String, dynamic>?), `meta` (Map<String, dynamic>?)
-  - **Getters**: `progressToken`
-- **JsonRpcNotification** -- Base class for notifications.
-  - **Fields**: `method` (String), `params` (Map<String, dynamic>?), `meta` (Map<String, dynamic>?)
-- **JsonRpcResponse** -- Successful response.
-  - **Fields**: `id` (RequestId), `result` (Map<String, dynamic>), `meta` (Map<String, dynamic>?)
-- **JsonRpcError** -- Error response.
-  - **Fields**: `id` (RequestId), `error` (JsonRpcErrorData)
+### JsonRpcMessage
+Base class for all messages. Use `JsonRpcMessage.fromJson` to deserialize any incoming message.
 
-### Error Handling
-- **JsonRpcErrorData** -- The `error` object within a `JsonRpcError`.
-  - **Fields**: `code` (int), `message` (String), `data` (dynamic)
-- **McpError** -- Custom exception for MCP-specific errors.
-  - **Fields**: `code` (int), `message` (String), `data` (dynamic)
+### JsonRpcRequest
+Base class for requests expecting a response.
+- **Fields:** `id`, `method`, `params`, `meta`
+- **Properties:** `progressToken` (retrieved from `_meta`)
 
----
+```dart
+final request = JsonRpcInitializeRequest(
+  id: 1,
+  initParams: InitializeRequest(
+    protocolVersion: latestProtocolVersion,
+    clientInfo: Implementation(name: "ExampleClient", version: "1.0.0"),
+    capabilities: ClientCapabilities(),
+  ),
+);
+```
 
-## 3. Initialization & Capabilities
+### JsonRpcError
+Represents a protocol error.
+- **Fields:** `id`, `error` (instance of `JsonRpcErrorData`)
 
-### Implementation Info
-- **Implementation** -- Name and version of a client/server.
-  - **Fields**: `name` (String), `version` (String), `description` (String?)
-
-### Client Capabilities
-- **ClientCapabilities** -- Features supported by a client.
-  - **Fields**: `experimental` (Map?), `sampling` (ClientCapabilitiesSampling?), `roots` (ClientCapabilitiesRoots?), `elicitation` (ClientElicitation?), `tasks` (ClientCapabilitiesTasks?), `extensions` (Map?)
-- **ClientCapabilitiesSampling** -- `tools` (bool)
-- **ClientCapabilitiesRoots** -- `listChanged` (bool?)
-- **ClientElicitation** -- `form` (ClientElicitationForm?), `url` (ClientElicitationUrl?)
-- **ClientCapabilitiesTasks** -- `cancel` (bool?), `list` (bool?), `requests` (ClientCapabilitiesTasksRequests?)
-
-### Server Capabilities
-- **ServerCapabilities** -- Features supported by a server.
-  - **Fields**: `experimental` (Map?), `logging` (Map?), `prompts` (ServerCapabilitiesPrompts?), `resources` (ServerCapabilitiesResources?), `tools` (ServerCapabilitiesTools?), `completions` (ServerCapabilitiesCompletions?), `tasks` (ServerCapabilitiesTasks?), `elicitation` (ServerCapabilitiesElicitation?), `extensions` (Map?)
+```dart
+final errorResponse = JsonRpcError(
+  id: 1,
+  error: JsonRpcErrorData(
+    code: ErrorCode.methodNotFound.value,
+    message: "Method not found",
+  ),
+);
+```
 
 ---
 
-## 4. Content & Resources
+## 2. Lifecycle & Capabilities
 
-### Content Types
-- **Content** -- Sealed base class for content parts.
-  - **Subclasses**: `TextContent`, `ImageContent`, `AudioContent`, `EmbeddedResource`, `ResourceLink`.
-- **TextContent** -- `text` (String)
-- **ImageContent** -- `data` (String - Base64), `mimeType` (String), `theme` (String?)
-- **AudioContent** -- `data` (String - Base64), `mimeType` (String)
-- **EmbeddedResource** -- `resource` (ResourceContents)
-- **ResourceLink** -- `uri` (String), `name` (String), `title` (String?), `description` (String?), `mimeType` (String?), `size` (int?), `icons` (List<McpIcon>?), `annotations` (Map?), `meta` (Map?)
+### Implementation
+Describes an MCP implementation (client or server).
+- **Fields:** `name`, `version`, `description`
 
-### Resource Objects
-- **Resource** -- `uri` (String), `name` (String), `description` (String?), `mimeType` (String?), `icon` (ImageContent?), `icons` (List<McpIcon>?), `annotations` (ResourceAnnotations?)
-- **ResourceTemplate** -- `uriTemplate` (String), `name` (String), `description` (String?), `mimeType` (String?), `icon` (ImageContent?), `icons` (List<McpIcon>?), `annotations` (ResourceAnnotations?)
-- **ResourceContents** -- `uri` (String), `mimeType` (String?)
-  - **Subclasses**: `TextResourceContents`, `BlobResourceContents`, `UnknownResourceContents`.
-- **McpIcon** -- `src` (String), `mimeType` (String?), `sizes` (List<String>?), `theme` (IconTheme?)
+### ClientCapabilities
+Declares what features a client supports.
+- **Fields:** `experimental`, `sampling`, `roots`, `elicitation`, `tasks`, `extensions`
 
----
+### ServerCapabilities
+Declares what features a server provides.
+- **Fields:** `experimental`, `logging`, `prompts`, `resources`, `tools`, `completions`, `tasks`, `elicitation`, `extensions`
 
-## 5. Tools & Prompts
+### InitializeRequest / InitializeResult
+The handshake messages exchanged during connection setup.
 
-### Tools
-- **Tool** -- `name` (String), `description` (String?), `inputSchema` (JsonSchema), `outputSchema` (JsonSchema?), `annotations` (ToolAnnotations?), `meta` (Map?), `execution` (ToolExecution?), `icon` (ImageContent?), `icons` (List<McpIcon>?)
-- **ToolAnnotations** -- `title` (String?), `readOnlyHint` (bool), `destructiveHint` (bool), `idempotentHint` (bool), `openWorldHint` (bool), `priority` (double?), `audience` (List<String>?)
-- **ToolExecution** -- `taskSupport` (String - "forbidden" | "optional" | "required")
-
-### Prompts
-- **Prompt** -- `name` (String), `description` (String?), `arguments` (List<PromptArgument>?), `icon` (ImageContent?), `icons` (List<McpIcon>?)
-- **PromptArgument** -- `name` (String), `description` (String?), `required` (bool?)
-- **PromptMessage** -- `role` (PromptMessageRole), `content` (Content)
-
----
-
-## 6. Sampling & Completions
-
-### Sampling
-- **CreateMessageRequest** -- `messages` (List<SamplingMessage>), `systemPrompt` (String?), `includeContext` (IncludeContext?), `temperature` (double?), `maxTokens` (int), `stopSequences` (List<String>?), `metadata` (Map?), `modelPreferences` (ModelPreferences?), `tools` (List<Tool>?), `toolChoice` (Map?)
-- **ModelPreferences** -- `hints` (List<ModelHint>?), `costPriority` (double?), `speedPriority` (double?), `intelligencePriority` (double?)
-- **SamplingContent** -- `type` (String)
-  - **Subclasses**: `SamplingTextContent`, `SamplingImageContent`, `SamplingToolUseContent`, `SamplingToolResultContent`.
-
-### Completions
-- **Reference** -- Autocompletion target.
-  - **Subclasses**: `ResourceReference` (`uri`), `PromptReference` (`name`).
-- **ArgumentCompletionInfo** -- `name` (String), `value` (String)
-- **CompletionResultData** -- `values` (List<String>), `total` (int?), `hasMore` (bool?)
+```dart
+// Constructing an InitializeResult
+final result = InitializeResult(
+  protocolVersion: "2025-11-25",
+  serverInfo: Implementation(
+    name: "WeatherServer",
+    version: "1.2.0",
+    description: "Provides weather updates",
+  ),
+  capabilities: ServerCapabilities(
+    tools: ServerCapabilitiesTools(listChanged: true),
+    resources: ServerCapabilitiesResources(subscribe: true),
+  ),
+);
+```
 
 ---
 
-## 7. Tasks & Elicitation
+## 3. Tools & Resources
+
+### Tool
+Defines an executable tool.
+- **Fields:** `name`, `description`, `inputSchema`, `outputSchema`, `annotations`, `execution`, `icon`, `icons`
+
+```dart
+final weatherTool = Tool(
+  name: "get_weather",
+  description: "Get current weather for a city",
+  inputSchema: JsonSchema.object(
+    properties: {
+      "city": JsonSchema.string(description: "The city name"),
+    },
+    required: ["city"],
+  ),
+)..annotations = ToolAnnotations(
+  title: "Weather Checker",
+  readOnlyHint: true,
+);
+```
+
+### Resource
+Describes a data source.
+- **Fields:** `uri`, `name`, `description`, `mimeType`, `icon`, `icons`, `annotations`
+
+### Content
+Sealed class for data parts.
+- **Subclasses:** `TextContent`, `ImageContent`, `AudioContent`, `EmbeddedResource`, `ResourceLink`
+
+---
+
+## 4. Prompts & Sampling
+
+### Prompt
+A template for model interaction.
+- **Fields:** `name`, `description`, `arguments`, `icon`, `icons`
+
+### SamplingMessage
+Represents a message in an LLM sampling exchange.
+- **Fields:** `role` (user/assistant), `content` (SamplingContent)
+
+```dart
+final samplingRequest = CreateMessageRequest(
+  messages: [
+    SamplingMessage(
+      role: SamplingMessageRole.user,
+      content: SamplingTextContent(text: "Hello!"),
+    ),
+  ],
+  maxTokens: 100,
+  temperature: 0.7,
+);
+```
+
+---
+
+## 5. Advanced Interactions
 
 ### Tasks
-- **Task** -- `taskId` (String), `status` (TaskStatus), `statusMessage` (String?), `ttl` (int?), `pollInterval` (int?), `createdAt` (String?), `lastUpdatedAt` (String?), `meta` (Map?)
-- **TaskStreamMessage** -- Stream events for task execution.
-  - **Subclasses**: `TaskCreatedMessage`, `TaskStatusMessage`, `TaskResultMessage`, `TaskErrorMessage`.
+Tasks allow for long-running operations with status updates and cancellation.
+- **Task Fields:** `taskId`, `status`, `statusMessage`, `ttl`, `pollInterval`, `createdAt`, `lastUpdatedAt`
+
+```dart
+final taskStatus = Task(
+  taskId: "task-123",
+  status: TaskStatus.working,
+  statusMessage: "Processing data...",
+)..pollInterval = 5000;
+```
 
 ### Elicitation
-- **ElicitRequest** -- Server-initiated input request.
-  - **Fields**: `mode` (ElicitationMode?), `message` (String), `requestedSchema` (JsonSchema?), `url` (String?), `elicitationId` (String?)
-- **ElicitResult** -- `action` (String - "accept" | "decline" | "cancel"), `content` (Map?), `url` (String?), `elicitationId` (String?)
+Server-initiated requests for user input.
+- **Modes:** `form` (structured JSON), `url` (out-of-band)
+
+```dart
+final elicitation = ElicitRequest.form(
+  message: "Please enter your API key",
+  requestedSchema: JsonSchema.string(format: "password"),
+);
+```
 
 ---
 
-## 8. Enums & Extensions
+## 6. JSON Schema Builder
 
-### Enums
-- **IconTheme**: `light`, `dark`
-- **ElicitationMode**: `form`, `url`
-- **ErrorCode**: Standard JSON-RPC and MCP error codes (e.g., `urlElicitationRequired` = -32042).
-- **LoggingLevel**: `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency`
-- **PromptMessageRole**: `user`, `assistant`
-- **SamplingMessageRole**: `user`, `assistant`
-- **IncludeContext**: `none`, `thisServer`, `allServers`
-- **StopReason**: `endTurn`, `stopSequence`, `maxTokens`
-- **TaskStatus**: `working`, `inputRequired`, `completed`, `failed`, `cancelled`
+The `JsonSchema` class provides a type-safe DSL for building JSON schemas.
 
-### Extensions
-- **TaskStatusName** on **TaskStatus**:
-  - `name`: String representation.
-  - `isTerminal`: `true` if completed, failed, or cancelled.
-  - `TaskStatusName.fromString(String status)`: Static conversion.
+```dart
+final configSchema = JsonSchema.object(
+  properties: {
+    "port": JsonSchema.integer(minimum: 1024, maximum: 65535, defaultValue: 8080),
+    "enableLogging": JsonSchema.boolean(defaultValue: true),
+    "apiKey": JsonSchema.string(minLength: 32),
+  },
+  required: ["apiKey"],
+);
+```
 
 ---
 
-## 9. Usage Examples
+## 7. Enums & Extensions
 
-### Constructing an MCP Tool
-```dart
-import 'package:mcp_dart/mcp_dart.dart';
+### TaskStatus & TaskStatusName
+| Value | Description |
+|---|---|
+| `working` | Task is currently in progress. |
+| `inputRequired` | Task is waiting for user input (elicitation). |
+| `completed` | Task finished successfully. |
+| `failed` | Task encountered an error. |
+| `cancelled` | Task was aborted by client or server. |
 
-final tool = Tool(
-  name: 'fetch_stock_price',
-  description: 'Retrieves the current stock price for a given ticker symbol.',
-  inputSchema: JsonSchema(
-    type: SchemaType.object,
-    properties: {
-      'ticker': JsonSchema(
-        type: SchemaType.string,
-        description: 'The stock ticker symbol (e.g., AAPL, GOOGL)',
-      ),
-    },
-    required: ['ticker'],
-  ),
-  annotations: ToolAnnotations(
-    title: 'Stock Price Fetcher',
-    readOnlyHint: true,
-  ),
-);
-```
+**Extension Methods:**
+- `status.name`: Returns string representation (e.g., "input_required").
+- `status.isTerminal`: Returns true if status is `completed`, `failed`, or `cancelled`.
 
-### Initializing a Client
-```dart
-import 'package:mcp_dart/mcp_dart.dart';
+### ErrorCode
+| Value | Code | Description |
+|---|---|---|
+| `parseError` | -32700 | Invalid JSON was received. |
+| `invalidRequest` | -32600 | The JSON sent is not a valid Request object. |
+| `methodNotFound` | -32601 | The method does not exist / is not available. |
+| `invalidParams` | -32602 | Invalid method parameter(s). |
+| `internalError` | -32603 | Internal JSON-RPC error. |
+| `urlElicitationRequired`| -32042 | URL mode elicitation is required. |
 
-final initRequest = InitializeRequest(
-  protocolVersion: latestProtocolVersion,
-  clientInfo: Implementation(
-    name: 'ExampleClient',
-    version: '1.0.0',
-  ),
-  capabilities: ClientCapabilities(
-    roots: ClientCapabilitiesRoots(listChanged: true),
-    sampling: ClientCapabilitiesSampling(tools: true),
-    elicitation: ClientElicitation.all(),
-  ),
-);
-```
+---
 
-### Handling a Tool Result
-```dart
-import 'package:mcp_dart/mcp_dart.dart';
+## Full Class Index
 
-// Creating a successful result with text content
-final result = CallToolResult(
-  content: [
-    TextContent(text: 'The current price of AAPL is $150.00'),
-  ],
-);
+### completion.dart
+- `Reference` (Sealed), `ResourceReference`, `PromptReference`
+- `ArgumentCompletionInfo`
+- `CompleteRequest`, `JsonRpcCompleteRequest`
+- `CompletionResultData`, `CompleteResult`
+- `JsonRpcCompletionListChangedNotification`
 
-// Creating an error result
-final errorResult = CallToolResult(
-  content: [
-    TextContent(text: 'Failed to fetch price: Ticker not found'),
-  ],
-  isError: true,
-);
-```
+### content.dart
+- `ResourceContents` (Sealed), `TextResourceContents`, `BlobResourceContents`, `UnknownResourceContents`
+- `McpIcon`
+- `Content` (Sealed), `TextContent`, `ImageContent`, `AudioContent`, `EmbeddedResource`, `ResourceLink`, `UnknownContent`
 
-### Creating an Elicitation Request (URL Mode)
-```dart
-import 'package:mcp_dart/mcp_dart.dart';
+### elicitation.dart
+- `ElicitRequest`, `JsonRpcElicitRequest`, `ElicitResult`
+- `ElicitationCompleteNotification`, `JsonRpcElicitationCompleteNotification`
+- `URLElicitationRequiredErrorData`
 
-final elicitRequest = ElicitRequest.url(
-  message: 'Please authorize access to your account.',
-  url: 'https://example.com/auth',
-  elicitationId: 'auth-task-123',
-);
-```
+### initialization.dart
+- `Implementation`
+- `ClientCapabilities`, `ServerCapabilities`
+- `InitializeRequest`, `InitializeResult`, `JsonRpcInitializeRequest`
+
+### json_rpc.dart
+- `JsonRpcMessage` (Sealed), `JsonRpcRequest`, `JsonRpcNotification`, `JsonRpcResponse`, `JsonRpcError`
+- `ErrorCode` (Enum)
+- `JsonRpcListToolsRequest`, `JsonRpcCallToolRequest`
+
+### logging.dart
+- `LoggingLevel` (Enum)
+- `SetLevelRequest`, `JsonRpcSetLevelRequest`
+- `LoggingMessageNotification`, `JsonRpcLoggingMessageNotification`
+
+### misc.dart
+- `EmptyResult`
+- `CancelledNotification`, `JsonRpcCancelledNotification`
+- `JsonRpcPingRequest`
+- `Progress`, `ProgressNotification`, `JsonRpcProgressNotification`
+
+### prompts.dart
+- `PromptArgument`, `Prompt`
+- `ListPromptsRequest`, `ListPromptsResult`, `JsonRpcListPromptsRequest`
+- `GetPromptRequest`, `GetPromptResult`, `JsonRpcGetPromptRequest`
+- `PromptMessage`, `PromptMessageRole` (Enum)
+- `JsonRpcPromptListChangedNotification`
+
+### resources.dart
+- `Resource`, `ResourceTemplate`, `ResourceAnnotations`
+- `ListResourcesRequest`, `ListResourcesResult`, `JsonRpcListResourcesRequest`
+- `ListResourceTemplatesRequest`, `ListResourceTemplatesResult`, `JsonRpcListResourceTemplatesRequest`
+- `ReadResourceRequest`, `ReadResourceResult`, `JsonRpcReadResourceRequest`
+- `SubscribeRequest`, `UnsubscribeRequest`, `JsonRpcSubscribeRequest`, `JsonRpcUnsubscribeRequest`
+- `ResourceUpdatedNotification`, `JsonRpcResourceUpdatedNotification`
+- `JsonRpcResourceListChangedNotification`
+
+### roots.dart
+- `Root`
+- `ListRootsResult`, `JsonRpcListRootsRequest`
+- `JsonRpcRootsListChangedNotification`
+
+### sampling.dart
+- `SamplingMessage`, `SamplingContent` (Sealed), `SamplingTextContent`, `SamplingImageContent`, `SamplingToolUseContent`, `SamplingToolResultContent`
+- `ModelHint`, `ModelPreferences`
+- `CreateMessageRequest`, `CreateMessageResult`, `JsonRpcCreateMessageRequest`
+- `StopReason` (Enum), `IncludeContext` (Enum)
+
+### tasks.dart
+- `Task`, `TaskStatus` (Enum), `TaskStatusName` (Extension)
+- `TaskCreation`, `CreateTaskResult`
+- `ListTasksRequest`, `ListTasksResult`, `JsonRpcListTasksRequest`
+- `GetTaskRequest`, `CancelTaskRequest`, `TaskResultRequest`
+- `JsonRpcTaskStatusNotification`
+- `TaskStreamMessage` (Sealed), `TaskCreatedMessage`, `TaskStatusMessage`, `TaskResultMessage`, `TaskErrorMessage`
+
+### tools.dart
+- `Tool`, `ToolAnnotations`, `ToolExecution`
+- `ListToolsRequest`, `ListToolsResult`, `JsonRpcListToolsRequest`
+- `CallToolRequest`, `CallToolResult`, `JsonRpcCallToolRequest`
+- `JsonRpcToolListChangedNotification`

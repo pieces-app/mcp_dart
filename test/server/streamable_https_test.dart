@@ -850,5 +850,73 @@ void main() {
 
       await transport.close();
     }, timeout: const Timeout(Duration(seconds: 10)));
+
+    test('standalone SSE GET keeps notifications sent during initial flush', () async {
+      final transport = StreamableHTTPServerTransport(
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => 'flush-race-session'),
+      );
+      await transport.start();
+
+      transport.onmessage = (message) {
+        if (message is JsonRpcRequest && message.method == 'initialize') {
+          transport.send(
+            JsonRpcResponse(
+              id: message.id,
+              result: {
+                'protocolVersion': '2024-11-05',
+                'serverInfo': {'name': 'test-server', 'version': '1.0.0'},
+                'capabilities': {},
+              },
+            ),
+            relatedRequestId: message.id,
+          );
+        }
+      };
+
+      final initReq = shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/mcp'),
+        headers: {'accept': 'application/json, text/event-stream', 'content-type': 'application/json'},
+        body: jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'initialize',
+          'params': {
+            'protocolVersion': '2024-11-05',
+            'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
+            'capabilities': {},
+          },
+        }),
+      );
+
+      final initResponse = await transport.handleShelfRequest(initReq);
+      expect(initResponse.statusCode, equals(200));
+      expect(transport.sessionId, equals('flush-race-session'));
+
+      const notification = JsonRpcNotification(method: 'test/race', params: {'phase': 'flush'});
+      final sendDuringFlush = Future<void>.microtask(() => transport.send(notification));
+
+      final getReq = shelf.Request(
+        'GET',
+        Uri.parse('http://localhost/mcp'),
+        headers: {'accept': 'text/event-stream', 'mcp-session-id': transport.sessionId!},
+      );
+
+      final sseResponse = await transport.handleShelfRequest(getReq);
+      expect(sseResponse.statusCode, equals(200));
+
+      await sendDuringFlush;
+
+      final bodyBytes = await sseResponse
+          .read()
+          .timeout(const Duration(seconds: 2), onTimeout: (sink) => sink.close())
+          .fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
+
+      final bodyText = utf8.decode(bodyBytes);
+      expect(bodyText, contains('"method":"test/race"'));
+      expect(bodyText, contains('"phase":"flush"'));
+
+      await transport.close();
+    }, timeout: const Timeout(Duration(seconds: 10)));
   });
 }

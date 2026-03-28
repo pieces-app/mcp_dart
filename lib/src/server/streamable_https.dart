@@ -730,10 +730,15 @@ class StreamableHTTPServerTransport implements Transport {
       res.setHeader("mcp-session-id", sessionId!);
     }
 
-    await res.flush();
-
     // Store this GET stream for future server-initiated messages
     _adapterStreamMapping[_standaloneSseStreamId] = res;
+
+    try {
+      await res.flush();
+    } catch (_) {
+      _adapterStreamMapping.remove(_standaloneSseStreamId);
+      rethrow;
+    }
 
     // Start keep-alive timer for this SSE connection
     _startKeepAliveTimerAdapter(_standaloneSseStreamId, res);

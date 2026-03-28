@@ -518,6 +518,24 @@ void main() {
       expect(manager.activeSseTransports.length, equals(0));
     });
 
+    test('preserves existing server onclose callback when wiring cleanup', () async {
+      final mcpServer = McpServer(const Implementation(name: 'TestServer', version: '1.0.0'));
+      bool existingOncloseCalled = false;
+      mcpServer.server.onclose = () {
+        existingOncloseCalled = true;
+      };
+      final manager = SseServerManager(mcpServer);
+
+      final request = MockHttpRequest('GET', '/sse');
+      await manager.handleRequest(request);
+
+      final transport = manager.activeSseTransports.values.first;
+      await transport.close();
+
+      expect(existingOncloseCalled, isTrue, reason: 'manager must chain existing server.onclose callbacks');
+      expect(manager.activeSseTransports, isEmpty);
+    });
+
     test('handles multiple simultaneous connections', () async {
       // Each connection needs its own McpServer since server can only connect once
       final mcpServer1 = McpServer(const Implementation(name: 'TestServer1', version: '1.0.0'));

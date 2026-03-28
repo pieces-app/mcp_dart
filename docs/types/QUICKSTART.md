@@ -1,84 +1,53 @@
 # Types Module Quickstart
 
+**Owning Package:** `mcp_dart`
+
 ## 1. Overview
 
-The **Types** module provides the core data structures and JSON-RPC message definitions for the Model Context Protocol (MCP). It features strongly-typed Dart domain models for initialization, resources, prompts, tools, sampling, tasks, elicitation, and logging, offering robust `fromJson` and `toJson` serialization utilities.
-
-### Owning Package: `mcp_dart`
-
-This module is the foundational layer of the `mcp_dart` package. It acts as the shared vocabulary across the repository, ensuring that every component—from the low-level transports to the high-level CLI—speaks the same language.
-
-### Integration with `mcp_dart_cli`
-
-The `mcp_dart_cli` package (`packages/mcp_dart_cli/`) utilizes these types to:
-- Parse incoming JSON-RPC messages from standard I/O.
-- Validate command-line arguments against expected MCP schemas.
-- Provide a consistent interface for tool and prompt discovery in terminal environments.
+The Types module provides the core data structures and JSON-RPC message definitions for the Model Context Protocol (MCP) Dart implementation. It contains strongly-typed, JSON-serializable classes representing the standard MCP primitives—such as tools, resources, prompts, and sampling—as well as the underlying JSON-RPC protocol definitions (requests, responses, notifications, and errors) utilized by clients and servers to communicate.
 
 ## 2. Import
 
-Import the specific domain files or the main `json_rpc.dart` for the message envelopes:
+To use the types in your project, import the main package:
 
 ```dart
-// Core JSON-RPC structures
-import 'package:mcp_dart/src/types/json_rpc.dart';
-
-// Domain-specific types
-import 'package:mcp_dart/src/types/initialization.dart';
-import 'package:mcp_dart/src/types/tools.dart';
-import 'package:mcp_dart/src/types/resources.dart';
-import 'package:mcp_dart/src/types/prompts.dart';
-import 'package:mcp_dart/src/types/content.dart';
-import 'package:mcp_dart/src/types/sampling.dart';
-import 'package:mcp_dart/src/types/tasks.dart';
-import 'package:mcp_dart/src/types/elicitation.dart';
-import 'package:mcp_dart/src/types/logging.dart';
-import 'package:mcp_dart/src/types/roots.dart';
-import 'package:mcp_dart/src/types/completion.dart';
-import 'package:mcp_dart/src/types/misc.dart';
+import 'package:mcp_dart/mcp_dart.dart';
 ```
 
-## 3. Initialization and Capabilities
-
-MCP connections begin with an `initialize` request where both parties negotiate capabilities.
+If you need to access specific type definitions directly, you can import them from the `src/types` directory:
 
 ```dart
-import 'package:mcp_dart/src/types/initialization.dart';
+import 'package:mcp_dart/src/types/tools.dart';
+import 'package:mcp_dart/src/types/resources.dart';
 import 'package:mcp_dart/src/types/json_rpc.dart';
+import 'package:mcp_dart/src/types/prompts.dart';
+import 'package:mcp_dart/src/types/content.dart';
+import 'package:mcp_dart/src/types/elicitation.dart';
+import 'package:mcp_dart/src/types/sampling.dart';
+import 'package:mcp_dart/src/types/tasks.dart';
+```
 
-// Define the client implementation details
+## 3. Core Concepts
+
+### Initialization & Capabilities
+
+MCP starts with an initialization handshake where both parties exchange capabilities.
+
+```dart
+// Describe your implementation
 final clientInfo = Implementation(
-  name: 'my_mcp_client',
+  name: 'my-mcp-client',
   version: '1.0.0',
-  description: 'A custom Dart MCP client', // Optional description
 );
 
-// Define supported client capabilities
+// Define supported capabilities
 final capabilities = ClientCapabilities(
-  roots: ClientCapabilitiesRoots(
-    listChanged: true, // Whether the client supports notifications when roots change
-  ),
-  sampling: ClientCapabilitiesSampling(
-    tools: true, // Whether the client supports sampling with tools
-  ),
-  elicitation: ClientElicitation(
-    form: ClientElicitationForm(
-      applyDefaults: true, // Support applying default values from requested schema
-    ),
-    url: ClientElicitationUrl(),
-  ),
-  tasks: ClientCapabilitiesTasks(
-    list: true,
-    cancel: true,
-    requests: ClientCapabilitiesTasksRequests(
-      elicitation: ClientCapabilitiesTasksElicitation(
-        create: ClientCapabilitiesTasksElicitationCreate(),
-      ),
-    ),
-  ),
+  roots: ClientCapabilitiesRoots(listChanged: true),
+  sampling: ClientCapabilitiesSampling(tools: true),
+  elicitation: ClientElicitation.all(), // Supports both form and URL modes
 );
 
-// Form the initialization request
+// Create the initialize request
 final initRequest = InitializeRequest(
   protocolVersion: latestProtocolVersion,
   capabilities: capabilities,
@@ -86,213 +55,211 @@ final initRequest = InitializeRequest(
 );
 ```
 
-## 4. Core Domain Types
-
 ### Tools
-Tools allow clients to perform actions via the server.
+
+Tools allow servers to expose executable functions to models.
 
 ```dart
-import 'package:mcp_dart/src/types/tools.dart';
-import 'package:mcp_dart/src/shared/json_schema/json_schema.dart';
-
-final tool = Tool(
-  name: 'calculate_sum',
-  description: 'Adds two numbers together.',
-  inputSchema: JsonSchema.fromJson({
-    'type': 'object',
-    'properties': {
-      'a': {'type': 'number'},
-      'b': {'type': 'number'},
+final weatherTool = Tool(
+  name: 'get_weather',
+  description: 'Get current weather for a location',
+  inputSchema: JsonSchema.object(
+    properties: {
+      'location': JsonSchema.string(description: 'City and state/country'),
+      'unit': JsonSchema.string(
+        description: 'Temperature unit',
+        enumValues: ['celsius', 'fahrenheit'],
+      ),
     },
-    'required': ['a', 'b'],
-  }),
-  annotations: ToolAnnotations(
-    priority: 1.0, // Priority of the tool (0.0 to 1.0)
-    readOnlyHint: true, // Hint that the tool does not modify its environment
-    destructiveHint: false, // Hint that the tool performs only additive updates
+    required: ['location'],
   ),
 );
 
-// Responding to a tool call
-final result = CallToolResult(
-  content: [TextContent(text: 'The result is 15')],
-  isError: false, // Whether the tool call returned an error
+// Returning a tool result
+final toolResult = CallToolResult(
+  content: [
+    TextContent(text: 'Current weather in San Francisco: 62°F, Partly Cloudy'),
+    ImageContent(
+      data: 'base64_encoded_image_data',
+      mimeType: 'image/png',
+    ),
+  ],
+  isError: false,
 );
 ```
 
 ### Resources
-Resources provide access to files, database records, or other data.
+
+Resources are data items (files, DB records, etc.) provided by the server.
 
 ```dart
-import 'package:mcp_dart/src/types/resources.dart';
-
-final resource = Resource(
-  uri: 'file:///logs/app.log',
-  name: 'App Logs',
-  mimeType: 'text/plain',
-  annotations: ResourceAnnotations(
-    title: 'Application Runtime Logs',
-    priority: 0.5,
-    lastModified: '2026-03-25T12:00:00Z', // ISO 8601 timestamp
-  ),
+// Resource description
+final configResource = Resource(
+  uri: 'file:///app/config.json',
+  name: 'Application Configuration',
+  mimeType: 'application/json',
 );
 
-// Reading a resource result
+// Resource Template for dynamic URIs
+final userResourceTemplate = ResourceTemplate(
+  uriTemplate: 'mcp://users/{userId}/profile',
+  name: 'User Profile',
+  description: 'Retrieves a specific user profile by ID',
+);
+
+// Reading resource contents
 final readResult = ReadResourceResult(
   contents: [
     TextResourceContents(
-      uri: 'file:///logs/app.log',
-      text: 'Starting application...',
+      uri: 'file:///app/config.json',
+      text: '{"theme": "dark", "notifications": true}',
+      mimeType: 'application/json',
     ),
   ],
 );
 ```
 
 ### Prompts
-Prompts are reusable templates for LLM interactions.
+
+Prompts are predefined templates for model interactions.
 
 ```dart
-import 'package:mcp_dart/src/types/prompts.dart';
-
-final prompt = Prompt(
-  name: 'summarize_text',
-  description: 'Summarizes a given block of text.',
+final reviewPrompt = Prompt(
+  name: 'code_review',
+  description: 'Request a review for a specific code block',
   arguments: [
     PromptArgument(
-      name: 'text',
-      description: 'The text to summarize',
-      required: true, // Whether this argument must be provided
+      name: 'code',
+      description: 'The code to review',
+      required: true,
+    ),
+    PromptArgument(
+      name: 'language',
+      description: 'Programming language',
+      required: false,
     ),
   ],
 );
 
-// Getting prompt messages
-final getResult = GetPromptResult(
-  description: 'Summarization prompt',
+// Returning prompt messages
+final promptResult = GetPromptResult(
+  description: 'Code review request',
   messages: [
     PromptMessage(
       role: PromptMessageRole.user,
-      content: TextContent(text: 'Please summarize: ...'),
+      content: TextContent(text: 'Please review this Dart code...'),
     ),
   ],
 );
 ```
 
-### Sampling
-Sampling allows the server to request completions from an LLM via the client.
+### Elicitation (User Interaction)
+
+Servers can request user input or external interaction via elicitation.
 
 ```dart
-import 'package:mcp_dart/src/types/sampling.dart';
+// Form Mode: Collect structured data in-band
+final formRequest = ElicitRequest.form(
+  message: 'Please enter your API key',
+  requestedSchema: JsonSchema.string(description: 'Provider API Key'),
+);
 
+// URL Mode: Direct user to external site
+final urlRequest = ElicitRequest.url(
+  message: 'Please authenticate with GitHub',
+  url: 'https://github.com/login/oauth/authorize...',
+  elicitationId: 'auth_session_123',
+);
+
+// Elicitation response result
+final elicitResult = ElicitResult(
+  action: 'accept',
+  content: {'key': 'sk-12345'},
+);
+```
+
+### Sampling (LLM Integration)
+
+Sampling allows servers to request model completions from the client.
+
+```dart
 final samplingRequest = CreateMessageRequest(
   messages: [
     SamplingMessage(
       role: SamplingMessageRole.user,
-      content: SamplingTextContent(text: 'What is the weather?'),
+      content: SamplingTextContent(text: 'What is the capital of France?'),
     ),
   ],
   maxTokens: 100,
   temperature: 0.7,
   modelPreferences: ModelPreferences(
-    costPriority: 0.1, // Prioritize cost (0-1)
-    intelligencePriority: 0.9, // Prioritize intelligence (0-1)
+    intelligencePriority: 0.9,
   ),
+);
+
+// Sampling result
+final samplingResult = CreateMessageResult(
+  model: 'gpt-4o',
+  role: SamplingMessageRole.assistant,
+  content: SamplingTextContent(text: 'The capital of France is Paris.'),
+  stopReason: StopReason.endTurn,
 );
 ```
 
 ### Tasks
-Tasks represent long-running operations.
+
+Tasks represent long-running operations with status tracking.
 
 ```dart
-import 'package:mcp_dart/src/types/tasks.dart';
-
-final task = Task(
-  taskId: 'task_123',
+final myTask = Task(
+  taskId: 'job_789',
   status: TaskStatus.working,
-  statusMessage: 'Processing data...',
-  createdAt: '2026-03-25T10:00:00Z',
-  pollInterval: 5000, // Suggested time in ms between status checks
+  statusMessage: 'Analyzing repository structure...',
+  createdAt: '2026-03-28T12:00:00Z',
+  pollInterval: 2000,
+);
+
+// Notifying status changes
+final taskNotification = TaskStatusNotification(
+  taskId: 'job_789',
+  status: TaskStatus.completed,
+  statusMessage: 'Analysis complete',
 );
 ```
 
-### Elicitation
-Elicitation is used to gather user input, either via forms or external URLs.
+## 4. JSON-RPC Protocol
+
+All messages can be serialized/deserialized via `JsonRpcMessage`.
 
 ```dart
-import 'package:mcp_dart/src/types/elicitation.dart';
+// Parsing a raw message
+final Map<String, dynamic> rawJson = {...};
+final message = JsonRpcMessage.fromJson(rawJson);
 
-// Form elicitation
-final formRequest = ElicitRequest.form(
-  message: 'Please enter your username',
-  requestedSchema: JsonSchema.fromJson({'type': 'string'}),
-);
-
-// URL elicitation
-final urlRequest = ElicitRequest.url(
-  message: 'Please authenticate via GitHub',
-  url: 'https://github.com/login/oauth/authorize',
-  elicitationId: 'auth_session_456',
-);
-```
-
-### Autocompletion
-Provides completion options for prompts and resources.
-
-```dart
-import 'package:mcp_dart/src/types/completion.dart';
-
-final completeRequest = CompleteRequest(
-  ref: PromptReference(name: 'summarize_text'),
-  argument: ArgumentCompletionInfo(
-    name: 'text',
-    value: 'The quick brown ',
-  ),
-);
-
-final completeResult = CompleteResult(
-  completion: CompletionResultData(
-    values: ['fox', 'dog'],
-    hasMore: false,
-  ),
-);
-```
-
-## 5. JSON-RPC Messaging
-
-All operations are wrapped in JSON-RPC 2.0 envelopes.
-
-```dart
-import 'package:mcp_dart/src/types/json_rpc.dart';
-
-// Generic parsing
-void onMessage(Map<String, dynamic> json) {
-  final message = JsonRpcMessage.fromJson(json);
-  
-  switch (message) {
-    case JsonRpcRequest():
-      print('Received request ${message.method} (ID: ${message.id})');
-      if (message.progressToken != null) {
-        print('Request supports progress updates');
-      }
-    case JsonRpcResponse():
-      print('Received response for ID ${message.id}');
-    case JsonRpcNotification():
-      print('Received notification ${message.method}');
-    case JsonRpcError():
-      print('Error ${message.error.code}: ${message.error.message}');
-  }
+if (message is JsonRpcRequest) {
+  print('Received request: ${message.method} with ID ${message.id}');
 }
 
-// Creating a specific request
-final ping = JsonRpcPingRequest(id: 'ping_1');
-print(ping.toJson());
+// Handling errors
+try {
+  // operation that might fail
+} catch (e) {
+  final mcpError = McpError(
+    ErrorCode.internalError.value,
+    'Something went wrong: $e',
+  );
+  // Send as JsonRpcError...
+}
 ```
 
-## 6. Multi-Package Architecture
+## 5. Multi-Package Integration
 
-As part of the `mcp_dart` workspace, the **Types** module serves as the contract between packages:
+- **`mcp_dart`:** This package owns the Types module. All core types are exported here.
+- **`mcp_dart_cli` (Workspace Sub-Package):** The CLI uses these types to provide diagnostic tools. It leverages the strongly-typed nature of these classes to validate server responses and inspect protocol payloads in real-time.
 
-- **`mcp_dart`**: The core library implementing the protocol logic.
-- **`mcp_dart_cli`**: Uses these types to provide a terminal interface for MCP servers, ensuring that CLI arguments and stdio communication adhere to the protocol.
+## 6. Best Practices
 
-This architecture ensures that type safety is maintained across the entire repository, from core logic to external interfaces.
+1. **Use CamelCase:** Always use camelCase for accessing Dart fields (e.g., `protocolVersion`, `listChanged`, `taskId`).
+2. **Handle Nulls:** Many MCP fields are optional. Use null-safe operators when accessing results.
+3. **Validate Metadata:** Metadata (`_meta` or `.meta`) can contain experimental or non-standard fields. Validate their presence before use.
+4. **Prefer Enums:** Use provided enums like `PromptMessageRole`, `TaskStatus`, and `LoggingLevel` instead of raw strings where possible.

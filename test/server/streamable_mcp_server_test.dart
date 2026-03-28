@@ -419,5 +419,23 @@ void main() {
 
       expect(res.statusCode, HttpStatus.requestEntityTooLarge);
     });
+
+    test('invalid UTF-8 body returns 400 parse error', () async {
+      final client = HttpClient();
+      try {
+        final req = await client.postUrl(Uri.parse(baseUrl));
+        req.headers.contentType = ContentType.json;
+        req.headers.add('Accept', 'application/json, text/event-stream');
+        req.add([0xc3, 0x28]);
+
+        final res = await req.close();
+        final body = await utf8.decodeStream(res);
+
+        expect(res.statusCode, HttpStatus.badRequest);
+        expect(body, contains('Parse error'));
+      } finally {
+        client.close(force: true);
+      }
+    });
   });
 }

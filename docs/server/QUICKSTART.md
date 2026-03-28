@@ -1,106 +1,104 @@
 # Server Module Quickstart
 
-The **Server** module provides the core implementation for building Model Context Protocol (MCP) servers in Dart. It handles the lifecycle of MCP connections, manages JSON-RPC message routing, and provides high-level APIs for registering tools, resources, and prompts.
+## 1. Overview
+The **Server** module of `mcp_dart` provides a comprehensive framework for building Model Context Protocol (MCP) servers in Dart. It includes a high-level `McpServer` API for registering tools, prompts, resources, and tasks, alongside robust transport implementations (`StdioServerTransport`, `SseServerTransport`, and `StreamableHTTPServerTransport`) to expose your server over standard I/O or HTTP.
 
-## Multi-Package Repository Structure
+### Owning Package
+This module is owned by the core **`mcp_dart`** package. It is designed to be the foundation for any MCP server implementation in the Dart ecosystem and integrates with `mcp_dart_cli` for project scaffolding.
 
-This repository is organized as a multi-package workspace:
+## 2. Import
+Import the server components and types directly from the `mcp_dart` package:
 
-### mcp_dart (Core SDK)
-The `mcp_dart` package contains the core Server, Client, and Shared modules. The Server module is defined here and provides the foundational logic for any Dart-based MCP server.
+```dart
+import 'package:mcp_dart/mcp_dart.dart';
+// or explicitly import the server module and types:
+import 'package:mcp_dart/src/server/module.dart';
+import 'package:mcp_dart/src/types.dart';
+```
 
-### mcp_dart_cli
-Located in `packages/mcp_dart_cli/`, this package provides command-line utilities. It can be used to host or test servers built with the `mcp_dart` Server module.
-
----
-
-## 1. Setup & Initialization
-
-To build a server, instantiate `McpServer` with your implementation details and capabilities.
+## 3. Basic Setup
+To create an MCP server, instantiate an `McpServer` with your implementation details and desired capabilities, then connect it to a transport.
 
 ```dart
 import 'package:mcp_dart/mcp_dart.dart';
 
 Future<void> main() async {
-  // 1. Initialize the MCP Server
+  // 1. Initialize the server with basic information and capabilities
   final server = McpServer(
-    const Implementation(
-      name: 'example_server', 
+    Implementation(
+      name: 'my-mcp-server', 
       version: '1.0.0',
-      description: 'A comprehensive example server',
+      description: 'A sample MCP server built with Dart',
     ),
-    options: const McpServerOptions(
+    options: McpServerOptions(
       capabilities: ServerCapabilities(
         tools: ServerCapabilitiesTools(listChanged: true),
-        resources: ServerCapabilitiesResources(subscribe: true, listChanged: true),
         prompts: ServerCapabilitiesPrompts(listChanged: true),
-        logging: {}, // Enable logging capability
+        resources: ServerCapabilitiesResources(subscribe: true, listChanged: true),
       ),
     ),
-  )
-    // 2. Set global error handler using cascade notation
-    ..onError = (error) => print('Server error: $error');
+  );
 
-  // 3. Connect to a transport (stdio is standard for local MCP)
+  // 2. Register features (see sections below)
+  // server.registerTool(...);
+
+  // 3. Connect the server to standard input/output
   final transport = StdioServerTransport();
   await server.connect(transport);
+  
+  print('Server is running and listening on stdin...');
 }
 ```
 
-## 2. Registering Tools
+## 4. Registering Features
 
-Tools are executable functions exposed to the client.
+### Registering a Tool
+Tools allow clients to perform actions. Use `registerTool` to define the tool name, description, and the execution callback.
 
 ```dart
 server.registerTool(
-  'calculate_bmi',
-  description: 'Calculate Body Mass Index',
-  inputSchema: JsonSchema.object(
+  'calculate_sum',
+  description: 'Calculates the sum of two numbers',
+  inputSchema: ToolInputSchema(
     properties: {
-      'weightKg': JsonSchema.number(description: 'Weight in kilograms'),
-      'heightM': JsonSchema.number(description: 'Height in meters'),
+      'a': JsonSchema(type: 'number', description: 'First number'),
+      'b': JsonSchema(type: 'number', description: 'Second number'),
     },
-    required: ['weightKg', 'heightM'],
+    required: ['a', 'b'],
   ),
-  callback: (args, extra) {
-    final weight = args['weightKg'] as num;
-    final height = args['heightM'] as num;
-    final bmi = weight / (height * height);
+  callback: (args, extra) async {
+    final a = args['a'] as num;
+    final b = args['b'] as num;
     
     return CallToolResult(
-      content: [TextContent(text: 'Your BMI is ${bmi.toStringAsFixed(2)}')],
+      content: [TextContent(text: 'The sum is ${a + b}')],
     );
   },
 );
 ```
 
-### Task-Augmented Tools (Experimental)
-For long-running operations, you can register a tool that returns a task ID and supports polling or notifications.
+### Registering a Prompt
+Prompts are templated messages. Use `registerPrompt` to define arguments and a callback that returns messages.
 
 ```dart
-server.experimental.registerToolTask(
-  'long_running_job',
-  handler: MyTaskHandler(), // Implements ToolTaskHandler
-);
-```
-
-## 3. Resources & Templates
-
-Resources expose data (text or binary) to the client.
-
-### Static Resources
-```dart
-server.registerResource(
-  'system_logs',
-  'file:///var/log/system.log',
-  (description: 'Current system logs', mimeType: 'text/plain'),
-  (uri, extra) async {
-    return const ReadResourceResult(
-      contents: [
-        TextResourceContents(
-          uri: 'file:///var/log/system.log',
-          text: 'Log entry 1: System started...',
-          mimeType: 'text/plain',
+server.registerPrompt(
+  'greet',
+  description: 'Generates a greeting for the user',
+  argsSchema: {
+    'userName': PromptArgumentDefinition(
+      description: 'The name of the user',
+      required: true,
+      type: String,
+    ),
+  },
+  callback: (args, extra) {
+    final name = args?['userName'] as String;
+    return GetPromptResult(
+      description: 'A friendly greeting',
+      messages: [
+        PromptMessage(
+          role: Role.assistant,
+          content: TextContent(text: 'Hello, $name! How can I assist you today?'),
         ),
       ],
     );
@@ -108,25 +106,49 @@ server.registerResource(
 );
 ```
 
-### Resource Templates
-Templates allow dynamic URI matching using RFC 6570 patterns.
+### Registering Resources
+Resources are read-only data sources. You can register fixed resources or resource templates.
 
+#### Fixed Resource
+```dart
+server.registerResource(
+  'Server Logs',
+  'mcp://logs/current',
+  (description: 'Current system logs', mimeType: 'text/plain'),
+  (uri, extra) async {
+    return ReadResourceResult(
+      contents: [
+        TextResourceContents(
+          uri: uri.toString(),
+          mimeType: 'text/plain',
+          text: 'System started at ${DateTime.now()}\nAll systems nominal.',
+        ),
+      ],
+    );
+  },
+);
+```
+
+#### Resource Template
 ```dart
 server.registerResourceTemplate(
-  'user_profile',
+  'User Profile',
   ResourceTemplateRegistration(
-    'users://{userId}/profile',
-    listCallback: (extra) => const ListResourcesResult(resources: []),
+    'mcp://users/{userId}/profile',
+    listCallback: (extra) async {
+      // Logic to list available users
+      return ListResourcesResult(resources: []);
+    },
   ),
-  (description: 'User profile data', mimeType: 'application/json'),
+  (description: 'Dynamic user profile resource', mimeType: 'application/json'),
   (uri, variables, extra) async {
     final userId = variables['userId'];
     return ReadResourceResult(
       contents: [
         TextResourceContents(
           uri: uri.toString(),
-          text: '{"userId": "$userId", "name": "John Doe"}',
           mimeType: 'application/json',
+          text: '{"id": "$userId", "name": "User $userId"}',
         ),
       ],
     );
@@ -134,87 +156,93 @@ server.registerResourceTemplate(
 );
 ```
 
-## 4. Prompts & Completions
+## 5. Advanced Features
 
-Prompts provide reusable templates for generating LLM interactions.
+### Completions
+Enable auto-completion for prompt arguments or resource templates by providing `completable` fields.
 
 ```dart
 server.registerPrompt(
-  'code_review',
-  description: 'Request a code review for a snippet',
+  'search_docs',
   argsSchema: {
-    'language': const PromptArgumentDefinition(
-      description: 'Programming language',
+    'category': PromptArgumentDefinition(
       required: true,
-    ),
-  },
-  callback: (args, extra) {
-    final lang = args?['language'] as String;
-    return GetPromptResult(
-      messages: [
-        PromptMessage(
-          role: Role.user,
-          content: TextContent(text: 'Review this $lang code...'),
+      completable: CompletableField(
+        def: CompletableDef(
+          complete: (value) async => ['API', 'Guide', 'Examples'].where((s) => s.startsWith(value)).toList(),
         ),
-      ],
-    );
-  },
-);
-```
-
-## 5. Server-Initiated Input (Elicitation)
-
-Servers can request structured input from the client during tool execution or other operations.
-
-```dart
-final result = await server.elicitInput(
-  ElicitRequest.form(
-    message: 'Please provide your API key',
-    requestedSchema: JsonSchema.object(
-      properties: {
-        'apiKey': JsonSchema.string(title: 'API Key'),
-      },
-      required: ['apiKey'],
+      ),
     ),
+  },
+  callback: (args, extra) => GetPromptResult(messages: []),
+);
+```
+
+### Experimental Tasks
+The `experimental` namespace provides support for long-running tasks.
+
+```dart
+server.experimental.registerToolTask(
+  'long_running_job',
+  description: 'A task that takes time to complete',
+  handler: MyTaskHandler(), // Implements ToolTaskHandler
+);
+
+// In your ToolTaskHandler.createTask:
+// Use extra.sessionId to track user sessions if needed.
+```
+
+### Server-Sent Notifications
+Notify clients of changes in real-time.
+
+```dart
+server.sendLoggingMessage(
+  LoggingMessageNotification(
+    level: LoggingLevel.info,
+    logger: 'mcp_server',
+    data: 'System heartbeat detected',
   ),
 );
 
-if (result.accepted) {
-  final apiKey = result.content?['apiKey'];
-  // ... process API key
-}
+// Notify that the tool list has changed
+server.sendToolListChanged();
 ```
 
-## 6. Advanced Transports
-
-### HTTP with Server-Sent Events (SSE)
-Use `StreamableMcpServer` to host multiple sessions over HTTP.
+## 6. Hosting over HTTP (SSE)
+Use `StreamableMcpServer` for hosting over HTTP with Server-Sent Events (SSE) support.
 
 ```dart
-final streamable = StreamableMcpServer(
-  serverFactory: (sessionId) => McpServer(
-    Implementation(name: 'sse_server', version: '1.0.0'),
-  ),
+final httpServer = StreamableMcpServer(
+  serverFactory: (sessionId) {
+    return McpServer(
+      Implementation(name: 'http-server', version: '1.0.0'),
+      options: McpServerOptions(
+        capabilities: ServerCapabilities(tools: ServerCapabilitiesTools()),
+      ),
+    )..registerTool('ping', callback: (args, extra) => CallToolResult(content: []));
+  },
   host: '0.0.0.0',
   port: 8080,
   enableDnsRebindingProtection: true,
-  allowedHosts: {'localhost', 'my-server.local'},
+  allowedHosts: {'myserver.com', 'localhost'},
 );
 
-await streamable.start();
+await httpServer.start();
 ```
 
----
+## 7. Configuration Reference
 
-## 7. Configuration Details
+### `McpServerOptions`
+- `capabilities`: Define what your server supports (`tools`, `prompts`, `resources`, `logging`, `tasks`, `elicitation`, `completions`).
+- `instructions`: Optional string provided to the client during initialization to describe server usage.
+- `enforceStrictCapabilities`: If true, the server validates that clients support requested features.
 
-### McpServerOptions
-- **`capabilities`**: Define what the server supports (tools, resources, prompts, completions, logging, tasks).
-- **`instructions`**: Provide guidance to the client on how to best use this server.
+### `StreamableHTTPServerTransportOptions`
+- `maxBodySize`: Limits the size of incoming POST requests (default 10MB).
+- `keepAliveInterval`: Frequency of SSE keep-alive comments (default 25s).
+- `enableJsonResponse`: If true, returns direct JSON responses instead of SSE streams for simple requests.
+- `eventStore`: Provide an implementation of `EventStore` to enable SSE resumability.
 
-### Protocol Support
-The Server module implements the full MCP specification, including:
-- **Initialization**: Automatic handling of `initialize` and `notifications/initialized`.
-- **Liveness**: Support for `ping` requests.
-- **List Changes**: Use `sendToolListChanged()`, `sendResourceListChanged()`, etc., to notify clients of updates.
-- **Logging**: Use `sendLoggingMessage()` to stream logs to the client.
+## 8. Integration with other Packages
+- **`mcp_dart_cli`**: Use the CLI to quickly generate a production-ready server scaffold.
+- **Shelf**: Use `ShelfHttpAdapter` to integrate the MCP server into an existing `shelf` pipeline.
