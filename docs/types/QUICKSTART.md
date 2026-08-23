@@ -59,8 +59,8 @@ final capabilities = ClientCapabilities(
     listChanged: true, // Whether the client supports notifications when roots change
   ),
   sampling: ClientCapabilitiesSampling(
-    tools: ClientCapabilitiesSamplingTools(), // Client supports tools / toolChoice in sampling requests
-    context: ClientCapabilitiesSamplingContext(), // Client supports includeContext in sampling requests
+    tools: true, // Client supports tools / toolChoice in sampling requests (sent as "tools": {})
+    context: true, // Client supports includeContext in sampling requests (sent as "context": {})
   ),
   elicitation: ClientElicitation(
     form: ClientElicitationForm(

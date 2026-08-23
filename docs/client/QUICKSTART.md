@@ -41,7 +41,7 @@ final client = McpClient(
   options: McpClientOptions(
     capabilities: ClientCapabilities(
       roots: ClientCapabilitiesRoots(listChanged: true),
-      sampling: ClientCapabilitiesSampling(tools: ClientCapabilitiesSamplingTools()),
+      sampling: ClientCapabilitiesSampling(tools: true),
       elicitation: ClientElicitation.all(),
       tasks: ClientCapabilitiesTasks(
         cancel: true,

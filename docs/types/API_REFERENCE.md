@@ -64,7 +64,7 @@ All protocol messages, arguments, and content types exchanged between clients an
 ### Client Capabilities
 - **ClientCapabilities** -- Features supported by a client.
   - **Fields**: `experimental` (Map?), `sampling` (ClientCapabilitiesSampling?), `roots` (ClientCapabilitiesRoots?), `elicitation` (ClientElicitation?), `tasks` (ClientCapabilitiesTasks?), `extensions` (Map?)
-- **ClientCapabilitiesSampling** -- `tools` (ClientCapabilitiesSamplingTools?), `context` (ClientCapabilitiesSamplingContext?); both are empty-object markers on the wire, per MCP 2025-11-25
+- **ClientCapabilitiesSampling** -- `tools` (bool), `context` (bool); serialized as empty-object markers (`"tools": {}`) per MCP 2025-11-25
 - **ClientCapabilitiesRoots** -- `listChanged` (bool?)
 - **ClientElicitation** -- `form` (ClientElicitationForm?), `url` (ClientElicitationUrl?)
 - **ClientCapabilitiesTasks** -- `cancel` (bool?), `list` (bool?), `requests` (ClientCapabilitiesTasksRequests?)
@@ -198,7 +198,7 @@ final initRequest = InitializeRequest(
   ),
   capabilities: ClientCapabilities(
     roots: ClientCapabilitiesRoots(listChanged: true),
-    sampling: ClientCapabilitiesSampling(tools: ClientCapabilitiesSamplingTools()),
+    sampling: ClientCapabilitiesSampling(tools: true),
     elicitation: ClientElicitation.all(),
   ),
 );

@@ -475,7 +475,7 @@ Future<void> _initializeClient(
 }) async {
   final clientCapabilities = ClientCapabilities(
     sampling: withSamplingTools
-        ? const ClientCapabilitiesSampling(tools: ClientCapabilitiesSamplingTools())
+        ? const ClientCapabilitiesSampling(tools: true)
         : withSampling
         ? const ClientCapabilitiesSampling()
         : null,

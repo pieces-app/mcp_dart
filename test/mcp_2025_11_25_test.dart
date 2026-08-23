@@ -194,35 +194,36 @@ void main() {
     group('ClientCapabilities.sampling markers', () {
       // MCP 2025-11-25 models `sampling.tools` and `sampling.context` as empty
       // object markers (`"tools": {}`), the same way `elicitation.form` / `.url`
-      // and `roots` are modeled. Through 1.3.1 `tools` was a `bool`, so the
-      // official Python and TypeScript SDK initialize payloads threw a
-      // TypeError from `as bool?` and the HTTP transport answered
+      // and `roots` are modeled. Through 1.3.1 `fromJson` cast `tools` with
+      // `as bool?`, so the official Python and TypeScript SDK initialize
+      // payloads threw a TypeError and the HTTP transport answered
       // `-32700 Parse error`. These pins cover every shape a conformant peer
-      // can send plus the legacy boolean older mcp_dart clients emitted.
+      // can send plus the legacy boolean older mcp_dart clients emitted. The
+      // Dart API stays boolean, matching upstream leehack/mcp_dart 2.x.
 
-      test('sampling: {} parses with no markers and round-trips', () {
+      test('sampling: {} parses with nothing declared and round-trips', () {
         final caps = ClientCapabilities.fromJson({'sampling': <String, dynamic>{}});
         expect(caps.sampling, isNotNull);
-        expect(caps.sampling!.tools, isNull);
-        expect(caps.sampling!.context, isNull);
+        expect(caps.sampling!.tools, isFalse);
+        expect(caps.sampling!.context, isFalse);
         expect(caps.toJson()['sampling'], equals(<String, dynamic>{}));
       });
 
-      test('sampling: {tools: {}} round-trips', () {
+      test('sampling: {tools: {}} round-trips as an object marker', () {
         final caps = ClientCapabilities.fromJson({
           'sampling': {'tools': <String, dynamic>{}},
         });
-        expect(caps.sampling!.tools, isNotNull);
-        expect(caps.sampling!.context, isNull);
+        expect(caps.sampling!.tools, isTrue);
+        expect(caps.sampling!.context, isFalse);
         expect(caps.toJson()['sampling'], equals({'tools': <String, dynamic>{}}));
       });
 
-      test('sampling: {context: {}} round-trips', () {
+      test('sampling: {context: {}} round-trips as an object marker', () {
         final caps = ClientCapabilities.fromJson({
           'sampling': {'context': <String, dynamic>{}},
         });
-        expect(caps.sampling!.tools, isNull);
-        expect(caps.sampling!.context, isNotNull);
+        expect(caps.sampling!.tools, isFalse);
+        expect(caps.sampling!.context, isTrue);
         expect(caps.toJson()['sampling'], equals({'context': <String, dynamic>{}}));
       });
 
@@ -230,8 +231,8 @@ void main() {
         final caps = ClientCapabilities.fromJson({
           'sampling': {'tools': <String, dynamic>{}, 'context': <String, dynamic>{}},
         });
-        expect(caps.sampling!.tools, isNotNull);
-        expect(caps.sampling!.context, isNotNull);
+        expect(caps.sampling!.tools, isTrue);
+        expect(caps.sampling!.context, isTrue);
         expect(caps.toJson()['sampling'], equals({'tools': <String, dynamic>{}, 'context': <String, dynamic>{}}));
       });
 
@@ -241,13 +242,14 @@ void main() {
         final caps = ClientCapabilities.fromJson({
           'sampling': {'tools': true},
         });
-        expect(caps.sampling!.tools, isNotNull);
+        expect(caps.sampling!.tools, isTrue);
         expect(caps.toJson()['sampling'], equals({'tools': <String, dynamic>{}}));
 
         final absent = ClientCapabilities.fromJson({
           'sampling': {'tools': false},
         });
-        expect(absent.sampling!.tools, isNull);
+        expect(absent.sampling!.tools, isFalse);
+        expect(absent.toJson()['sampling'], equals(<String, dynamic>{}));
       });
 
       test('wrong-typed marker throws FormatException rather than TypeError', () {
@@ -255,12 +257,12 @@ void main() {
           () => ClientCapabilities.fromJson({
             'sampling': {'tools': 'yes'},
           }),
-          throwsA(isA<FormatException>()),
+          throwsA(isA<FormatException>().having((e) => e.message, 'message', contains('must be a JSON object'))),
         );
       });
 
       test('toJson never emits a boolean marker', () {
-        final json = const ClientCapabilitiesSampling.all().toJson();
+        final json = const ClientCapabilitiesSampling(tools: true, context: true).toJson();
         expect(json.keys, containsAll(['tools', 'context']));
         expect(json.values.any((v) => v is bool), isFalse);
         expect(json['tools'], isA<Map>());
@@ -285,7 +287,7 @@ void main() {
 
         expect(message, isA<JsonRpcInitializeRequest>());
         final init = message as JsonRpcInitializeRequest;
-        expect(init.initParams.capabilities.sampling?.tools, isNotNull);
+        expect(init.initParams.capabilities.sampling?.tools, isTrue);
       });
     });
 

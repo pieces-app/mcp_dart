@@ -690,7 +690,7 @@ void main() {
       expect(response.headers['mcp-session-id'], equals('shelf-session-id'));
       final message = await received.future.timeout(const Duration(seconds: 3));
       expect(message, isA<JsonRpcInitializeRequest>());
-      expect((message as JsonRpcInitializeRequest).initParams.capabilities.sampling?.tools, isNotNull);
+      expect((message as JsonRpcInitializeRequest).initParams.capabilities.sampling?.tools, isTrue);
 
       await transport.close();
     });
@@ -728,7 +728,7 @@ void main() {
       final decoded = jsonDecode(await response.readAsString()) as Map<String, dynamic>;
       expect(decoded['id'], equals(42));
       expect(decoded['error']['code'], equals(ErrorCode.invalidParams.value));
-      expect(decoded['error']['data'], contains('sampling.tools'));
+      expect(decoded['error']['data'], contains('ClientCapabilitiesSampling.tools'));
       expect(messageDelivered, isFalse);
 
       await transport.close();

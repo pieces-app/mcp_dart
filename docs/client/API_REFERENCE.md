@@ -50,7 +50,7 @@ void main() async {
   // 2. Configure client options
   final options = McpClientOptions(
     capabilities: const ClientCapabilities(
-      sampling: ClientCapabilitiesSampling(tools: ClientCapabilitiesSamplingTools())
+      sampling: ClientCapabilitiesSampling(tools: true)
     )
   );
 

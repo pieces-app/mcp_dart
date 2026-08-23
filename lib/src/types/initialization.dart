@@ -113,84 +113,56 @@ class ClientElicitation {
   Map<String, dynamic> toJson() => {if (form != null) 'form': form!.toJson(), if (url != null) 'url': url!.toJson()};
 }
 
-/// Marker capability: the client supports tool use via `tools` / `toolChoice`
-/// in `sampling/createMessage` (MCP 2025-11-25 `ClientCapabilities.sampling.tools`).
-///
-/// On the wire this is an empty object (`"tools": {}`), never a boolean. It was
-/// modeled as a `bool` through 1.3.1, which made every spec-conformant
-/// `initialize` that declared it fail with a `TypeError`.
-class ClientCapabilitiesSamplingTools {
-  const ClientCapabilitiesSamplingTools();
-
-  factory ClientCapabilitiesSamplingTools.fromJson(Map<String, dynamic> json) {
-    return const ClientCapabilitiesSamplingTools();
-  }
-
-  Map<String, dynamic> toJson() => {};
-}
-
-/// Marker capability: the client supports context inclusion via
-/// `includeContext` in `sampling/createMessage`
-/// (MCP 2025-11-25 `ClientCapabilities.sampling.context`).
-///
-/// If a client does not declare this, servers SHOULD only use
-/// `includeContext: "none"` (or omit it).
-class ClientCapabilitiesSamplingContext {
-  const ClientCapabilitiesSamplingContext();
-
-  factory ClientCapabilitiesSamplingContext.fromJson(Map<String, dynamic> json) {
-    return const ClientCapabilitiesSamplingContext();
-  }
-
-  Map<String, dynamic> toJson() => {};
-}
-
 /// Capabilities related to sampling.
 ///
 /// Present (even when empty) if the client supports `sampling/createMessage`.
-/// The optional sub-capabilities are object markers, matching the shape of
-/// [ClientElicitation.form] / [ClientElicitation.url].
+/// MCP 2025-11-25 models the sub-capabilities as empty-object markers on the
+/// wire (`"tools": {}`), the same shape as `elicitation.form` / `.url`. They
+/// are exposed here as booleans, mirroring upstream `leehack/mcp_dart` 2.x, so
+/// the Dart API stays stable while the wire shape follows the spec.
 class ClientCapabilitiesSampling {
-  /// Present if the client supports `tools` / `toolChoice` in sampling requests.
-  final ClientCapabilitiesSamplingTools? tools;
+  /// Whether the client supports context inclusion via `includeContext`.
+  ///
+  /// If not declared, servers SHOULD only use `includeContext: "none"`
+  /// (or omit it).
+  final bool context;
 
-  /// Present if the client supports `includeContext` in sampling requests.
-  final ClientCapabilitiesSamplingContext? context;
+  /// Whether the client supports tool use via `tools` / `toolChoice`.
+  final bool tools;
 
-  const ClientCapabilitiesSampling({this.tools, this.context});
-
-  /// Declares both the `tools` and `context` sub-capabilities.
-  const ClientCapabilitiesSampling.all()
-    : tools = const ClientCapabilitiesSamplingTools(),
-      context = const ClientCapabilitiesSamplingContext();
+  const ClientCapabilitiesSampling({this.context = false, this.tools = false});
 
   factory ClientCapabilitiesSampling.fromJson(Map<String, dynamic> json) {
-    final toolsMap = _capabilityMarkerMap(json['tools'], 'sampling.tools');
-    final contextMap = _capabilityMarkerMap(json['context'], 'sampling.context');
-
     return ClientCapabilitiesSampling(
-      tools: toolsMap == null ? null : ClientCapabilitiesSamplingTools.fromJson(toolsMap),
-      context: contextMap == null ? null : ClientCapabilitiesSamplingContext.fromJson(contextMap),
+      context: _capabilityDeclared(json['context'], 'ClientCapabilitiesSampling.context') ?? false,
+      tools: _capabilityDeclared(json['tools'], 'ClientCapabilitiesSampling.tools') ?? false,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    if (tools != null) 'tools': tools!.toJson(),
-    if (context != null) 'context': context!.toJson(),
+    if (context) 'context': <String, dynamic>{},
+    if (tools) 'tools': <String, dynamic>{},
   };
 }
 
-/// Reads an object-valued capability marker.
+/// Reads an object-valued capability marker as a boolean.
 ///
-/// The spec shape is an object. `true` is also accepted so that mcp_dart
-/// clients up to 1.3.1, which emitted `"tools": true`, keep initializing
-/// against upgraded servers; `false` and `null` mean absent. Any other type is
-/// a [FormatException], which the transports surface as `-32602 Invalid params`.
-Map<String, dynamic>? _capabilityMarkerMap(Object? value, String field) {
-  if (value == null || value == false) return null;
-  if (value == true) return const <String, dynamic>{};
-  if (value is Map) return value.cast<String, dynamic>();
-  throw FormatException("Capability '$field' must be an object, got ${value.runtimeType}");
+/// The spec shape is an object, which reads as declared. A boolean is also
+/// accepted so mcp_dart clients up to 1.3.1, which emitted `"tools": true`,
+/// keep initializing against upgraded servers. `null` means absent. Any other
+/// type is a [FormatException], which the transports surface as
+/// `-32602 Invalid params`. Mirrors `_capabilityDeclared` in upstream 2.x.
+bool? _capabilityDeclared(Object? value, String field) {
+  if (value == null) {
+    return null;
+  }
+  if (value is bool) {
+    return value;
+  }
+  if (value is! Map) {
+    throw FormatException('$field must be a JSON object');
+  }
+  return true;
 }
 
 /// Capabilities related to tasks > elicitation.

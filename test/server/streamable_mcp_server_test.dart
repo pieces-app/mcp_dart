@@ -152,7 +152,7 @@ void main() {
       expect(decoded['id'], 7);
       expect(decoded['error']['code'], ErrorCode.invalidParams.value);
       expect(decoded['error']['message'], 'Invalid params');
-      expect(decoded['error']['data'], contains('sampling.tools'));
+      expect(decoded['error']['data'], contains('ClientCapabilitiesSampling.tools'));
     });
 
     test('malformed JSON-RPC envelope returns -32600 Invalid Request', () async {
