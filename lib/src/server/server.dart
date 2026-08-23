@@ -354,7 +354,7 @@ class Server extends Protocol {
   Future<CreateMessageResult> createMessage(CreateMessageRequest params, [RequestOptions? options]) {
     // Capability check - only required when tools/toolChoice are provided
     if (params.tools != null || params.toolChoice != null) {
-      if (!(_clientCapabilities?.sampling?.tools ?? false)) {
+      if (_clientCapabilities?.sampling?.tools == null) {
         throw McpError(ErrorCode.invalidRequest.value, "Client does not support sampling tools capability.");
       }
     }

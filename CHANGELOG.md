@@ -1,3 +1,11 @@
+## 1.4.0
+
+- **Spec Alignment**:
+  - `ClientCapabilitiesSampling.tools` is now an object marker (`ClientCapabilitiesSamplingTools?`) instead of a `bool`, and `ClientCapabilitiesSampling.context` (`ClientCapabilitiesSamplingContext?`) is added, matching MCP 2025-11-25 `ClientCapabilities.sampling`. Servers previously rejected every conformant `initialize` that declared `"sampling": {"tools": {}}` (the official Python / TypeScript SDK shape) with a `TypeError`, surfaced over streamable HTTP as `-32700 Parse error`. The legacy boolean is still accepted on read so mcp_dart <= 1.3.1 clients keep initializing; it is never emitted.
+  - **Breaking (source)**: `ClientCapabilitiesSampling(tools: true)` no longer compiles. Use `ClientCapabilitiesSampling(tools: ClientCapabilitiesSamplingTools())` or `ClientCapabilitiesSampling.all()`.
+- **Reliability**:
+  - Streamable HTTP transport now distinguishes JSON-RPC error classes on POST: a body that is not valid JSON still returns `-32700 Parse error`; a valid envelope whose `params` fail typed deserialization returns `-32602 Invalid params`; any other malformed envelope returns `-32600 Invalid Request`. The request `id` is echoed whenever the envelope carried one. Applies to both the `dart:io` and shelf adapter paths.
+
 ## 1.3.0
 
 - **Spec Alignment**:

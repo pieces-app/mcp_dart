@@ -191,6 +191,104 @@ void main() {
       expect(deserialized.toolChoice, {'type': 'auto'});
     });
 
+    group('ClientCapabilities.sampling markers', () {
+      // MCP 2025-11-25 models `sampling.tools` and `sampling.context` as empty
+      // object markers (`"tools": {}`), the same way `elicitation.form` / `.url`
+      // and `roots` are modeled. Through 1.3.1 `tools` was a `bool`, so the
+      // official Python and TypeScript SDK initialize payloads threw a
+      // TypeError from `as bool?` and the HTTP transport answered
+      // `-32700 Parse error`. These pins cover every shape a conformant peer
+      // can send plus the legacy boolean older mcp_dart clients emitted.
+
+      test('sampling: {} parses with no markers and round-trips', () {
+        final caps = ClientCapabilities.fromJson({'sampling': <String, dynamic>{}});
+        expect(caps.sampling, isNotNull);
+        expect(caps.sampling!.tools, isNull);
+        expect(caps.sampling!.context, isNull);
+        expect(caps.toJson()['sampling'], equals(<String, dynamic>{}));
+      });
+
+      test('sampling: {tools: {}} round-trips', () {
+        final caps = ClientCapabilities.fromJson({
+          'sampling': {'tools': <String, dynamic>{}},
+        });
+        expect(caps.sampling!.tools, isNotNull);
+        expect(caps.sampling!.context, isNull);
+        expect(caps.toJson()['sampling'], equals({'tools': <String, dynamic>{}}));
+      });
+
+      test('sampling: {context: {}} round-trips', () {
+        final caps = ClientCapabilities.fromJson({
+          'sampling': {'context': <String, dynamic>{}},
+        });
+        expect(caps.sampling!.tools, isNull);
+        expect(caps.sampling!.context, isNotNull);
+        expect(caps.toJson()['sampling'], equals({'context': <String, dynamic>{}}));
+      });
+
+      test('sampling: {tools: {}, context: {}} round-trips', () {
+        final caps = ClientCapabilities.fromJson({
+          'sampling': {'tools': <String, dynamic>{}, 'context': <String, dynamic>{}},
+        });
+        expect(caps.sampling!.tools, isNotNull);
+        expect(caps.sampling!.context, isNotNull);
+        expect(caps.toJson()['sampling'], equals({'tools': <String, dynamic>{}, 'context': <String, dynamic>{}}));
+      });
+
+      test('legacy sampling: {tools: true} is accepted on read and re-emitted as an object', () {
+        // mcp_dart <= 1.3.1 clients sent a boolean. Keep accepting it so they
+        // can still initialize against upgraded servers, but never echo it.
+        final caps = ClientCapabilities.fromJson({
+          'sampling': {'tools': true},
+        });
+        expect(caps.sampling!.tools, isNotNull);
+        expect(caps.toJson()['sampling'], equals({'tools': <String, dynamic>{}}));
+
+        final absent = ClientCapabilities.fromJson({
+          'sampling': {'tools': false},
+        });
+        expect(absent.sampling!.tools, isNull);
+      });
+
+      test('wrong-typed marker throws FormatException rather than TypeError', () {
+        expect(
+          () => ClientCapabilities.fromJson({
+            'sampling': {'tools': 'yes'},
+          }),
+          throwsA(isA<FormatException>()),
+        );
+      });
+
+      test('toJson never emits a boolean marker', () {
+        final json = const ClientCapabilitiesSampling.all().toJson();
+        expect(json.keys, containsAll(['tools', 'context']));
+        expect(json.values.any((v) => v is bool), isFalse);
+        expect(json['tools'], isA<Map>());
+        expect(json['context'], isA<Map>());
+      });
+
+      test('JsonRpcMessage.fromJson accepts an initialize request carrying sampling.tools', () {
+        // The exact envelope the official Python SDK sends for a
+        // sampling-with-tools-capable client.
+        final message = JsonRpcMessage.fromJson({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'initialize',
+          'params': {
+            'protocolVersion': '2025-11-25',
+            'capabilities': {
+              'sampling': {'tools': <String, dynamic>{}},
+            },
+            'clientInfo': {'name': 'mcp', 'version': '1.0.0'},
+          },
+        });
+
+        expect(message, isA<JsonRpcInitializeRequest>());
+        final init = message as JsonRpcInitializeRequest;
+        expect(init.initParams.capabilities.sampling?.tools, isNotNull);
+      });
+    });
+
     group('Tasks API Types', () {
       test('GetTaskRequestParams serialization', () {
         final params = const GetTaskRequestParams(taskId: 'task-123');

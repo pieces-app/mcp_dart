@@ -47,7 +47,7 @@ void main() {
         initParams: const InitializeRequestParams(
           protocolVersion: '2024-11-05',
           capabilities: ClientCapabilities(
-            sampling: ClientCapabilitiesSampling(tools: true), // Corrected
+            sampling: ClientCapabilitiesSampling(tools: ClientCapabilitiesSamplingTools()),
             elicitation: ClientElicitation.all(), // Corrected
           ),
           clientInfo: Implementation(name: 'client', version: '1.0'),

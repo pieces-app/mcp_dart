@@ -44,7 +44,7 @@ final client = McpClient(
   clientInfo,
   options: const McpClientOptions(
     capabilities: ClientCapabilities(
-      sampling: ClientCapabilitiesSampling(tools: true),
+      sampling: ClientCapabilitiesSampling(tools: ClientCapabilitiesSamplingTools()),
       roots: ClientCapabilitiesRoots(listChanged: true),
     ),
   ),
