@@ -2,298 +2,345 @@
 
 ## 1. Overview
 
-The **Types** module provides the core data structures and JSON-RPC message definitions for the Model Context Protocol (MCP). It features strongly-typed Dart domain models for initialization, resources, prompts, tools, sampling, tasks, elicitation, and logging, offering robust `fromJson` and `toJson` serialization utilities.
+The **Types** module provides the foundational, strongly-typed data models and JSON-RPC message envelopes for the Model Context Protocol (MCP) in Dart. It includes serialization (`toJson`) and deserialization (`fromJson`) logic for all core MCP concepts such as Tools, Resources, Prompts, Tasks, Sampling, and Elicitation, ensuring type-safe communication between clients and servers.
 
-### Owning Package: `mcp_dart`
+### 1a. Owning Package
 
-This module is the foundational layer of the `mcp_dart` package. It acts as the shared vocabulary across the repository, ensuring that every component—from the low-level transports to the high-level CLI—speaks the same language.
+This module is owned by the core **mcp_dart** package. It serves as the common type system used across the entire ecosystem, including the `mcp_dart_cli` tool.
 
-### Integration with `mcp_dart_cli`
+### 1b. Integration with `mcp_dart_cli`
 
-The `mcp_dart_cli` package (`packages/mcp_dart_cli/`) utilizes these types to:
-- Parse incoming JSON-RPC messages from standard I/O.
-- Validate command-line arguments against expected MCP schemas.
-- Provide a consistent interface for tool and prompt discovery in terminal environments.
+The `mcp_dart_cli` package (located in `packages/mcp_dart_cli/`) utilizes these types to provide a command-line interface for interacting with MCP servers. When you define a `Tool` or a `Prompt` in your server using this module, the CLI can automatically discover and interact with them using the same underlying models.
 
-## 2. Import
+### 1c. What's New
 
-Import the specific domain files or the main `json_rpc.dart` for the message envelopes:
+*   **Spec Alignment:** `ClientCapabilitiesSampling` now properly serializes capabilities (`tools` and `context`) as empty-object markers (`"tools": {}`) on the wire to match the MCP 2025-11-25 specification, while maintaining boolean properties in the Dart API for backward compatibility.
+*   **Reliability & Error Handling:** Improved JSON-RPC error mapping clearly distinguishes between Parse errors (`-32700`), Invalid params (`-32602`), and Invalid Request (`-32600`) classes, helping you diagnose transport and payload issues faster.
 
-```dart
-// Core JSON-RPC structures
-import 'package:mcp_dart/src/types/json_rpc.dart';
+## 2. Installation
 
-// Domain-specific types
-import 'package:mcp_dart/src/types/initialization.dart';
-import 'package:mcp_dart/src/types/tools.dart';
-import 'package:mcp_dart/src/types/resources.dart';
-import 'package:mcp_dart/src/types/prompts.dart';
-import 'package:mcp_dart/src/types/content.dart';
-import 'package:mcp_dart/src/types/sampling.dart';
-import 'package:mcp_dart/src/types/tasks.dart';
-import 'package:mcp_dart/src/types/elicitation.dart';
-import 'package:mcp_dart/src/types/logging.dart';
-import 'package:mcp_dart/src/types/roots.dart';
-import 'package:mcp_dart/src/types/completion.dart';
-import 'package:mcp_dart/src/types/misc.dart';
+Add `mcp_dart` to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  mcp_dart:
+    git:
+      url: git@github.com:pieces-app/mcp_dart.git
+      tag_pattern: v{{version}}
 ```
 
-## 3. Initialization and Capabilities
+Then run `dart pub get`.
 
-MCP connections begin with an `initialize` request where both parties negotiate capabilities.
+## 3. Import
+
+Import the core MCP library, which exports these types:
 
 ```dart
-import 'package:mcp_dart/src/types/initialization.dart';
-import 'package:mcp_dart/src/types/json_rpc.dart';
-
-// Define the client implementation details
-final clientInfo = Implementation(
-  name: 'my_mcp_client',
-  version: '1.0.0',
-  description: 'A custom Dart MCP client', // Optional description
-);
-
-// Define supported client capabilities
-final capabilities = ClientCapabilities(
-  roots: ClientCapabilitiesRoots(
-    listChanged: true, // Whether the client supports notifications when roots change
-  ),
-  sampling: ClientCapabilitiesSampling(
-    tools: true, // Client supports tools / toolChoice in sampling requests (sent as "tools": {})
-    context: true, // Client supports includeContext in sampling requests (sent as "context": {})
-  ),
-  elicitation: ClientElicitation(
-    form: ClientElicitationForm(
-      applyDefaults: true, // Support applying default values from requested schema
-    ),
-    url: ClientElicitationUrl(),
-  ),
-  tasks: ClientCapabilitiesTasks(
-    list: true,
-    cancel: true,
-    requests: ClientCapabilitiesTasksRequests(
-      elicitation: ClientCapabilitiesTasksElicitation(
-        create: ClientCapabilitiesTasksElicitationCreate(),
-      ),
-    ),
-  ),
-);
-
-// Form the initialization request
-final initRequest = InitializeRequest(
-  protocolVersion: latestProtocolVersion,
-  capabilities: capabilities,
-  clientInfo: clientInfo,
-);
+import 'package:mcp_dart/mcp_dart.dart';
+// Or explicitly import the types module if needed:
+// import 'package:mcp_dart/src/types.dart';
 ```
 
-## 4. Core Domain Types
+## 4. Setup & Common Operations
 
-### Tools
-Tools allow clients to perform actions via the server.
+The models in this module represent data structures—they do not have active background services. You will instantiate them to form requests or parse incoming JSON maps.
+
+### Example 1: Defining a Tool
+Use the `Tool` class alongside `JsonSchema` to define tool capabilities:
 
 ```dart
-import 'package:mcp_dart/src/types/tools.dart';
-import 'package:mcp_dart/src/shared/json_schema/json_schema.dart';
-
-final tool = Tool(
-  name: 'calculate_sum',
-  description: 'Adds two numbers together.',
+final weatherTool = Tool(
+  name: 'get_weather',
+  description: 'Retrieve the current weather for a location',
   inputSchema: JsonSchema.fromJson({
     'type': 'object',
     'properties': {
-      'a': {'type': 'number'},
-      'b': {'type': 'number'},
+      'location': {'type': 'string', 'description': 'City name'},
     },
-    'required': ['a', 'b'],
+    'required': ['location'],
   }),
-  annotations: ToolAnnotations(
-    priority: 1.0, // Priority of the tool (0.0 to 1.0)
-    readOnlyHint: true, // Hint that the tool does not modify its environment
-    destructiveHint: false, // Hint that the tool performs only additive updates
+);
+
+// Convert to a JSON map for transmission
+final Map<String, dynamic> toolJson = weatherTool.toJson();
+```
+
+### Example 2: Constructing JSON-RPC Requests
+MCP uses a structured envelope for JSON-RPC. You can construct typed requests like `JsonRpcInitializeRequest`:
+
+```dart
+final initializeRequest = JsonRpcInitializeRequest(
+  id: 'req-1',
+  initParams: InitializeRequest(
+    protocolVersion: latestProtocolVersion, // e.g. "2025-11-25"
+    capabilities: ClientCapabilities(
+      sampling: ClientCapabilitiesSampling(context: true, tools: true),
+    ),
+    clientInfo: Implementation(
+      name: 'my-dart-client',
+      version: '1.0.0',
+    ),
   ),
 );
 
-// Responding to a tool call
-final result = CallToolResult(
-  content: [TextContent(text: 'The result is 15')],
-  isError: false, // Whether the tool call returned an error
+final requestPayload = initializeRequest.toJson();
+```
+
+### Example 3: Parsing Incoming JSON-RPC Messages
+You can parse incoming maps dynamically using the base `JsonRpcMessage.fromJson` factory, which automatically figures out if it's a Request, Response, Notification, or Error:
+
+```dart
+final incomingJson = {
+  'jsonrpc': '2.0',
+  'id': 'req-1',
+  'result': {
+    'protocolVersion': '2025-11-25',
+    'capabilities': {},
+    'serverInfo': {'name': 'my-server', 'version': '1.0.0'}
+  }
+};
+
+final message = JsonRpcMessage.fromJson(incomingJson);
+
+if (message is JsonRpcResponse) {
+  // Parse the specific result type
+  final result = InitializeResult.fromJson(message.result);
+  print('Connected to server: ${result.serverInfo.name}');
+} else if (message is JsonRpcNotification) {
+  print('Received notification method: ${message.method}');
+}
+```
+
+### Example 4: Creating Content Parts for Results
+When returning data from tools, prompts, or sampling, use the sealed `Content` subclasses like `TextContent` or `ImageContent`:
+
+```dart
+final toolResult = CallToolResult(
+  content: [
+    TextContent(text: 'The weather in San Francisco is 65°F and sunny.'),
+  ],
+  isError: false,
 );
 ```
 
-### Resources
-Resources provide access to files, database records, or other data.
+### Example 5: Working with Resources
+Resources allow servers to expose data (like files, logs, or DB records). Here is how you define a `Resource` and return its content:
 
 ```dart
-import 'package:mcp_dart/src/types/resources.dart';
-
-final resource = Resource(
+// Defining a resource
+final myResource = Resource(
   uri: 'file:///logs/app.log',
-  name: 'App Logs',
+  name: 'Application Logs',
+  description: 'Main application log file',
   mimeType: 'text/plain',
-  annotations: ResourceAnnotations(
-    title: 'Application Runtime Logs',
-    priority: 0.5,
-    lastModified: '2026-03-25T12:00:00Z', // ISO 8601 timestamp
-  ),
 );
 
-// Reading a resource result
+// Constructing the response content
 final readResult = ReadResourceResult(
   contents: [
     TextResourceContents(
       uri: 'file:///logs/app.log',
-      text: 'Starting application...',
+      mimeType: 'text/plain',
+      text: '2026-08-24 10:00:00 INFO: System started',
     ),
   ],
 );
 ```
 
-### Prompts
-Prompts are reusable templates for LLM interactions.
+### Example 6: Defining Prompts with Arguments
+Prompts are reusable templates for LLM interactions. You can define them with arguments that the client provides:
 
 ```dart
-import 'package:mcp_dart/src/types/prompts.dart';
-
-final prompt = Prompt(
-  name: 'summarize_text',
-  description: 'Summarizes a given block of text.',
+final translatePrompt = Prompt(
+  name: 'translate',
+  description: 'Translate text between languages',
   arguments: [
     PromptArgument(
       name: 'text',
-      description: 'The text to summarize',
-      required: true, // Whether this argument must be provided
+      description: 'The text to translate',
+      required: true,
+    ),
+    PromptArgument(
+      name: 'to',
+      description: 'The target language',
+      required: true,
     ),
   ],
 );
 
-// Getting prompt messages
-final getResult = GetPromptResult(
-  description: 'Summarization prompt',
-  messages: [
-    PromptMessage(
-      role: PromptMessageRole.user,
-      content: TextContent(text: 'Please summarize: ...'),
-    ),
-  ],
+// Creating a PromptMessage for the result
+final promptMessage = PromptMessage(
+  role: PromptMessageRole.user,
+  content: TextContent(text: 'Translate "Hello" to Spanish'),
 );
 ```
 
-### Sampling
-Sampling allows the server to request completions from an LLM via the client.
+### Example 7: Sampling and Model Preferences
+Sampling allows a server to ask the client to generate a message using an LLM. You can specify `ModelPreferences` to guide model selection:
 
 ```dart
-import 'package:mcp_dart/src/types/sampling.dart';
-
 final samplingRequest = CreateMessageRequest(
   messages: [
     SamplingMessage(
       role: SamplingMessageRole.user,
-      content: SamplingTextContent(text: 'What is the weather?'),
+      content: SamplingTextContent(text: 'Explain quantum computing in one sentence.'),
     ),
   ],
   maxTokens: 100,
-  temperature: 0.7,
   modelPreferences: ModelPreferences(
-    costPriority: 0.1, // Prioritize cost (0-1)
-    intelligencePriority: 0.9, // Prioritize intelligence (0-1)
+    costPriority: 0.2,
+    speedPriority: 0.8, // Prioritize fast response
+    intelligencePriority: 0.5,
   ),
 );
 ```
 
-### Tasks
-Tasks represent long-running operations.
+### Example 8: Creating and Monitoring Tasks
+Tasks are used for long-running operations. You can initiate a task and report its status:
 
 ```dart
-import 'package:mcp_dart/src/types/tasks.dart';
-
-final task = Task(
-  taskId: 'task_123',
+// Defining a task status update
+final taskUpdate = TaskStatusNotification(
+  taskId: 'task-123',
   status: TaskStatus.working,
   statusMessage: 'Processing data...',
-  createdAt: '2026-03-25T10:00:00Z',
-  pollInterval: 5000, // Suggested time in ms between status checks
+  pollInterval: 5000, // Suggest client polls every 5 seconds
+);
+
+// Completing a task
+final taskCompleted = TaskStatusNotification(
+  taskId: 'task-123',
+  status: TaskStatus.completed,
+  statusMessage: 'Operation successful',
 );
 ```
 
-### Elicitation
-Elicitation is used to gather user input, either via forms or external URLs.
+### Example 9: User Input Elicitation
+Elicitation allows a server to request input from the user, either via a structured form or an external URL:
 
 ```dart
-import 'package:mcp_dart/src/types/elicitation.dart';
-
-// Form elicitation
+// Requesting a form-based elicitation
 final formRequest = ElicitRequest.form(
-  message: 'Please enter your username',
-  requestedSchema: JsonSchema.fromJson({'type': 'string'}),
+  message: 'Please enter your API key:',
+  requestedSchema: JsonSchema.fromJson({
+    'type': 'object',
+    'properties': {
+      'apiKey': {'type': 'string', 'title': 'API Key'},
+    },
+    'required': ['apiKey'],
+  }),
 );
 
-// URL elicitation
-final urlRequest = ElicitRequest.url(
-  message: 'Please authenticate via GitHub',
-  url: 'https://github.com/login/oauth/authorize',
-  elicitationId: 'auth_session_456',
+// Handling the result
+final result = ElicitResult(
+  action: 'accept',
+  content: {'apiKey': 'sk-123...'},
 );
 ```
 
-### Autocompletion
-Provides completion options for prompts and resources.
+### Example 10: Managing Roots
+Roots represent the project folders or files a client makes available to the server:
 
 ```dart
-import 'package:mcp_dart/src/types/completion.dart';
+final roots = [
+  Root(uri: 'file:///home/user/project', name: 'Main Project'),
+  Root(uri: 'file:///home/user/docs', name: 'Documentation'),
+];
 
+final listRootsResult = ListRootsResult(roots: roots);
+```
+
+### Example 11: Server Logging
+Servers can send log messages to the client at various severity levels:
+
+```dart
+final logNotification = LoggingMessageNotification(
+  level: LoggingLevel.info,
+  logger: 'database_service',
+  data: 'Connection established successfully',
+);
+```
+
+### Example 12: Autocompletion
+Servers can provide completion options for prompt and resource arguments:
+
+```dart
+// Requesting completions for a prompt argument
 final completeRequest = CompleteRequest(
-  ref: PromptReference(name: 'summarize_text'),
+  ref: PromptReference(name: 'translate'),
   argument: ArgumentCompletionInfo(
-    name: 'text',
-    value: 'The quick brown ',
+    name: 'to',
+    value: 'Spa', // User has typed "Spa"
   ),
 );
 
+// Returning completion options
 final completeResult = CompleteResult(
   completion: CompletionResultData(
-    values: ['fox', 'dog'],
+    values: ['Spanish', 'Slovak', 'Slovenian'],
     hasMore: false,
   ),
 );
 ```
 
-## 5. JSON-RPC Messaging
+## 5. Advanced Types
 
-All operations are wrapped in JSON-RPC 2.0 envelopes.
+### Pagination with Cursors
+Many "list" requests support pagination using opaque cursors.
 
 ```dart
-import 'package:mcp_dart/src/types/json_rpc.dart';
+// Initial request
+final listRequest = ListToolsRequest();
 
-// Generic parsing
-void onMessage(Map<String, dynamic> json) {
-  final message = JsonRpcMessage.fromJson(json);
-  
-  switch (message) {
-    case JsonRpcRequest():
-      print('Received request ${message.method} (ID: ${message.id})');
-      if (message.progressToken != null) {
-        print('Request supports progress updates');
-      }
-    case JsonRpcResponse():
-      print('Received response for ID ${message.id}');
-    case JsonRpcNotification():
-      print('Received notification ${message.method}');
-    case JsonRpcError():
-      print('Error ${message.error.code}: ${message.error.message}');
-  }
-}
+// Parsing the result with a nextCursor
+final result = ListToolsResult(
+  tools: [...],
+  nextCursor: 'page-2-token',
+);
 
-// Creating a specific request
-final ping = JsonRpcPingRequest(id: 'ping_1');
-print(ping.toJson());
+// Fetching the next page
+final nextRequest = ListToolsRequest(cursor: result.nextCursor);
 ```
 
-## 6. Multi-Package Architecture
+### JSON-RPC Metadata (`_meta`)
+Most requests and responses support optional metadata for extensions or protocol features like progress tokens:
 
-As part of the `mcp_dart` workspace, the **Types** module serves as the contract between packages:
+```dart
+final requestWithProgress = JsonRpcPingRequest(id: 1);
+// Metadata is typically passed in the params map or as a separate argument 
+// depending on the specific JsonRpcRequest subclass constructor.
+```
 
-- **`mcp_dart`**: The core library implementing the protocol logic.
-- **`mcp_dart_cli`**: Uses these types to provide a terminal interface for MCP servers, ensuring that CLI arguments and stdio communication adhere to the protocol.
+## 6. Error Handling
 
-This architecture ensures that type safety is maintained across the entire repository, from core logic to external interfaces.
+The protocol represents standard and domain-specific errors via `JsonRpcError` and the internal `McpError` exception.
+
+```dart
+final errorJson = {
+  'jsonrpc': '2.0',
+  'id': 'req-2',
+  'error': {
+    'code': -32602,
+    'message': 'Invalid params'
+  }
+};
+
+final message = JsonRpcMessage.fromJson(errorJson);
+
+if (message is JsonRpcError) {
+  print('RPC Error ${message.error.code}: ${message.error.message}');
+  
+  // Check against known standard ErrorCode enum values
+  if (message.error.code == ErrorCode.invalidParams.value) {
+    print('The server rejected the provided parameters.');
+  } else if (message.error.code == ErrorCode.urlElicitationRequired.value) {
+    print('URL interaction is required before proceeding.');
+  }
+}
+```
+
+## 7. Related Modules
+
+*   **Client**: Uses these Types models extensively to construct requests, parse responses, and dispatch notifications.
+*   **Server**: Builds upon these types to handle client requests, advertise capabilities, and format tool results.
+*   **Shared**: Contains standard structures like `JsonSchema` that are nested within the type definitions.
