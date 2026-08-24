@@ -300,6 +300,67 @@ void main() {
       expect(() => server.assertCapabilityForMethod('sampling/createMessage'), throwsA(isA<McpError>()));
     });
 
+    test('createMessage with tools succeeds when client declared sampling.tools', () async {
+      await server.connect(transport);
+      await _initializeClient(transport, server, withSamplingTools: true);
+
+      final createParams = CreateMessageRequest(
+        messages: const [
+          SamplingMessage(
+            role: SamplingMessageRole.user,
+            content: SamplingTextContent(text: 'Use a tool'),
+          ),
+        ],
+        maxTokens: 100,
+        tools: [
+          Tool(
+            name: 'echo',
+            inputSchema: JsonObject(properties: {'text': JsonSchema.string()}),
+          ),
+        ],
+        toolChoice: const {'type': 'auto'},
+      );
+
+      final result = await server.createMessage(createParams);
+
+      expect(result.role, equals(SamplingMessageRole.assistant));
+      final sent = transport.sentMessages.whereType<JsonRpcRequest>().firstWhere(
+        (msg) => msg.method == 'sampling/createMessage',
+      );
+      expect(sent.params?['tools'], isA<List>());
+    });
+
+    test('createMessage with tools throws invalidRequest when client declared sampling: {}', () async {
+      await server.connect(transport);
+      // `sampling: {}` means the client can sample but did not declare the `tools` marker.
+      await _initializeClient(transport, server, withSampling: true);
+
+      final createParams = CreateMessageRequest(
+        messages: const [
+          SamplingMessage(
+            role: SamplingMessageRole.user,
+            content: SamplingTextContent(text: 'Use a tool'),
+          ),
+        ],
+        maxTokens: 100,
+        tools: [
+          Tool(
+            name: 'echo',
+            inputSchema: JsonObject(properties: {'text': JsonSchema.string()}),
+          ),
+        ],
+      );
+
+      expect(
+        () => server.createMessage(createParams),
+        throwsA(isA<McpError>().having((e) => e.code, 'code', ErrorCode.invalidRequest.value)),
+      );
+      expect(
+        transport.sentMessages.any((msg) => msg is JsonRpcRequest && msg.method == 'sampling/createMessage'),
+        isFalse,
+      );
+    });
+
     test('Can send listRoots request when client has roots capability', () async {
       await server.connect(transport);
 
@@ -408,11 +469,16 @@ Future<void> _initializeClient(
   MockTransport transport,
   Server server, {
   bool withSampling = false,
+  bool withSamplingTools = false,
   bool withRoots = false,
   bool withElicitation = false,
 }) async {
   final clientCapabilities = ClientCapabilities(
-    sampling: withSampling ? const ClientCapabilitiesSampling() : null,
+    sampling: withSamplingTools
+        ? const ClientCapabilitiesSampling(tools: true)
+        : withSampling
+        ? const ClientCapabilitiesSampling()
+        : null,
     roots: withRoots ? const ClientCapabilitiesRoots() : null,
     elicitation: withElicitation ? const ClientElicitation.formOnly() : null,
   );

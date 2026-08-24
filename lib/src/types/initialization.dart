@@ -114,17 +114,55 @@ class ClientElicitation {
 }
 
 /// Capabilities related to sampling.
+///
+/// Present (even when empty) if the client supports `sampling/createMessage`.
+/// MCP 2025-11-25 models the sub-capabilities as empty-object markers on the
+/// wire (`"tools": {}`), the same shape as `elicitation.form` / `.url`. They
+/// are exposed here as booleans, mirroring upstream `leehack/mcp_dart` 2.x, so
+/// the Dart API stays stable while the wire shape follows the spec.
 class ClientCapabilitiesSampling {
-  /// Whether the client supports sampling with tools.
+  /// Whether the client supports context inclusion via `includeContext`.
+  ///
+  /// If not declared, servers SHOULD only use `includeContext: "none"`
+  /// (or omit it).
+  final bool context;
+
+  /// Whether the client supports tool use via `tools` / `toolChoice`.
   final bool tools;
 
-  const ClientCapabilitiesSampling({this.tools = false});
+  const ClientCapabilitiesSampling({this.context = false, this.tools = false});
 
   factory ClientCapabilitiesSampling.fromJson(Map<String, dynamic> json) {
-    return ClientCapabilitiesSampling(tools: json['tools'] as bool? ?? false);
+    return ClientCapabilitiesSampling(
+      context: _capabilityDeclared(json['context'], 'ClientCapabilitiesSampling.context') ?? false,
+      tools: _capabilityDeclared(json['tools'], 'ClientCapabilitiesSampling.tools') ?? false,
+    );
   }
 
-  Map<String, dynamic> toJson() => {if (tools) 'tools': tools};
+  Map<String, dynamic> toJson() => {
+    if (context) 'context': <String, dynamic>{},
+    if (tools) 'tools': <String, dynamic>{},
+  };
+}
+
+/// Reads an object-valued capability marker as a boolean.
+///
+/// The spec shape is an object, which reads as declared. A boolean is also
+/// accepted so mcp_dart clients up to 1.3.1, which emitted `"tools": true`,
+/// keep initializing against upgraded servers. `null` means absent. Any other
+/// type is a [FormatException], which the transports surface as
+/// `-32602 Invalid params`. Mirrors `_capabilityDeclared` in upstream 2.x.
+bool? _capabilityDeclared(Object? value, String field) {
+  if (value == null) {
+    return null;
+  }
+  if (value is bool) {
+    return value;
+  }
+  if (value is! Map) {
+    throw FormatException('$field must be a JSON object');
+  }
+  return true;
 }
 
 /// Capabilities related to tasks > elicitation.

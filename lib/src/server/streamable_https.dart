@@ -736,13 +736,7 @@ class StreamableHTTPServerTransport implements Transport {
           } catch (e) {
             res.statusCode = HttpStatus.badRequest;
             res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
-            res.write(
-              jsonEncode({
-                "jsonrpc": "2.0",
-                "error": {"code": -32700, "message": "Parse error", "data": e.toString()},
-                "id": null,
-              }),
-            );
+            res.write(jsonEncode(_deserializationError(msg, e).toJson()));
             await res.close();
             return;
           }
@@ -753,13 +747,7 @@ class StreamableHTTPServerTransport implements Transport {
         } catch (e) {
           res.statusCode = HttpStatus.badRequest;
           res.setHeader(HttpHeaders.contentTypeHeader, "application/json");
-          res.write(
-            jsonEncode({
-              "jsonrpc": "2.0",
-              "error": {"code": -32700, "message": "Parse error", "data": e.toString()},
-              "id": null,
-            }),
-          );
+          res.write(jsonEncode(_deserializationError(rawMessage, e).toJson()));
           await res.close();
           return;
         }
@@ -932,6 +920,33 @@ class StreamableHTTPServerTransport implements Transport {
     return true;
   }
 
+  /// Builds the JSON-RPC error for a body that decoded as JSON but could not be
+  /// deserialized into a [JsonRpcMessage].
+  ///
+  /// Per JSON-RPC 2.0, `-32700 Parse error` is reserved for invalid JSON text,
+  /// and by the time this runs `jsonDecode` has already succeeded. A well-formed
+  /// envelope (`jsonrpc: "2.0"`, string `method`) whose `params` fail typed
+  /// deserialization (for example a capability field of the wrong type) is
+  /// `-32602 Invalid params`; anything else is `-32600 Invalid Request`. The
+  /// request `id` is echoed whenever the envelope carried a valid one so the
+  /// client can correlate the failure with the request it sent.
+  static JsonRpcError _deserializationError(Object? raw, Object error) {
+    final map = raw is Map ? raw : null;
+    final id = map?['id'];
+    final validId = (id is String || id is int) ? id : null;
+    final isEnvelope = map != null && map['jsonrpc'] == jsonRpcVersion && map['method'] is String;
+    final code = isEnvelope ? ErrorCode.invalidParams : ErrorCode.invalidRequest;
+
+    return JsonRpcError(
+      id: validId,
+      error: JsonRpcErrorData(
+        code: code.value,
+        message: isEnvelope ? 'Invalid params' : 'Invalid request',
+        data: error.toString(),
+      ),
+    );
+  }
+
   /// Collects all bytes from a stream
   Future<Uint8List> _collectBytesFromStream(Stream<List<int>> stream) async {
     final completer = Completer<Uint8List>();
@@ -1007,14 +1022,7 @@ class StreamableHTTPServerTransport implements Transport {
             messages.add(JsonRpcMessage.fromJson(msg));
           } catch (e) {
             req.response.statusCode = HttpStatus.badRequest;
-            req.response.write(
-              jsonEncode(
-                JsonRpcError(
-                  id: null,
-                  error: JsonRpcErrorData(code: ErrorCode.parseError.value, message: 'Parse error', data: e.toString()),
-                ).toJson(),
-              ),
-            );
+            req.response.write(jsonEncode(_deserializationError(msg, e).toJson()));
             await _safeClose(req.response);
             onerror?.call(e is Error ? e : StateError(e.toString()));
             return;
@@ -1025,14 +1033,7 @@ class StreamableHTTPServerTransport implements Transport {
           messages = [JsonRpcMessage.fromJson(rawMessage)];
         } catch (e) {
           req.response.statusCode = HttpStatus.badRequest;
-          req.response.write(
-            jsonEncode(
-              JsonRpcError(
-                id: null,
-                error: JsonRpcErrorData(code: ErrorCode.parseError.value, message: 'Parse error', data: e.toString()),
-              ).toJson(),
-            ),
-          );
+          req.response.write(jsonEncode(_deserializationError(rawMessage, e).toJson()));
           await _safeClose(req.response);
           onerror?.call(e is Error ? e : StateError(e.toString()));
           return;

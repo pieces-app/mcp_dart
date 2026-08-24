@@ -232,6 +232,42 @@ void main() {
       expect((receivedMessage as JsonRpcInitializeRequest).id, equals(1));
     });
 
+    test('delivers an initialize that declares sampling.tools as an object marker', () async {
+      // Regression for the stdio path used by pieces_mcp_bridge_cli. Through
+      // 1.3.1 this exact line threw a TypeError inside readMessage(); the
+      // transport logged "Attempting to continue" and the client's initialize
+      // was dropped with no response at all, so the client hung.
+      JsonRpcMessage? receivedMessage;
+      final errors = <Error>[];
+      transport.onmessage = (message) => receivedMessage = message;
+      transport.onerror = errors.add;
+
+      await transport.start();
+
+      stdin.addString(
+        '${jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'initialize',
+          'params': {
+            'protocolVersion': latestProtocolVersion,
+            'capabilities': {
+              'sampling': {'tools': <String, dynamic>{}, 'context': <String, dynamic>{}},
+            },
+            'clientInfo': {'name': 'mcp', 'version': '1.0.0'},
+          },
+        })}\n',
+      );
+
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(errors, isEmpty);
+      expect(receivedMessage, isA<JsonRpcInitializeRequest>());
+      final caps = (receivedMessage as JsonRpcInitializeRequest).initParams.capabilities;
+      expect(caps.sampling?.tools, isTrue);
+      expect(caps.sampling?.context, isTrue);
+    });
+
     test('handles multiple messages in sequence', () async {
       final receivedMessages = <JsonRpcMessage>[];
       transport.onmessage = (message) {

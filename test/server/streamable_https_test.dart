@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:mcp_dart/src/server/streamable_https.dart';
 import 'package:mcp_dart/src/shared/uuid.dart';
 import 'package:mcp_dart/src/types.dart';
+import 'package:shelf/shelf.dart' show Request;
 import 'package:test/test.dart';
 
 /// A simple implementation of EventStore for testing event resumability
@@ -634,6 +636,102 @@ void main() {
         () => eventStore.replayEventsAfter('unknown-event-id', send: (eventId, message) async {}),
         throwsA(isA<Exception>()),
       );
+    });
+
+    test('shelf path: initialize with sampling.tools object marker is accepted', () async {
+      // Pins the HttpAdapter / shelf branch of the POST handler, which is a
+      // separate code path from the dart:io HttpRequest branch.
+      final transport = StreamableHTTPServerTransport(
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "shelf-session-id"),
+      );
+      await transport.start();
+
+      final received = Completer<JsonRpcMessage>();
+      transport.onmessage = (message) {
+        if (!received.isCompleted) received.complete(message);
+        // Answer so the transport can finish the HTTP response.
+        if (message is JsonRpcInitializeRequest) {
+          transport.send(
+            JsonRpcResponse(
+              id: message.id,
+              result: const InitializeResult(
+                protocolVersion: latestProtocolVersion,
+                capabilities: ServerCapabilities(),
+                serverInfo: Implementation(name: 'shelf-test', version: '0'),
+              ).toJson(),
+            ),
+            relatedRequestId: message.id,
+          );
+        }
+      };
+
+      final body = jsonEncode({
+        'jsonrpc': '2.0',
+        'id': 1,
+        'method': 'initialize',
+        'params': {
+          'protocolVersion': latestProtocolVersion,
+          'capabilities': {
+            'sampling': {'tools': <String, dynamic>{}},
+          },
+          'clientInfo': {'name': 'mcp', 'version': '1.0.0'},
+        },
+      });
+      final request = Request(
+        'POST',
+        Uri.parse('http://localhost/mcp'),
+        body: body,
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'},
+      );
+
+      final response = await transport.handleShelfRequest(request).timeout(const Duration(seconds: 5));
+
+      expect(response.statusCode, equals(HttpStatus.ok));
+      expect(response.headers['mcp-session-id'], equals('shelf-session-id'));
+      final message = await received.future.timeout(const Duration(seconds: 3));
+      expect(message, isA<JsonRpcInitializeRequest>());
+      expect((message as JsonRpcInitializeRequest).initParams.capabilities.sampling?.tools, isTrue);
+
+      await transport.close();
+    });
+
+    test('shelf path: wrong-typed capability returns -32602 with the request id', () async {
+      final transport = StreamableHTTPServerTransport(
+        options: StreamableHTTPServerTransportOptions(sessionIdGenerator: () => "shelf-session-id"),
+      );
+      await transport.start();
+      var messageDelivered = false;
+      transport.onmessage = (_) => messageDelivered = true;
+
+      final body = jsonEncode({
+        'jsonrpc': '2.0',
+        'id': 42,
+        'method': 'initialize',
+        'params': {
+          'protocolVersion': latestProtocolVersion,
+          'capabilities': {
+            'sampling': {'tools': 'yes'},
+          },
+          'clientInfo': {'name': 'mcp', 'version': '1.0.0'},
+        },
+      });
+      final request = Request(
+        'POST',
+        Uri.parse('http://localhost/mcp'),
+        body: body,
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'},
+      );
+
+      final response = await transport.handleShelfRequest(request).timeout(const Duration(seconds: 5));
+
+      expect(response.statusCode, equals(HttpStatus.badRequest));
+      final decoded = jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+      expect(decoded['id'], equals(42));
+      expect(decoded['error']['code'], equals(ErrorCode.invalidParams.value));
+      expect(decoded['error']['data'], contains('ClientCapabilitiesSampling.tools'));
+      expect(messageDelivered, isFalse);
+
+      await transport.close();
     });
 
     test('transport handles notifications-only POST with 202', () async {

@@ -1,3 +1,10 @@
+## 1.4.0
+
+- **Spec Alignment**:
+  - `ClientCapabilitiesSampling` now serializes `tools` and `context` as empty-object markers (`"tools": {}`) and reads either an object or a legacy boolean, matching MCP 2025-11-25 `ClientCapabilities.sampling` and upstream `leehack/mcp_dart` 2.x. Servers previously rejected every conformant `initialize` that declared `"sampling": {"tools": {}}` (the official Python / TypeScript SDK shape) with a `TypeError`, surfaced over streamable HTTP as `-32700 Parse error` and dropped silently by the stdio transport. The Dart API is unchanged (`tools` / `context` stay `bool`); `context` is new.
+- **Reliability**:
+  - Streamable HTTP transport now distinguishes JSON-RPC error classes on POST: a body that is not valid JSON still returns `-32700 Parse error`; a valid envelope whose `params` fail typed deserialization returns `-32602 Invalid params`; any other malformed envelope returns `-32600 Invalid Request`. The request `id` is echoed whenever the envelope carried one. Applies to both the `dart:io` and shelf adapter paths.
+
 ## 1.3.0
 
 - **Spec Alignment**:

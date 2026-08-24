@@ -85,6 +85,102 @@ void main() {
       }
     });
 
+    test('initialize with Python SDK sampling capabilities returns 200 and a session id', () async {
+      // Regression: `sampling.tools` / `sampling.context` are object markers per
+      // MCP 2025-11-25. Through 1.3.1 the transport answered this exact body with
+      // HTTP 400 `-32700 Parse error` because the model cast `tools` to `bool?`.
+      final body = {
+        'jsonrpc': '2.0',
+        'id': 1,
+        'method': 'initialize',
+        'params': {
+          'protocolVersion': latestProtocolVersion,
+          'capabilities': {
+            'sampling': {'tools': <String, dynamic>{}, 'context': <String, dynamic>{}},
+            'elicitation': {'form': <String, dynamic>{}, 'url': <String, dynamic>{}},
+          },
+          'clientInfo': {'name': 'mcp', 'version': '1.0.0'},
+        },
+      };
+
+      final client = HttpClient();
+      try {
+        final req = await client.postUrl(Uri.parse(baseUrl));
+        req.headers.contentType = ContentType.json;
+        req.headers.add('Accept', 'application/json, text/event-stream');
+        req.write(jsonEncode(body));
+        final res = await req.close();
+
+        expect(res.statusCode, HttpStatus.ok);
+        expect(res.headers.value('mcp-session-id'), isNotNull);
+
+        // The server answers over SSE; read enough to see the initialize result.
+        final text = await _readUntil(res, 'protocolVersion');
+        expect(text, contains('"id":1'));
+        expect(text, contains('"protocolVersion"'));
+        expect(text, isNot(contains('-32700')));
+      } finally {
+        client.close(force: true);
+      }
+    });
+
+    test('initialize with a wrong-typed capability returns -32602 with the request id', () async {
+      // Valid JSON and a valid JSON-RPC envelope, but `params` fail typed
+      // deserialization. JSON-RPC 2.0 reserves -32700 for unparseable JSON;
+      // this must be -32602 Invalid params and must echo the request id.
+      final body = {
+        'jsonrpc': '2.0',
+        'id': 7,
+        'method': 'initialize',
+        'params': {
+          'protocolVersion': latestProtocolVersion,
+          'capabilities': {
+            'sampling': {'tools': 'yes'},
+          },
+          'clientInfo': {'name': 'mcp', 'version': '1.0.0'},
+        },
+      };
+
+      final res = await http.post(
+        Uri.parse(baseUrl),
+        body: jsonEncode(body),
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'},
+      );
+
+      expect(res.statusCode, HttpStatus.badRequest);
+      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+      expect(decoded['id'], 7);
+      expect(decoded['error']['code'], ErrorCode.invalidParams.value);
+      expect(decoded['error']['message'], 'Invalid params');
+      expect(decoded['error']['data'], contains('ClientCapabilitiesSampling.tools'));
+    });
+
+    test('malformed JSON-RPC envelope returns -32600 Invalid Request', () async {
+      final res = await http.post(
+        Uri.parse(baseUrl),
+        body: jsonEncode({'jsonrpc': '1.0', 'id': 3, 'method': 'initialize'}),
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'},
+      );
+
+      expect(res.statusCode, HttpStatus.badRequest);
+      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+      expect(decoded['id'], 3);
+      expect(decoded['error']['code'], ErrorCode.invalidRequest.value);
+    });
+
+    test('invalid JSON body still returns -32700 Parse error with null id', () async {
+      final res = await http.post(
+        Uri.parse(baseUrl),
+        body: '{not json',
+        headers: {'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream'},
+      );
+
+      expect(res.statusCode, HttpStatus.badRequest);
+      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+      expect(decoded['id'], isNull);
+      expect(decoded['error']['code'], ErrorCode.parseError.value);
+    });
+
     test('rejects POST without session ID for non-init request', () async {
       final req = const JsonRpcRequest(id: 1, method: 'ping');
 
@@ -399,4 +495,21 @@ void main() {
       expect(server.port, lessThan(65536));
     });
   });
+}
+
+/// Reads an SSE / streamed HTTP response until [marker] appears or the stream
+/// ends, tolerating the server closing the connection after it has answered.
+Future<String> _readUntil(HttpClientResponse res, String marker) async {
+  final buffer = StringBuffer();
+  try {
+    await for (final chunk in res.transform(utf8.decoder).timeout(const Duration(seconds: 5))) {
+      buffer.write(chunk);
+      if (buffer.toString().contains(marker)) break;
+    }
+  } on HttpException catch (e) {
+    if (!e.message.contains('Connection closed')) rethrow;
+  } on TimeoutException {
+    // Fall through; the caller asserts on whatever was received.
+  }
+  return buffer.toString();
 }
