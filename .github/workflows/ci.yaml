@@ -378,7 +378,7 @@ jobs:
 
       - name: Install Gemini CLI
         if: steps.check-stale.outputs.stale == 'true'
-        run: npm install -g @google/gemini-cli@latest
+        run: npm install -g @google/gemini-cli@0.35.0
 
       - name: Regenerate module documentation
         if: steps.check-stale.outputs.stale == 'true'

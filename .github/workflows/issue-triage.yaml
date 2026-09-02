@@ -89,7 +89,7 @@ jobs:
         with:
           node-version: "22"
 
-      - run: npm install -g @google/gemini-cli@latest
+      - run: npm install -g @google/gemini-cli@0.35.0
         if: steps.trigger.outputs.run == 'true'
 
       - name: Cache Go modules (GitHub MCP server)

@@ -35,8 +35,8 @@
         "quickstart",
         "api_reference"
       ],
-      "hash": "e87806f82896b8a5dc31c3911755034a1624accce42108cf4304291bb751dff9",
-      "last_updated": "2026-03-25T02:21:54.344704Z"
+      "hash": "edb3ea1c48801c24d1ccd30c6c6f9f112a62917b80d5da9d03624db99ccf31b0",
+      "last_updated": "2026-08-24T14:52:07.110312Z"
     },
     {
       "id": "shared",
@@ -69,8 +69,8 @@
         "quickstart",
         "api_reference"
       ],
-      "hash": "1eee7bc9345c5b8302a43be40d5287477c585ec0b5cbceed7eff6ff987f132ab",
-      "last_updated": "2026-03-25T02:21:54.344713Z"
+      "hash": "95c746ce69456c55f462bade13765007d56b8f5ba36f4fabd5c264be991c319b",
+      "last_updated": "2026-08-24T14:52:07.110651Z"
     },
     {
       "id": "top_level",
@@ -83,8 +83,8 @@
       "generate": [
         "quickstart"
       ],
-      "hash": "497f5953fd6e495dfd0f355d790fc51046e6021dd093b10313393047ebeea614",
-      "last_updated": "2026-03-25T02:21:54.344716Z"
+      "hash": "bf9467baae9efd23ffc0174e746476f33e99937d8c26bbc10513b4fbb70892da",
+      "last_updated": "2026-08-24T14:52:07.110659Z"
     }
   ],
   "templates": {

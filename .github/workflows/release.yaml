@@ -114,7 +114,7 @@ jobs:
         with:
           node-version: "22"
 
-      - run: npm install -g @google/gemini-cli@latest
+      - run: npm install -g @google/gemini-cli@0.35.0
 
       - name: Cache Go modules (GitHub MCP server)
         uses: actions/cache@v5
@@ -197,7 +197,7 @@ jobs:
         with:
           node-version: "22"
 
-      - run: npm install -g @google/gemini-cli@latest
+      - run: npm install -g @google/gemini-cli@0.35.0
 
       - name: Cache Go modules (GitHub MCP server)
         uses: actions/cache@v5
@@ -290,7 +290,7 @@ jobs:
         with:
           node-version: "22"
 
-      - run: npm install -g @google/gemini-cli@latest
+      - run: npm install -g @google/gemini-cli@0.35.0
 
       - name: Cache Go modules (GitHub MCP server)
         uses: actions/cache@v5
@@ -390,7 +390,7 @@ jobs:
         with:
           node-version: "22"
 
-      - run: npm install -g @google/gemini-cli@latest
+      - run: npm install -g @google/gemini-cli@0.35.0
 
       - name: Cache Go modules (GitHub MCP server)
         uses: actions/cache@v5
@@ -505,7 +505,7 @@ jobs:
         with:
           node-version: "22"
 
-      - run: npm install -g @google/gemini-cli@latest
+      - run: npm install -g @google/gemini-cli@0.35.0
 
       - name: Cache Go modules (GitHub MCP server)
         uses: actions/cache@v5
@@ -619,7 +619,7 @@ jobs:
         with:
           node-version: "22"
 
-      - run: npm install -g @google/gemini-cli@latest
+      - run: npm install -g @google/gemini-cli@0.35.0
 
       - name: Cache Go modules (GitHub MCP server)
         uses: actions/cache@v5
@@ -944,7 +944,7 @@ jobs:
         with:
           node-version: "22"
 
-      - run: npm install -g @google/gemini-cli@latest
+      - run: npm install -g @google/gemini-cli@0.35.0
 
       - name: Cache Go modules (GitHub MCP server)
         uses: actions/cache@v5
